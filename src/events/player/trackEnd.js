@@ -9,18 +9,8 @@ export default {
     try {
       const endReason = payload.reason || 'FINISHED';
 
-      logger.debug('TrackEnd', `Track ended in guild ${player.guildId}:`, {
-        track: track?.info?.title || 'Unknown',
-        reason: endReason,
-        guildId: player.guildId
-      });
-
       if (player.queue.tracks.length === 0) {
-        try {
-          await VoiceChannelStatus.clearStatus(client, player.voiceChannelId);
-        } catch (statusError) {
-          logger.debug('TrackEnd', `VoiceChannel status clear failed: ${statusError.message}`);
-        }
+        await VoiceChannelStatus.clearStatus(client, player.voiceChannelId);
       }
 
       logger.debug('TrackEnd', `Track ended in guild ${player.guildId}:`, {

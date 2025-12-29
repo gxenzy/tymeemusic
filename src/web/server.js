@@ -1,6 +1,8 @@
 import express from 'express';
 import { createServer } from 'http';
+import { createServer as createHttpsServer } from 'https';
 import { WebSocketServer } from 'ws';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { logger } from '#utils/logger';
@@ -13,12 +15,37 @@ export class WebServer {
   constructor(client) {
     this.client = client;
     this.app = express();
-    this.server = createServer(this.app);
-    this.wss = new WebSocketServer({ server: this.server });
     this.clients = new Map(); // Map of guildId -> Set of WebSocket connections
-    this.port = process.env.WEB_PORT || 3000;
-    this.apiKey = process.env.WEB_API_KEY || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ';
-    
+    this.port = config.web.port;
+    this.secure = config.web.secure;
+    this.apiKey = config.web.apiKey;
+
+    // Create server (HTTP or HTTPS)
+    if (this.secure) {
+      if (!config.web.sslCert || !config.web.sslKey) {
+        logger.error('WebServer', 'SSL enabled but WEB_SSL_CERT or WEB_SSL_KEY not provided. Falling back to HTTP.');
+        this.secure = false;
+      } else {
+        try {
+          const sslOptions = {
+            key: readFileSync(config.web.sslKey, 'utf8'),
+            cert: readFileSync(config.web.sslCert, 'utf8'),
+          };
+          this.server = createHttpsServer(sslOptions, this.app);
+          logger.success('WebServer', 'HTTPS server configured with SSL certificates');
+        } catch (error) {
+          logger.error('WebServer', 'Failed to load SSL certificates. Falling back to HTTP:', error);
+          this.secure = false;
+        }
+      }
+    }
+
+    if (!this.secure) {
+      this.server = createServer(this.app);
+    }
+
+    this.wss = new WebSocketServer({ server: this.server });
+
     this.setupMiddleware();
     this.setupRoutes();
     this.setupWebSocket();
@@ -461,8 +488,12 @@ export class WebServer {
 
   start() {
     this.server.listen(this.port, () => {
-      logger.success('WebServer', `🌐 Web dashboard running on http://localhost:${this.port}`);
+      const protocol = this.secure ? 'https' : 'http';
+      logger.success('WebServer', `🌐 Web dashboard running on ${protocol}://localhost:${this.port}`);
       logger.info('WebServer', `📝 API Key: ${this.apiKey} (set WEB_API_KEY in .env to change)`);
+      if (this.secure) {
+        logger.info('WebServer', `🔒 HTTPS enabled with SSL certificates`);
+      }
     });
   }
 

@@ -14,7 +14,7 @@ export class VoiceChannelStatus {
   static getSourceKey(track) {
     const uri = track?.info?.uri?.toLowerCase() || '';
     const sourceName = track?.info?.sourceName?.toLowerCase() || '';
-
+    
     if (uri.includes('spotify.com') || sourceName.includes('spotify')) {
       return 'sp';
     } else if (uri.includes('youtube.com') || uri.includes('youtu.be') || sourceName.includes('youtube')) {
@@ -30,12 +30,51 @@ export class VoiceChannelStatus {
   }
 
   /**
+   * Get actual emoji for source
+   * @param {string} sourceKey - The source key (sp, yt, am, sc, dz)
+   * @returns {string} - Discord-compatible emoji
+   */
+  static getSourceEmoji(sourceKey) {
+    const emojis = {
+      'sp': '🎵',
+      'yt': '🎶',
+      'sc': '🎵',
+      'am': '🎵',
+      'dz': '🎵',
+      'music': '🎵'
+    };
+    return emojis[sourceKey] || '🎵';
+  }
+
+  /**
    * Format the "Requested by" status message
    * @param {string} username - The username who requested the song
    * @returns {string} - Formatted status string
    */
   static formatRequestedBy(username) {
-    return `:play: **Requested by ${username}**`;
+    return `🎵 **Requested by ${username}**`;
+  }
+
+  /**
+   * Format "Now Playing" status message
+   * @param {Object} track - The track object
+   * @returns {string} - Formatted status string
+   */
+  static formatNowPlaying(track) {
+    const sourceKey = this.getSourceKey(track);
+    const sourceEmoji = this.getSourceEmoji(sourceKey);
+    const title = track?.info?.title || 'Unknown';
+    const author = track?.info?.author || 'Unknown';
+    
+    let statusText = `${sourceEmoji} | ${title} - ${author}**`;
+
+    if (statusText.length > 100) {
+      const maxLength = 100 - sourceEmoji.length - 3;
+      const truncatedText = `${title} - ${author}`.substring(0, maxLength) + '...';
+      statusText = `${sourceEmoji} | ${truncatedText}**`;
+    }
+    
+    return statusText;
   }
 
   /**
@@ -102,13 +141,8 @@ export class VoiceChannelStatus {
    * @param {string} username - Username who requested
    */
   static async setRequestedBy(client, channelId, username) {
-    try {
-      const status = this.formatRequestedBy(username);
-      return this.setStatus(client, channelId, status);
-    } catch (error) {
-      logger.debug('VoiceChannelStatus', `Failed to set requested status: ${error.message}`);
-      return false;
-    }
+    const status = this.formatRequestedBy(username);
+    return this.setStatus(client, channelId, status);
   }
 
   /**
@@ -118,13 +152,8 @@ export class VoiceChannelStatus {
    * @param {Object} track - Track object
    */
   static async setNowPlaying(client, channelId, track) {
-    try {
-      const status = this.formatNowPlaying(track);
-      return this.setStatus(client, channelId, status);
-    } catch (error) {
-      logger.debug('VoiceChannelStatus', `Failed to set now playing status: ${error.message}`);
-      return false;
-    }
+    const status = this.formatNowPlaying(track);
+    return this.setStatus(client, channelId, status);
   }
 
   /**
@@ -133,12 +162,7 @@ export class VoiceChannelStatus {
    * @param {string} channelId - Voice channel ID
    */
   static async clearStatus(client, channelId) {
-    try {
-      return this.setStatus(client, channelId, null);
-    } catch (error) {
-      logger.debug('VoiceChannelStatus', `Failed to clear status: ${error.message}`);
-      return false;
-    }
+    return this.setStatus(client, channelId, null);
   }
 }
 

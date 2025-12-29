@@ -12,6 +12,7 @@ import { PlayerManager } from "#managers/PlayerManager";
 import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import { logger } from "#utils/logger";
+import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
 import emoji from "#config/emoji";
 
 const MAX_TRACKS_TO_ADD = 50;
@@ -178,6 +179,9 @@ class LoadPlaylistCommand extends Command {
 				});
 			const pm = new PlayerManager(player);
 			if (!pm.isConnected) await pm.connect();
+
+			// Set "Requested by" voice channel status
+			VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, user.username);
 
 			const finalTracks = tracksToProcess.slice(0, queueCheck.tracksToAdd);
 			let addedCount = 0;
