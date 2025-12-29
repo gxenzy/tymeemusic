@@ -1,5 +1,5 @@
-
-import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
+import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
+import { logger } from "#utils/logger";
 
 export default {
   name: "trackStart",
