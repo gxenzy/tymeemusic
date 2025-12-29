@@ -102,13 +102,8 @@ export class VoiceChannelStatus {
    * @param {string} username - Username who requested
    */
   static async setRequestedBy(client, channelId, username) {
-    try {
-      const status = this.formatRequestedBy(username);
-      return this.setStatus(client, channelId, status);
-    } catch (error) {
-      logger.debug('VoiceChannelStatus', `Failed to set requested status: ${error.message}`);
-      return false;
-    }
+    const status = this.formatRequestedBy(username);
+    return this.setStatus(client, channelId, status);
   }
 
   /**
@@ -118,13 +113,8 @@ export class VoiceChannelStatus {
    * @param {Object} track - Track object
    */
   static async setNowPlaying(client, channelId, track) {
-    try {
-      const status = this.formatNowPlaying(track);
-      return this.setStatus(client, channelId, status);
-    } catch (error) {
-      logger.debug('VoiceChannelStatus', `Failed to set now playing status: ${error.message}`);
-      return false;
-    }
+    const status = this.formatNowPlaying(track);
+    return this.setStatus(client, channelId, status);
   }
 
   /**
@@ -133,12 +123,7 @@ export class VoiceChannelStatus {
    * @param {string} channelId - Voice channel ID
    */
   static async clearStatus(client, channelId) {
-    try {
-      return this.setStatus(client, channelId, null);
-    } catch (error) {
-      logger.debug('VoiceChannelStatus', `Failed to clear status: ${error.message}`);
-      return false;
-    }
+    return this.setStatus(client, channelId, null);
   }
 }
 

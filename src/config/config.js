@@ -21,9 +21,9 @@ export const config = {
     {
       id: "main-node",
       host: process.env.LAVALINK_HOST,
-      port: parseInt(process.env.LAVALINK_PORT) || 2333,
+      port: parseInt(process.env.LAVALINK_PORT) === 443 ? 2333 : parseInt(process.env.LAVALINK_PORT) || 2333,
       authorization: process.env.LAVALINK_PASSWORD,
-      secure: false, // Use true for WSS connections (server on port 2333)
+      secure: false, // Force false to connect to local Lavalink server
       retryAmount: 5, // Number of connection retry attempts
       retryDelay: 3000, // Delay between retries in milliseconds
     },
@@ -48,6 +48,15 @@ export const config = {
   // External links and resources
   links: {
     supportServer: process.env.SUPPORT_SERVER_URL || "https://discord.gg/your-server"
+  },
+
+  // Web server configuration
+  web: {
+    port: parseInt(process.env.WEB_PORT) || 3000,
+    secure: process.env.WEB_SECURE === 'true',
+    sslCert: process.env.WEB_SSL_CERT || null,
+    sslKey: process.env.WEB_SSL_KEY || null,
+    apiKey: process.env.WEB_API_KEY || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ',
   },
   
   // Bot presence/status configuration

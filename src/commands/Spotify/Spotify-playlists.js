@@ -17,6 +17,7 @@ import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import { spotifyManager } from "#utils/SpotifyManager";
 import { logger } from "#utils/logger";
+import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
 import emoji from "#config/emoji";
 
 const PLAYLISTS_PER_PAGE = 5;
@@ -774,6 +775,10 @@ class PlaylistsCommand extends Command {
       if (!pm.isConnected) {
         await pm.connect();
       }
+
+      // Set "Requested by" voice channel status
+      const user = client.users.cache.get(userId);
+      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, user?.username || 'Unknown');
 
       const tracksToProcess = queueCheck.canAddAll ? tracks : tracks.slice(0, queueCheck.tracksToAdd);
       let addedCount = 0;

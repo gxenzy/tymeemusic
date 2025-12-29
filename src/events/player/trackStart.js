@@ -1,18 +1,13 @@
-
-import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
+  
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from "discord.js";
 import { logger } from "#utils/logger";
-import { db } from '#database/DatabaseManager';
-import { PlayerManager } from "#managers/PlayerManager";
+import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
 import { EventUtils } from "#utils/EventUtils";
-import { MusicCard } from "#structures/classes/MusicCard";
+import { PlayerManager } from "#managers/PlayerManager";
 import { DiscordPlayerEmbed } from "#utils/DiscordPlayerEmbed";
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-  AttachmentBuilder
-} from "discord.js";
+import { db } from "#database/DatabaseManager";
+import MusicCard from "#structures/classes/MusicCard";
+
 export default {
   name: "trackStart",
   once: false,
@@ -22,11 +17,7 @@ export default {
         logger.error('TrackStart', 'Invalid track data received:', track);
       }
 
-      try {
-        await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track);
-      } catch (statusError) {
-        logger.debug('TrackStart', `VoiceChannel status update failed: ${statusError.message}`);
-      }
+      await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track);
 
       player.set('lastPlayedTrack', track);
 
@@ -195,10 +186,11 @@ export function createControlComponents(guildId, client) {
     ]);
 
   // Get web server URL for dashboard button
-  const webPort = process.env.WEB_PORT || 3000;
-  const apiKey = process.env.WEB_API_KEY || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ';
+  const protocol = client.webServer?.secure ? 'https' : 'http';
+  const webPort = client.webServer?.port || 3000;
+  const apiKey = client.webServer?.apiKey || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ';
   const defaultGuildId = '1386498859471077426';
-  const dashboardUrl = `http://localhost:${webPort}?apiKey=${apiKey}&guildId=${guildId || defaultGuildId}`;
+  const dashboardUrl = `${protocol}://localhost:${webPort}?apiKey=${apiKey}&guildId=${guildId || defaultGuildId}`;
 
   const controlButtons = new ActionRowBuilder()
     .addComponents(

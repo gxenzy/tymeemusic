@@ -104,7 +104,7 @@ plugins:
 #        password: "youshallpass" # Optional password to authenticate with the proxy
 
 server: # REST and WS server
-  port: 443
+  port: 2333
   address: 0.0.0.0
   http2:
     enabled: false # Whether to enable HTTP/2 support
