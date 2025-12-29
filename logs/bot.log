@@ -1649,3 +1649,147 @@
 [2025-12-29T13:31:47.185Z] [INFO] [TrackStart] Track started: "Pag-Ibig ay Kanibalismo II" by fitterkarma in guild 1386498859471077426 (Autoplay: OFF)
 [2025-12-29T13:32:06.413Z] [INFO] [TrackStart] Track started: "So Easy (To Fall In Love)" by Olivia Dean in guild 1386498859471077426 (Autoplay: OFF)
 [2025-12-29T13:32:26.272Z] [INFO] [playerDestroy] 🎵 Player destroyed for guild: 1386498859471077426,reason : Stop command
+[2025-12-29T13:45:02.929Z] [WARN] [LavalinkNode] 🔌 Lavalink Node #main-node disconnected. Reason: [object Object]
+[2025-12-29T13:45:05.238Z] [INFO] [Shutdown] Received SIGINT, shutting down gracefully...
+[2025-12-29T13:45:05.239Z] [INFO] [ClusterManager]  ==> Shutting down all clusters...
+[2025-12-29T13:45:05.240Z] [WARN] [Tymee] ❄️ Starting cleanup for bot...
+[2025-12-29T13:45:05.243Z] [INFO] [WebServer] Web server stopped
+========== Log started at 2025-12-29T14:52:40.157Z ==========
+[2025-12-29T14:52:40.722Z] [INFO] [ClusterManager]  ==> Launched Cluster 0 [0]
+========== Log started at 2025-12-29T14:52:42.232Z ==========
+[2025-12-29T14:52:42.284Z] [INFO] [UserDatabase] User table initialized
+[2025-12-29T14:52:42.296Z] [SUCCESS] [PremiumDatabase] Premium tables initialized successfully
+[2025-12-29T14:52:42.300Z] [INFO] [PlaylistsDatabase] Playlists table initialized
+[2025-12-29T14:52:42.302Z] [SUCCESS] [DatabaseManager] All databases initialized successfully
+[2025-12-29T14:52:42.636Z] [INFO] [Tymee] ❄️ Initializing bot...
+[2025-12-29T14:52:42.684Z] [INFO] [EventLoader] Loaded handler: discord
+[2025-12-29T14:52:42.690Z] [INFO] [EventLoader] Loaded handler: node
+[2025-12-29T14:52:42.695Z] [INFO] [EventLoader] Loaded handler: player
+[2025-12-29T14:52:42.720Z] [INFO] [AntiAbuse] Anti-abuse tables initialized
+[2025-12-29T14:52:42.724Z] [INFO] [EventLoader] Loaded discord event: messageCreate
+[2025-12-29T14:52:42.732Z] [INFO] [EventLoader] Loaded discord event: interactionCreate
+[2025-12-29T14:52:42.742Z] [INFO] [EventLoader] Loaded discord event: interactionCreate
+[2025-12-29T14:52:42.747Z] [INFO] [EventLoader] Loaded discord event: raw
+[2025-12-29T14:52:42.754Z] [INFO] [EventLoader] Loaded discord event: voiceStateUpdate
+[2025-12-29T14:52:42.794Z] [INFO] [EventLoader] Loaded discord event: clientReady
+[2025-12-29T14:52:42.806Z] [INFO] [EventLoader] Loaded node event: connect
+[2025-12-29T14:52:42.813Z] [INFO] [EventLoader] Loaded node event: disconnect
+[2025-12-29T14:52:42.821Z] [INFO] [EventLoader] Loaded node event: error
+[2025-12-29T14:52:42.852Z] [INFO] [EventLoader] Loaded player event: playerCreate
+[2025-12-29T14:52:42.874Z] [INFO] [EventLoader] Loaded player event: playerDestroy
+[2025-12-29T14:52:42.894Z] [INFO] [EventLoader] Loaded player event: playerMove
+[2025-12-29T14:52:42.900Z] [INFO] [EventLoader] Loaded player event: queueEnd
+[2025-12-29T14:52:42.906Z] [INFO] [EventLoader] Loaded player event: trackEnd
+[2025-12-29T14:52:43.497Z] [INFO] [EventLoader] Loaded player event: trackStart
+[2025-12-29T14:52:43.536Z] [INFO] [EventLoader] Loaded player event: trackStuck
+[2025-12-29T14:52:43.538Z] [SUCCESS] [EventLoader] Successfully loaded 16 events
+[2025-12-29T14:52:43.540Z] [INFO] [CommandHandler] Loading commands...
+[2025-12-29T14:52:43.772Z] [INFO] [CommandHandler] Loaded command file: rl from category: developer
+[2025-12-29T14:52:43.773Z] [INFO] [CommandHandler] Loaded command file: deepbass from category: filters\bass
+[2025-12-29T14:52:43.775Z] [INFO] [CommandHandler] Loaded command file: bassboost from category: filters\bass
+[2025-12-29T14:52:43.776Z] [INFO] [CommandHandler] Loaded command file: superbass from category: filters\bass
+[2025-12-29T14:52:43.777Z] [INFO] [CommandHandler] Loaded command file: boost from category: filters\enhancement
+[2025-12-29T14:52:43.778Z] [INFO] [CommandHandler] Loaded command file: flat from category: filters\enhancement
+[2025-12-29T14:52:43.780Z] [INFO] [CommandHandler] Loaded command file: soft from category: filters\enhancement
+[2025-12-29T14:52:43.781Z] [INFO] [CommandHandler] Loaded command file: warm from category: filters\enhancement
+[2025-12-29T14:52:43.782Z] [INFO] [CommandHandler] Loaded command file: oldschool from category: filters\experimental
+[2025-12-29T14:52:43.784Z] [INFO] [CommandHandler] Loaded command file: metal from category: filters\experimental
+[2025-12-29T14:52:43.785Z] [INFO] [CommandHandler] Loaded command file: classical from category: filters\genre
+[2025-12-29T14:52:43.787Z] [INFO] [CommandHandler] Loaded command file: hiphop from category: filters\genre
+[2025-12-29T14:52:43.788Z] [INFO] [CommandHandler] Loaded command file: electronic from category: filters\genre
+[2025-12-29T14:52:43.790Z] [INFO] [CommandHandler] Loaded command file: pop from category: filters\genre
+[2025-12-29T14:52:43.791Z] [INFO] [CommandHandler] Loaded command file: jazz from category: filters\genre
+[2025-12-29T14:52:43.793Z] [INFO] [CommandHandler] Loaded command file: reset from category: filters
+[2025-12-29T14:52:43.794Z] [INFO] [CommandHandler] Loaded command file: nightcore from category: filters\special
+[2025-12-29T14:52:43.795Z] [INFO] [CommandHandler] Loaded command file: vaporwave from category: filters\special
+[2025-12-29T14:52:43.796Z] [INFO] [CommandHandler] Loaded command file: reggae from category: filters\genre
+[2025-12-29T14:52:43.798Z] [INFO] [CommandHandler] Loaded command file: bright from category: filters\treble
+[2025-12-29T14:52:43.799Z] [INFO] [CommandHandler] Loaded command file: rock from category: filters\genre
+[2025-12-29T14:52:43.801Z] [INFO] [CommandHandler] Loaded command file: gaming from category: filters\special
+[2025-12-29T14:52:43.802Z] [INFO] [CommandHandler] Loaded command file: vocals from category: filters\vocal
+[2025-12-29T14:52:43.803Z] [INFO] [CommandHandler] Loaded command file: treble from category: filters\treble
+[2025-12-29T14:52:43.805Z] [INFO] [CommandHandler] Loaded command file: ping from category: info
+[2025-12-29T14:52:43.806Z] [INFO] [CommandHandler] Loaded command file: forward from category: music\playback
+[2025-12-29T14:52:43.808Z] [INFO] [CommandHandler] Loaded command file: pause from category: music\playback
+[2025-12-29T14:52:43.809Z] [INFO] [CommandHandler] Loaded command file: resume from category: music\playback
+[2025-12-29T14:52:43.810Z] [INFO] [CommandHandler] Loaded command file: previous from category: music\playback
+[2025-12-29T14:52:43.812Z] [INFO] [CommandHandler] Loaded command file: rewind from category: music\playback
+[2025-12-29T14:52:43.813Z] [INFO] [CommandHandler] Loaded command file: replay from category: music\playback
+[2025-12-29T14:52:43.814Z] [INFO] [CommandHandler] Loaded command file: seek from category: music\playback
+[2025-12-29T14:52:43.815Z] [INFO] [CommandHandler] Loaded command file: stop from category: music\playback
+[2025-12-29T14:52:43.848Z] [SUCCESS] [MusicCard] Fonts registered successfully from: C:\Users\renzy\Downloads\CODE\fonts (trackStart)
+[2025-12-29T14:52:43.852Z] [INFO] [CommandHandler] Loaded command file: blacklist from category: developer
+[2025-12-29T14:52:43.854Z] [INFO] [CommandHandler] Loaded command file: updateslash from category: developer
+[2025-12-29T14:52:43.855Z] [INFO] [CommandHandler] Loaded command file: premium from category: developer
+[2025-12-29T14:52:43.857Z] [INFO] [CommandHandler] Loaded command file: feedback from category: info
+[2025-12-29T14:52:43.858Z] [INFO] [CommandHandler] Loaded command file: invite from category: info
+[2025-12-29T14:52:43.859Z] [INFO] [CommandHandler] Loaded command file: privacy-policy from category: info
+[2025-12-29T14:52:43.860Z] [INFO] [CommandHandler] Loaded command file: botinfo from category: info
+[2025-12-29T14:52:43.862Z] [INFO] [CommandHandler] Loaded command file: report from category: info
+[2025-12-29T14:52:43.864Z] [INFO] [CommandHandler] Loaded command file: suggest from category: info
+[2025-12-29T14:52:43.865Z] [INFO] [CommandHandler] Loaded command file: teaminfo from category: info
+[2025-12-29T14:52:43.867Z] [INFO] [CommandHandler] Loaded command file: help from category: info
+[2025-12-29T14:52:43.868Z] [INFO] [CommandHandler] Loaded command file: autoplay from category: music\extra
+[2025-12-29T14:52:43.870Z] [INFO] [CommandHandler] Loaded command file: tos from category: info
+[2025-12-29T14:52:43.871Z] [INFO] [CommandHandler] Loaded command file: history from category: music\extra
+[2025-12-29T14:52:43.873Z] [INFO] [CommandHandler] Loaded command file: support from category: info
+[2025-12-29T14:52:43.874Z] [INFO] [CommandHandler] Loaded command file: search from category: music\extra
+[2025-12-29T14:52:43.876Z] [INFO] [CommandHandler] Loaded command file: recommendations from category: music\extra
+[2025-12-29T14:52:43.877Z] [INFO] [CommandHandler] Loaded command file: playnext from category: music\playback
+[2025-12-29T14:52:43.879Z] [INFO] [CommandHandler] Loaded command file: bump from category: music\queue
+[2025-12-29T14:52:43.880Z] [INFO] [CommandHandler] Loaded command file: clear from category: music\queue
+[2025-12-29T14:52:43.882Z] [INFO] [CommandHandler] Loaded command file: move from category: music\queue
+[2025-12-29T14:52:43.884Z] [INFO] [CommandHandler] Loaded command file: loop from category: music\queue
+[2025-12-29T14:52:43.885Z] [INFO] [CommandHandler] Loaded command file: shuffle from category: music\queue
+[2025-12-29T14:52:43.887Z] [INFO] [CommandHandler] Loaded command file: create-playlist from category: playlists
+[2025-12-29T14:52:43.889Z] [INFO] [CommandHandler] Loaded command file: remove from category: music\queue
+[2025-12-29T14:52:43.890Z] [INFO] [CommandHandler] Loaded command file: queue from category: music\queue
+[2025-12-29T14:52:43.891Z] [INFO] [CommandHandler] Loaded command file: delete-playlist from category: playlists
+[2025-12-29T14:52:43.893Z] [INFO] [CommandHandler] Loaded command file: my-playlists from category: playlists
+[2025-12-29T14:52:43.894Z] [INFO] [CommandHandler] Loaded command file: add2pl from category: playlists
+[2025-12-29T14:52:43.896Z] [INFO] [CommandHandler] Loaded command file: load-playlist from category: playlists
+[2025-12-29T14:52:43.897Z] [INFO] [CommandHandler] Loaded command file: playlist-info from category: playlists
+[2025-12-29T14:52:43.898Z] [INFO] [CommandHandler] Loaded command file: noptoggle from category: premium\management
+[2025-12-29T14:52:43.900Z] [INFO] [CommandHandler] Loaded command file: edit-playlist from category: playlists
+[2025-12-29T14:52:43.902Z] [INFO] [CommandHandler] Loaded command file: remove-track from category: playlists
+[2025-12-29T14:52:43.903Z] [INFO] [CommandHandler] Loaded command file: userprefix from category: premium\management
+[2025-12-29T14:52:43.905Z] [INFO] [CommandHandler] Loaded command file: 247 from category: settings
+[2025-12-29T14:52:43.906Z] [INFO] [CommandHandler] Loaded command file: prefix from category: settings
+[2025-12-29T14:52:43.907Z] [INFO] [CommandHandler] Loaded command file: musiccard from category: settings
+[2025-12-29T14:52:43.909Z] [INFO] [CommandHandler] Loaded command file: setdefaultvolume from category: settings
+[2025-12-29T14:52:43.910Z] [INFO] [CommandHandler] Loaded command file: unlink-spotify from category: Spotify
+[2025-12-29T14:52:43.949Z] [INFO] [CommandHandler] Loaded command file: nowplaying from category: music\extra
+[2025-12-29T14:52:43.951Z] [INFO] [CommandHandler] Loaded command file: lyrics from category: music\extra
+[2025-12-29T14:52:43.952Z] [INFO] [CommandHandler] Loaded command file: playnow from category: music\playback
+[2025-12-29T14:52:43.954Z] [INFO] [CommandHandler] Loaded command file: play from category: music\playback
+[2025-12-29T14:52:43.955Z] [INFO] [CommandHandler] Loaded command file: skip from category: music\playback
+[2025-12-29T14:52:43.957Z] [INFO] [CommandHandler] Loaded command file: volume from category: music\playback
+[2025-12-29T14:52:43.980Z] [INFO] [CommandHandler] Loaded command file: link-spotify from category: Spotify
+[2025-12-29T14:52:43.981Z] [INFO] [CommandHandler] Loaded command file: Spotify-playlists from category: Spotify
+[2025-12-29T14:52:43.983Z] [SUCCESS] [CommandHandler] Loaded 81 prefix and 77 slash commands.
+[2025-12-29T14:52:45.529Z] [SUCCESS] [Tymee] ❄️ Bot has successfully initialized. 🌸
+[2025-12-29T14:52:45.531Z] [INFO] [Tymee] ❄️ Coded by Bre4d777
+[2025-12-29T14:52:45.532Z] [SUCCESS] [Main] Discord bot initialized successfully
+[2025-12-29T14:52:45.899Z] [SUCCESS] [MusicManager] 🎵 TymeeMusic Bot#5825 music system is ready!
+[2025-12-29T14:52:45.900Z] [SUCCESS] [ClusterManager] Cluster 0 ==> Ready
+[2025-12-29T14:52:45.902Z] [SUCCESS] [MusicManager] Initialized successfully
+[2025-12-29T14:52:45.907Z] [INFO] [Bot] Scheduling database backups every 30 minutes
+[2025-12-29T14:52:45.908Z] [SUCCESS] [Bot] Logged in as TymeeMusic Bot#5825
+[2025-12-29T14:52:45.910Z] [INFO] [Bot] Serving 3 guilds
+[2025-12-29T14:52:45.911Z] [INFO] [Bot] Waiting 10 seconds for Lavalink to be ready before initializing 24/7 mode...
+[2025-12-29T14:52:45.914Z] [SUCCESS] [WebServer] 🌐 Web dashboard running on http://localhost:3000
+[2025-12-29T14:52:45.916Z] [INFO] [WebServer] 📝 API Key: MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ (set WEB_API_KEY in .env to change)
+[2025-12-29T14:52:46.152Z] [SUCCESS] [LavalinkNode] ✅ Lavalink Node #main-node connected successfully
+[2025-12-29T14:52:46.154Z] [INFO] [LavalinkNode] 🌐 Node: localhost:2333
+[2025-12-29T14:52:47.783Z] [INFO] [ClusterManager]  ==> All clusters are being launched.
+[2025-12-29T14:52:55.922Z] [INFO] [247Mode] Checking Lavalink connection status...
+[2025-12-29T14:52:55.924Z] [SUCCESS] [247Mode] Lavalink ready! undefined node(s) connected
+[2025-12-29T14:52:55.927Z] [INFO] [247Mode] Found 0 guilds with valid 24/7 configuration
+[2025-12-29T14:52:55.928Z] [INFO] [247Mode] No guilds with 24/7 mode enabled
+[2025-12-29T14:53:09.706Z] [INFO] [MusicManager] Creating player for guild 1386498859471077426 with default volume 100
+[2025-12-29T14:53:09.709Z] [INFO] [PlayerCreate] 🎵 Player created for guild: 1386498859471077426
+[2025-12-29T14:53:09.714Z] [SUCCESS] [MusicManager] Player created and connected successfully for guild 1386498859471077426 with default volume 100
+[2025-12-29T14:53:14.780Z] [INFO] [TrackStart] Track started: "Timeless (feat Playboi Carti)" by The Weeknd in guild 1386498859471077426 (Autoplay: OFF)
+[2025-12-29T14:54:53.067Z] [INFO] [TrackStart] Track started: "NOW OR NEVER" by Tkandz in guild 1386498859471077426 (Autoplay: OFF)
+[2025-12-29T14:55:55.437Z] [INFO] [TrackStart] Track started: "FIELD TRIP" by ¥$ in guild 1386498859471077426 (Autoplay: OFF)
+[2025-12-29T14:58:45.056Z] [INFO] [TrackStart] Track started: "NOKIA" by Drake in guild 1386498859471077426 (Autoplay: OFF)
