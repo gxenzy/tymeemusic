@@ -205,8 +205,10 @@ class PlayCommand extends Command {
 
       const pm = new PlayerManager(player);
 
-      // Set "Requested by" voice channel status
-      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, message.author.username);
+      // Set "Requested by" voice channel status (fire and forget, don't await)
+      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, message.author.username).catch(err => {
+        logger.debug('PlayCommand', `VoiceChannel status update failed: ${err.message}`);
+      });
 
       const result = await this._handlePlayRequest({
         client,
@@ -303,8 +305,10 @@ class PlayCommand extends Command {
 
       const pm = new PlayerManager(player);
 
-      // Set "Requested by" voice channel status
-      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, interaction.user.username);
+      // Set "Requested by" voice channel status (fire and forget, don't await)
+      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, interaction.user.username).catch(err => {
+        logger.debug('PlayCommand', `VoiceChannel status update failed: ${err.message}`);
+      });
 
       const result = await this._handlePlayRequest({
         client,

@@ -7,7 +7,11 @@ export default {
 	once: false,
 	async execute(player,reason) {
 		try {
-			await VoiceChannelStatus.clearStatus(player.manager?.client, player.voiceChannelId);
+			try {
+				await VoiceChannelStatus.clearStatus(player.manager?.client, player.voiceChannelId);
+			} catch (statusError) {
+				logger.debug('PlayerDestroy', `VoiceChannel status clear failed: ${statusError.message}`);
+			}
 			logger.info(
 				"playerDestroy",
 				`🎵 Player destroyed for guild: ${player.guildId},reason : ${reason}`,

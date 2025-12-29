@@ -15,7 +15,11 @@ export default {
     try {
       logger.info('QueueEnd', `Queue ended in guild ${player.guildId}`);
 
-      await VoiceChannelStatus.clearStatus(client, player.voiceChannelId);
+      try {
+        await VoiceChannelStatus.clearStatus(client, player.voiceChannelId);
+      } catch (statusError) {
+        logger.debug('QueueEnd', `VoiceChannel status clear failed: ${statusError.message}`);
+      }
 
       const messageId = player.get('nowPlayingMessageId');
       const channelId = player.get('nowPlayingChannelId');

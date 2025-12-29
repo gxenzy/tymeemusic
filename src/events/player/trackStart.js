@@ -10,7 +10,11 @@ export default {
         logger.error('TrackStart', 'Invalid track data received:', track);
       }
 
-      await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track);
+      try {
+        await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track);
+      } catch (statusError) {
+        logger.debug('TrackStart', `VoiceChannel status update failed: ${statusError.message}`);
+      }
 
       player.set('lastPlayedTrack', track);
 
