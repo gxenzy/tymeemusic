@@ -1,6 +1,18 @@
-import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
-import { logger } from "#utils/logger";
 
+import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
+import { logger } from "#utils/logger";
+import { db } from '#database/DatabaseManager';
+import { PlayerManager } from "#managers/PlayerManager";
+import { EventUtils } from "#utils/EventUtils";
+import { MusicCard } from "#structures/classes/MusicCard";
+import { DiscordPlayerEmbed } from "#utils/DiscordPlayerEmbed";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  AttachmentBuilder
+} from "discord.js";
 export default {
   name: "trackStart",
   once: false,
