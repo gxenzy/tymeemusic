@@ -79,17 +79,16 @@ export class PlayerManager {
     const is247ModeEnabled = await this.is247ModeEnabled(guildId);
 
     if (!is247ModeEnabled) {
-      this.player.destroy("Stop command", true);
-      return;
+      await this.player.destroy("Stop command", true);
+      return this;
     }
     const autoplayEnabled = this.player.get("autoplayEnabled") || false;
 
     if (autoplayEnabled) {
       this.player.set("autoplayEnabled", false);
-     
     }
-  // await  this.player.queue.tracks.splice(0, this.player.queue.tracks.length);
-    await this.player.stopPlaying()
+
+    await this.player.stopPlaying();
     return this;
   }
 
@@ -122,13 +121,11 @@ export class PlayerManager {
 
   async is247ModeEnabled() {
     const settings = db.guild.get247Settings(this.guildId);
-    
+
     if (settings.enabled === true) {
-      
-      return true
-    
+      return true;
     } else {
-      return 
+      return false;
     }
   }
 

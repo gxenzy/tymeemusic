@@ -9,6 +9,11 @@ export default class playerHandler {
 
 	async register(event) {
 		try {
+			if (!this.music.lavalink) {
+				logger.warn('PlayerEvent', `Cannot register event ${event.name}: Lavalink not initialized`);
+				return false;
+			}
+
 			const listener = (...args) => {
 				try {
 					event.execute(...args, this.client.music, this.client);
@@ -40,7 +45,7 @@ export default class playerHandler {
 	}
 
 	async unregister(eventName) {
-		if (this.registeredEvents.has(eventName)) {
+		if (this.registeredEvents.has(eventName) && this.music.lavalink) {
 			this.music.lavalink.removeListener(
 				eventName,
 				this.registeredEvents.get(eventName),
@@ -50,8 +55,10 @@ export default class playerHandler {
 	}
 
 	async unregisterAll() {
-		for (const [eventName, listener] of this.registeredEvents) {
-			this.music.lavalink.removeListener(eventName, listener);
+		if (this.music.lavalink) {
+			for (const [eventName, listener] of this.registeredEvents) {
+				this.music.lavalink.removeListener(eventName, listener);
+			}
 		}
 		this.registeredEvents.clear();
 	}

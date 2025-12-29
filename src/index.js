@@ -1,7 +1,7 @@
-import { Yukihana } from '#structures/classes/Yukihana';
+import { Tymee } from '#structures/classes/Yukihana';
 import { logger } from '#utils/logger';
 
-const client = new Yukihana();
+const client = new Tymee();
 
 const main = async () => {
 	try {

@@ -4,28 +4,29 @@ import { PlayerManager } from "#managers/PlayerManager";
 import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import emoji from "#config/emoji";
+import { logger } from "#utils/logger";
 
-class PlayNowCommand extends Command {
+class PlayNextCommand extends Command {
   constructor() {
     super({
-      name: "playnow",
-      description: "Play music immediately (skips current song)",
-      usage: "playnow <query> [--src yt/am/sp/sc/dz]",
-      aliases: ["pn", "playskip"],
+      name: "playnext",
+      description: "Add music to play next (after current song)",
+      usage: "playnext <query> [--src yt/am/sp/sc/dz]",
+      aliases: ["pnx", "next"],
       category: "music",
       examples: [
-        "playnow never gonna give you up",
-        "playnow rick astley --src yt",
-        "playnow despacito --src sp",
-        "playnow https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "playnext never gonna give you up",
+        "playnext rick astley --src yt",
+        "playnext despacito --src sp",
+        "playnext https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       ],
       cooldown: 3,
       voiceRequired: true,
       sameVoiceRequired: true,
       enabledSlash: true,
       slashData: {
-        name: ["music", "playnow"],
-        description: "Play music immediately (skips current song)",
+        name: ["music", "playnext"],
+        description: "Add music to play next (after current song)",
         options: [
           {
             name: "query",
@@ -99,14 +100,14 @@ class PlayNowCommand extends Command {
 
           await interaction.respond(suggestions);
         } catch (searchError) {
-          logger.error('PlayNowCommand', 'Autocomplete search error:', searchError);
+          logger.error('PlayNextCommand', 'Autocomplete search error:', searchError);
           return interaction.respond([
             { name: `Search "${query}"`, value: query }
           ]);
         }
       }
     } catch (error) {
-      logger.error('PlayNowCommand', 'Autocomplete error:', error);
+      logger.error('PlayNextCommand', 'Autocomplete error:', error);
       try {
         await interaction.respond([]);
       } catch (e) {
@@ -163,7 +164,7 @@ class PlayNowCommand extends Command {
 
       const pm = new PlayerManager(player);
 
-      const result = await this._handlePlayNowRequest({
+      const result = await this._handlePlayNextRequest({
         client,
         guildId: message.guild.id,
         query,
@@ -174,7 +175,7 @@ class PlayNowCommand extends Command {
 
       await this._updateMessage(loadingMessage, result);
     } catch (error) {
-      client.logger?.error("PlayNowCommand", `Error in prefix command: ${error.message}`, error);
+      client.logger?.error("PlayNextCommand", `Error in prefix command: ${error.message}`, error);
       const errorContainer = this._createErrorContainer("An error occurred. Please try again.");
       if (message) {
         await message.reply({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
@@ -230,7 +231,7 @@ class PlayNowCommand extends Command {
 
       const pm = new PlayerManager(player);
 
-      const result = await this._handlePlayNowRequest({
+      const result = await this._handlePlayNextRequest({
         client,
         guildId: interaction.guild.id,
         query,
@@ -241,7 +242,7 @@ class PlayNowCommand extends Command {
 
       await this._updateInteraction(interaction, result);
     } catch (error) {
-      client.logger?.error("PlayNowCommand", `Error in slash command: ${error.message}`, error);
+      client.logger?.error("PlayNextCommand", `Error in slash command: ${error.message}`, error);
       const errorContainer = this._createErrorContainer("An error occurred. Please try again.");
       try {
         if (interaction.replied || interaction.deferred) {
@@ -254,7 +255,7 @@ class PlayNowCommand extends Command {
     }
   }
 
-  async _handlePlayNowRequest({ client, guildId, query, source, requester, pm }) {
+  async _handlePlayNextRequest({ client, guildId, query, source, requester, pm }) {
     try {
       const finalquery = query;
       const options = { requester };
@@ -276,24 +277,23 @@ class PlayNowCommand extends Command {
       }
 
       if (searchResult.loadType === "playlist") {
-        return this._handlePlayNowPlaylist(pm, searchResult, guildId, requester.id);
+        return this._handlePlayNextPlaylist(pm, searchResult, guildId, requester.id);
       } else {
-        return this._handlePlayNowSingleTrack(pm, searchResult.tracks[0]);
+        return this._handlePlayNextSingleTrack(pm, searchResult.tracks[0]);
       }
     } catch (error) {
-      client.logger?.error("PlayNowCommand", `Error handling play now request: ${error.message}`, error);
+      client.logger?.error("PlayNextCommand", `Error handling play next request: ${error.message}`, error);
       return { success: false, message: "An error occurred while processing your request." };
     }
   }
 
-  async _handlePlayNowSingleTrack(playerManager, track) {
+  async _handlePlayNextSingleTrack(playerManager, track) {
     await playerManager.addTracks(track, 0);
-    await playerManager.skip();
 
-    return { success: true, type: "playing_now", track };
+    return { success: true, type: "added_next", track };
   }
 
-  async _handlePlayNowPlaylist(playerManager, searchResult, guildId, userId) {
+  async _handlePlayNextPlaylist(playerManager, searchResult, guildId, userId) {
     const tracks = searchResult.tracks;
 
     const currentQueueSize = playerManager.queue.tracks.length;
@@ -315,12 +315,11 @@ class PlayNowCommand extends Command {
     }
 
     await playerManager.addTracks(tracksToAdd, 0);
-    await playerManager.skip();
 
     if (limitWarning) {
       return {
         success: true,
-        type: "playlist_playing_now_partial",
+        type: "playlist_added_next_partial",
         playlist: searchResult.playlist,
         tracks: tracksToAdd,
         totalTracks: tracks.length,
@@ -330,7 +329,7 @@ class PlayNowCommand extends Command {
 
     return {
       success: true,
-      type: "playlist_playing_now",
+      type: "playlist_added_next",
       playlist: searchResult.playlist,
       tracks: tracksToAdd
     };
@@ -379,18 +378,18 @@ class PlayNowCommand extends Command {
     const container = new ContainerBuilder();
 
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`${emoji.get('loading')} **Music Search - Play Now**`)
+      new TextDisplayBuilder().setContent(`${emoji.get('loading')} **Music Search - Play Next**`)
     );
 
     container.addSeparatorComponents(
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small)
     );
 
-    const content = `**Searching to play immediately...**\n\n` +
+    const content = `**Searching to add to queue next...**\n\n` +
       `├─ **${emoji.get('music')} Query:** ${query}\n` +
-      `├─ **${emoji.get('folder')} Priority:** Immediate playback\n` +
+      `├─ **${emoji.get('folder')} Priority:** Next in queue\n` +
       `└─ **${emoji.get('info')} Status:** Processing search request\n\n` +
-      `*This will skip the current song when found*`;
+      `*This will play after the current song finishes*`;
 
     container.addSectionComponents(
       new SectionBuilder()
@@ -437,11 +436,11 @@ class PlayNowCommand extends Command {
   _createSuccessContainer(result) {
     const container = new ContainerBuilder();
 
-    if (result.type === "playing_now") {
+    if (result.type === "added_next") {
       const { track } = result;
 
       container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`${emoji.get('music')} **Now Playing Immediately**`)
+        new TextDisplayBuilder().setContent(`${emoji.get('add')} **Added to Play Next**`)
       );
 
       container.addSeparatorComponents(
@@ -452,8 +451,8 @@ class PlayNowCommand extends Command {
         `├─ **${emoji.get('check')} Title:** ${track.info.title}\n` +
         `├─ **${emoji.get('folder')} Artist:** ${track.info.author || "Unknown"}\n` +
         `├─ **${emoji.get('info')} Duration:** ${this._formatDuration(track.info.duration)}\n` +
-        `└─ **${emoji.get('add')} Status:** Playing immediately\n\n` +
-        `*Previous song was skipped for immediate playback*`;
+        `└─ **${emoji.get('add')} Position:** Next in queue\n\n` +
+        `*Will play after the current song finishes*`;
 
       container.addSectionComponents(
         new SectionBuilder()
@@ -465,16 +464,16 @@ class PlayNowCommand extends Command {
           )
       );
 
-    } else if (result.type.startsWith("playlist_playing_now")) {
+    } else if (result.type.startsWith("playlist_added_next")) {
       const { playlist, tracks, limitWarning, totalTracks } = result;
       const trackCount = tracks.length;
 
       let title, description;
-      if (result.type === "playlist_playing_now") {
-        title = "Playing Playlist Now";
-        description = `Playing ${trackCount} tracks immediately`;
+      if (result.type === "playlist_added_next") {
+        title = "Playlist Added Next";
+        description = `Added ${trackCount} tracks to play next`;
       } else {
-        title = "Playing Playlist Now";
+        title = "Playlist Added Next";
         description = "Partial playlist loaded";
       }
 
@@ -492,8 +491,8 @@ class PlayNowCommand extends Command {
         `├─ **${emoji.get('check')} Name:** ${playlist.name}\n` +
         `├─ **${emoji.get('add')} Tracks Added:** ${trackCount}\n` +
         `├─ **${emoji.get('info')} Total Tracks:** ${totalTracks || trackCount}\n` +
-        `└─ **${emoji.get('folder')} Status:** ${description}\n\n` +
-        `${limitWarning || "*All tracks loaded and playing immediately*"}`;
+        `└─ **${emoji.get('folder')} Position:** Next in queue\n\n` +
+        `${limitWarning || "*All tracks added and will play after current song*"}`;
 
       container.addSectionComponents(
         new SectionBuilder()
@@ -519,7 +518,7 @@ class PlayNowCommand extends Command {
         flags: MessageFlags.IsComponentsV2,
       });
     } catch (error) {
-      client.logger?.error("PlayNowCommand", `Error updating message: ${error.message}`, error);
+      client.logger?.error("PlayNextCommand", `Error updating message: ${error.message}`, error);
     }
   }
 
@@ -532,7 +531,7 @@ class PlayNowCommand extends Command {
         components: [container],
       });
     } catch (error) {
-      client.logger?.error("PlayNowCommand", `Error updating interaction: ${error.message}`, error);
+      client.logger?.error("PlayNextCommand", `Error updating interaction: ${error.message}`, error);
     }
   }
 
@@ -547,6 +546,47 @@ class PlayNowCommand extends Command {
       }
     }
     return { query: flags.query.join(" "), source: flags.source };
+  }
+
+  _detectSourceFromUrl(url) {
+    try {
+      const urlObj = new URL(url.toLowerCase());
+
+      // YouTube
+      if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+        return 'ytsearch';
+      }
+
+      // Spotify
+      if (urlObj.hostname.includes('spotify.com')) {
+        return 'spsearch';
+      }
+
+      // Apple Music
+      if (urlObj.hostname.includes('music.apple.com')) {
+        return 'amsearch';
+      }
+
+      // SoundCloud
+      if (urlObj.hostname.includes('soundcloud.com')) {
+        return 'scsearch';
+      }
+
+      // Deezer
+      if (urlObj.hostname.includes('deezer.com')) {
+        return 'dzsearch';
+      }
+
+      // JioSaavn
+      if (urlObj.hostname.includes('jiosaavn.com') || urlObj.hostname.includes('saavn.com')) {
+        return 'jssearch';
+      }
+
+      // Default fallback
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   _normalizeSource(source) {
@@ -580,4 +620,4 @@ class PlayNowCommand extends Command {
   }
 }
 
-export default new PlayNowCommand();
+export default new PlayNextCommand();

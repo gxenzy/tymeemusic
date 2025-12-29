@@ -20,7 +20,8 @@
     "#managers/*": "./src/managers/*.js",
     "#handlers/*": "./src/structures/handlers/*.js",
     "#classes/*": "./src/structures/classes/*.js",
-    "#db/*": "./src/database/repo/*.js"
+    "#db/*": "./src/database/repo/*.js",
+    "#web/*": "./src/web/*.js"
   },
   "keywords": [
     "discord",
@@ -48,7 +49,8 @@
     "moment-duration-format": "^2.3.2",
     "ms": "^2.1.3",
     "node-fetch": "^2.7.0",
-    "undici": "^7.8.0"
+    "undici": "^7.8.0",
+    "ws": "^8.18.3"
   },
   "engines": {
     "node": ">=18.0.0"

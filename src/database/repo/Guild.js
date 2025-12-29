@@ -20,10 +20,23 @@ export class Guild extends Database {
         stay_247 BOOLEAN DEFAULT FALSE,
         stay_247_voice_channel TEXT DEFAULT NULL,
         stay_247_text_channel TEXT DEFAULT NULL,
+        music_card_settings TEXT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Check if music_card_settings column exists before adding it
+    const columns = this.all("PRAGMA table_info(guilds)");
+    const hasMusicCardSettings = columns.some(col => col.name === 'music_card_settings');
+
+    if (!hasMusicCardSettings) {
+      try {
+        this.exec(`ALTER TABLE guilds ADD COLUMN music_card_settings TEXT DEFAULT NULL`);
+      } catch (error) {
+        logger.error('GuildDB', 'Error adding music_card_settings column:', error);
+      }
+    }
   }
 
 
@@ -46,7 +59,7 @@ export class Guild extends Database {
 
     if (!guild) {
 
-      this.exec("INSERT INTO guilds (id, prefixes, default_volume, auto_disconnect, stay_247, stay_247_voice_channel, stay_247_text_channel) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+      this.exec("INSERT INTO guilds (id, prefixes, default_volume, auto_disconnect, stay_247, stay_247_voice_channel, stay_247_text_channel) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [guildId, defaultPrefix, 100, 1, 0, null, null]);
       return this.getGuild(guildId);
     }
@@ -191,10 +204,10 @@ export class Guild extends Database {
     return this.exec(
       "UPDATE guilds SET stay_247   =?, stay_247_voice_channel   =?, stay_247_text_channel   =?, auto_disconnect   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?",
       [
-        enabled ? 1 : 0, 
-        enabled ? voiceChannelId : null, 
-        enabled ? textChannelId : null, 
-        enabled ? 0 : 1, 
+        enabled ? 1 : 0,
+        enabled ? voiceChannelId : null,
+        enabled ? textChannelId : null,
+        enabled ? 0 : 1,
         guildId
       ]
     );
@@ -214,14 +227,35 @@ export class Guild extends Database {
 
   getValid247Guilds() {
     const guilds   =this.all(`
-      SELECT * FROM guilds 
-      WHERE stay_247   =1 
-      AND stay_247_voice_channel IS NOT NULL 
+      SELECT * FROM guilds
+      WHERE stay_247   =1
+      AND stay_247_voice_channel IS NOT NULL
       AND stay_247_voice_channel   !=''
     `);
 
     return guilds.filter(guild   => {
       return guild.stay_247_voice_channel && guild.stay_247_voice_channel.length > 0;
     });
+  }
+
+  getMusicCardSettings(guildId) {
+    const guild = this.ensureGuild(guildId);
+    if (!guild.music_card_settings) return null;
+
+    try {
+      return JSON.parse(guild.music_card_settings);
+    } catch (error) {
+      logger.warn('GuildDB', `Invalid music card settings for guild ${guildId}:`, error);
+      return null;
+    }
+  }
+
+  setMusicCardSettings(guildId, settings) {
+    this.ensureGuild(guildId);
+    const settingsJson = JSON.stringify(settings);
+    return this.exec(
+      "UPDATE guilds SET music_card_settings = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [settingsJson, guildId]
+    );
   }
 }

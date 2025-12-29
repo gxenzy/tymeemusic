@@ -2,6 +2,7 @@ import { ActivityType } from "discord.js";
 import { logger } from "#utils/logger";
 import { config } from "#config/config";
 import { db } from "#database/DatabaseManager";
+import { PlayerManager } from "#managers/PlayerManager";
 import fs from "fs";
 import path from "path";
 import { AttachmentBuilder } from "discord.js";
@@ -41,6 +42,7 @@ export default {
     updateStatus();
     setInterval(updateStatus, 10 * 60 * 1000);
     user.setStatus(config.status.status || "dnd");
+
   },
 };
 
@@ -210,12 +212,22 @@ async function connect247Guild(client, guildData) {
       selfDeaf: true,
       volume: db.guild.getDefaultVolume(guild.id),
     });
-    
-    
-    player.set("247Mode", true);
-    player.set("247VoiceChannel", voiceChannel.id);
-    player.set("247TextChannel", textChannel.id);
-    player.set("247LastConnected", Date.now());
+
+    if (player) {
+      // Wait for player to be fully connected before setting properties
+      setTimeout(() => {
+        try {
+          if (player && typeof player.set === 'function') {
+            player.set("247Mode", true);
+            player.set("247VoiceChannel", voiceChannel.id);
+            player.set("247TextChannel", textChannel.id);
+            player.set("247LastConnected", Date.now());
+          }
+        } catch (error) {
+          logger.warn("247Mode", `Failed to set player properties for guild ${guild.name}: ${error.message}`);
+        }
+      }, 1000);
+    }
 
     logger.success(
       "247Mode",
@@ -331,4 +343,120 @@ async function checkSingle247Connection(client, guildData) {
       player.set("247TextChannel", guildData.stay_247_text_channel);
     }
   }
+}
+
+// Function to auto-update channel status with current song
+function startChannelStatusUpdate(client) {
+  let currentPlayerIndex = 0;
+
+  // Update every 30 seconds
+  setInterval(async () => {
+    try {
+      logger.debug('ChannelStatus', 'Starting status update check...');
+
+      // Get all players that are currently playing
+      const activePlayers = [];
+
+      // Use the correct path to access players
+      const players = client.music?.lavalink?.players;
+      if (!players) {
+        logger.debug('ChannelStatus', 'No players collection found');
+        return;
+      }
+
+      logger.debug('ChannelStatus', `Found ${players.size || 0} total players`);
+
+      for (const [guildId, player] of players) {
+        try {
+          const pm = new PlayerManager(player);
+          logger.debug('ChannelStatus', `Player ${guildId}: playing=${pm.isPlaying}, hasTrack=${!!pm.currentTrack}, paused=${pm.isPaused}`);
+
+          if (pm.isPlaying && pm.currentTrack && !pm.isPaused) {
+            activePlayers.push({
+              guildId,
+              player,
+              pm,
+              track: pm.currentTrack
+            });
+            logger.debug('ChannelStatus', `Added active player for guild ${guildId}`);
+          }
+        } catch (playerError) {
+          logger.warn('ChannelStatus', `Error processing player for guild ${guildId}: ${playerError.message}`);
+        }
+      }
+
+      logger.debug('ChannelStatus', `Found ${activePlayers.length} active players`);
+
+      if (activePlayers.length === 0) {
+        // No active players, reset status to default
+        client.user.setActivity({
+          name: config.status.name,
+          type: getStatusType(config.status.type),
+        });
+        currentPlayerIndex = 0; // Reset index
+        return;
+      }
+
+      // Rotate through active players
+      if (currentPlayerIndex >= activePlayers.length) {
+        currentPlayerIndex = 0;
+      }
+
+      const currentPlayer = activePlayers[currentPlayerIndex];
+      const track = currentPlayer.track;
+      const sourceName = track.info.sourceName?.toLowerCase() || 'music';
+
+      // Get platform emoji
+      const platformEmoji = getPlatformEmoji(sourceName);
+
+      // Create status text with better formatting
+      const title = track.info.title || 'Unknown Track';
+      const author = track.info.author || 'Unknown Artist';
+
+      // Format: "emoji Song Title - Artist"
+      const fullText = `${title} - ${author}`;
+
+      // Truncate if too long, but keep it readable
+      const maxLength = 50 - platformEmoji.length - 3; // Account for emoji and spaces
+      const truncatedText = fullText.length > maxLength
+        ? fullText.substring(0, maxLength - 3) + '...'
+        : fullText;
+
+
+      // Move to next player for next update
+      currentPlayerIndex = (currentPlayerIndex + 1) % activePlayers.length;
+
+    } catch (error) {
+      logger.error('ChannelStatus', 'Error updating channel status:', error);
+      // Fallback to default status
+      try {
+        client.user.setActivity({
+          name: config.status.name,
+          type: getStatusType(config.status.type),
+        });
+      } catch (fallbackError) {
+        logger.error('ChannelStatus', 'Error setting fallback status:', fallbackError);
+      }
+    }
+  }, 30000); // Update every 30 seconds
+}
+
+// Helper function to get platform emoji
+function getPlatformEmoji(sourceName) {
+  const emojiMap = {
+    'youtube': '📺',
+    'spotify': '🎵',
+    'soundcloud': '☁️',
+    'applemusic': '🍎',
+    'deezer': '🎧',
+    'tidal': '🌊',
+    'bandcamp': '🎸',
+    'twitch': '📺',
+    'radio': '📻',
+    'local': '💿',
+    'http': '🌐',
+    'unknown': '🎵'
+  };
+
+  return emojiMap[sourceName] || emojiMap.unknown;
 }

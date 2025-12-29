@@ -1,5 +1,7 @@
 import { PlayerManager } from '#managers/PlayerManager';
 import { logger } from '#utils/logger';
+import { DiscordPlayerEmbed } from '#utils/DiscordPlayerEmbed';
+import { EventUtils } from '#utils/EventUtils';
 
 export default {
 	name: "interactionCreate",
@@ -56,11 +58,11 @@ export default {
 			await interaction.deferReply({ ephemeral: true });
 
 			if (interaction.isButton()) {
-				await handleButtonInteraction(interaction, pm);
+				await handleButtonInteraction(interaction, pm, client);
 			}
 
 			if (interaction.isStringSelectMenu()) {
-				await handleSelectMenuInteraction(interaction, pm);
+				await handleSelectMenuInteraction(interaction, pm, client);
 			}
 
 		} catch (error) {
@@ -80,51 +82,101 @@ export default {
 	},
 };
 
-async function handleButtonInteraction(interaction, pm) {
+async function handleButtonInteraction(interaction, pm, client) {
 	const { customId } = interaction;
 	let response = '';
 
-	switch (customId) {
-		case 'music_previous':
-			const hasPrevious = await pm.playPrevious();
-			if (hasPrevious) {
-				response = '⏮️ Playing previous track.';
-			} else {
-				response = '❌ No previous track available.';
+	try {
+		switch (customId) {
+			case 'music_previous':
+				const hasPrevious = await pm.playPrevious();
+				if (hasPrevious) {
+					response = '⏮️ Playing previous track.';
+				} else {
+					response = '❌ No previous track available.';
+				}
+				break;
+
+			case 'music_pause':
+				if (pm.isPaused) {
+					await pm.resume();
+					response = '▶️ Music resumed.';
+				} else {
+					await pm.pause();
+					response = '⏸️ Music paused.';
+				}
+				break;
+
+			case 'music_skip':
+				const currentTrack = pm.currentTrack;
+				const trackTitle = currentTrack?.info?.title || 'Unknown Track';
+				await pm.skip();
+				response = `⏭️ Skipped: ${trackTitle}`;
+				break;
+
+			case 'music_stop':
+				await pm.stop();
+				response = '⏹️ Music stopped and queue cleared.';
+				break;
+
+			default:
+				response = '❌ Unknown action.';
+				break;
+		}
+
+		await interaction.editReply({ content: response });
+
+		// Small delay to ensure player state is updated before updating embed
+		setTimeout(async () => {
+			try {
+				// Update player message embed
+				await updatePlayerMessageEmbed(client, pm);
+
+				// Update web dashboard
+				if (client.webServer) {
+					client.webServer.updatePlayerState(pm.guildId);
+				}
+			} catch (updateError) {
+				logger.error('Playerbuttons', 'Error updating after button interaction:', updateError);
 			}
-			break;
+		}, 500);
 
-		case 'music_pause':
-			if (pm.isPaused) {
-				await pm.resume();
-				response = '▶️ Music resumed.';
-			} else {
-				await pm.pause();
-				response = '⏸️ Music paused.';
-			}
-			break;
-
-		case 'music_skip':
-			const currentTrack = pm.currentTrack;
-			const trackTitle = currentTrack?.info?.title || 'Unknown Track';
-			await pm.skip();
-			response = `⏭️ Skipped: ${trackTitle}`;
-			break;
-
-		case 'music_stop':
-			await pm.stop(true, false);
-			response = '⏹️ Music stopped and queue cleared.';
-			break;
-
-		default:
-			response = '❌ Unknown action.';
-			break;
+	} catch (error) {
+		logger.error('Playerbuttons', `Error handling button interaction ${customId}:`, error);
+		await interaction.editReply({ content: '❌ An error occurred while processing your request.' });
 	}
-
-	await interaction.editReply({ content: response });
 }
 
-async function handleSelectMenuInteraction(interaction, pm) {
+async function updatePlayerMessageEmbed(client, pm) {
+	try {
+		const player = pm.player;
+		const messageId = player.get('nowPlayingMessageId');
+		const channelId = player.get('nowPlayingChannelId');
+		
+		if (messageId && channelId) {
+			const guild = client.guilds.cache.get(pm.guildId);
+			// Get fresh position from player
+			const currentPosition = pm.player?.position ?? pm.position ?? 0;
+			const embed = DiscordPlayerEmbed.createPlayerEmbed(pm, guild, currentPosition);
+			
+			// Try to get existing message to preserve components
+			const channel = client.guilds.cache.get(pm.guildId)?.channels.cache.get(channelId);
+			if (channel) {
+				const message = await channel.messages.fetch(messageId).catch(() => null);
+				if (message && message.embeds.length > 0) {
+					// Update embed while preserving components
+					await message.edit({
+						embeds: [embed],
+					});
+				}
+			}
+		}
+	} catch (error) {
+		// Silently fail - message might not exist or use image card
+	}
+}
+
+async function handleSelectMenuInteraction(interaction, pm, client) {
 	const selectedValue = interaction.values[0];
 	let response = '';
 
@@ -177,6 +229,14 @@ async function handleSelectMenuInteraction(interaction, pm) {
 
 	if (selectedValue.startsWith('loop_')) {
 		await updateSelectMenuOptions(interaction, pm);
+	}
+	
+	// Update player message embed
+	updatePlayerMessageEmbed(client, pm);
+	
+	// Update web dashboard
+	if (client.webServer) {
+		client.webServer.updatePlayerState(pm.guildId);
 	}
 }
 

@@ -21,6 +21,7 @@ import { PlayerManager } from "#managers/PlayerManager";
 import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import emoji from "#config/emoji";
+import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
 
 class PlayCommand extends Command {
   constructor() {
@@ -204,6 +205,9 @@ class PlayCommand extends Command {
 
       const pm = new PlayerManager(player);
 
+      // Set "Requested by" voice channel status
+      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, message.author.username);
+
       const result = await this._handlePlayRequest({
         client,
         guildId: message.guild.id,
@@ -299,6 +303,9 @@ class PlayCommand extends Command {
 
       const pm = new PlayerManager(player);
 
+      // Set "Requested by" voice channel status
+      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, interaction.user.username);
+
       const result = await this._handlePlayRequest({
         client,
         guildId: interaction.guild.id,
@@ -355,13 +362,34 @@ class PlayCommand extends Command {
       const finalquery = query;
       const options = { requester };
 
-      if (!this._isUrl(query)) {
+      if (this._isUrl(query)) {
+        // For direct URLs, don't set source - let lavasrc plugin auto-detect from URL
+        // The lavasrc plugin can recognize Spotify, YouTube, etc. URLs directly
+        // Only set source if explicitly provided by user
+        if (source) {
+          options.source = this._normalizeSource(source);
+        }
+        // Otherwise, leave source undefined so lavasrc can handle the URL directly
+      } else {
+        // For search queries, use manual source or default
         options.source = this._normalizeSource(source);
       }
 
       const searchResult = await client.music.search(finalquery, options);
 
-      if (!searchResult || !searchResult.tracks?.length) {
+      if (!searchResult) {
+        client.logger?.error("PlayCommand", `Search returned null for query: ${query}`);
+        return { 
+          success: false, 
+          message: `Failed to process your request. Please check if:\n` +
+                   `• Lavalink server is running\n` +
+                   `• Spotify credentials are configured (if using Spotify)\n` +
+                   `• The URL/query is valid`
+        };
+      }
+
+      if (!searchResult.tracks?.length) {
+        client.logger?.warn("PlayCommand", `No tracks found for query: ${query}, loadType: ${searchResult.loadType}`);
         return { success: false, message: `No results found for: ${query}` };
       }
 
@@ -1299,6 +1327,47 @@ class PlayCommand extends Command {
       source: flags.source,
       position: flags.position,
     };
+  }
+
+  _detectSourceFromUrl(url) {
+    try {
+      const urlObj = new URL(url.toLowerCase());
+
+      // YouTube
+      if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+        return 'ytsearch';
+      }
+
+      // Spotify
+      if (urlObj.hostname.includes('spotify.com')) {
+        return 'spsearch';
+      }
+
+      // Apple Music
+      if (urlObj.hostname.includes('music.apple.com')) {
+        return 'amsearch';
+      }
+
+      // SoundCloud
+      if (urlObj.hostname.includes('soundcloud.com')) {
+        return 'scsearch';
+      }
+
+      // Deezer
+      if (urlObj.hostname.includes('deezer.com')) {
+        return 'dzsearch';
+      }
+
+      // JioSaavn
+      if (urlObj.hostname.includes('jiosaavn.com') || urlObj.hostname.includes('saavn.com')) {
+        return 'jssearch';
+      }
+
+      // Default fallback
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   _normalizeSource(source) {

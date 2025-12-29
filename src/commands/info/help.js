@@ -21,6 +21,8 @@ import { config } from "#config/config";
 import emoji from "#config/emoji";
 import fs from "fs";
 import path from "path";
+import { pathToFileURL } from "url";
+
 import { logger } from "#utils/logger";
 
 class HelpCommand extends Command {
@@ -166,7 +168,8 @@ class HelpCommand extends Command {
 
   async _loadCommand(filePath, categoryName, commands, categories) {
     try {
-      const { default: CommandClass } = await import(filePath);
+      const fileUrl = pathToFileURL(filePath).href;
+      const { default: CommandClass } = await import(fileUrl);
 
       if (!CommandClass || typeof CommandClass !== "object") {
         return null;
@@ -710,7 +713,7 @@ class HelpCommand extends Command {
     }
   }
 
-  _createSlashInfoContainer(command, category) {
+  _createSlashInfoContainer(command, category, client) {
     try {
       if (!command?.slashData)
         return this._createErrorContainer(
@@ -977,7 +980,7 @@ class HelpCommand extends Command {
             if (command) {
               await interaction.editReply({
                 components: [
-                  this._createSlashInfoContainer(command, command.category),
+                  this._createSlashInfoContainer(command, command.category, client),
                 ],
               });
             }

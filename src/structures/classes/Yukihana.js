@@ -14,6 +14,7 @@ import { CommandHandler } from '#handlers/CommandHandler';
 import { EventLoader } from '#handlers/EventLoader';
 import { MusicManager } from '#managers/MusicManager';
 import { logger } from '#utils/logger';
+import { WebServer } from '#web/server';
 
 let shardInfo = null;
 try {
@@ -23,7 +24,7 @@ try {
 	console.error(`Error while getting shard info: ${error}`);
 }
 
-export class Yukihana extends Client {
+export class Tymee extends Client {
 	constructor() {
 		const clientOptions = {
 			intents: [
@@ -69,23 +70,31 @@ export class Yukihana extends Client {
 
 		this.startTime = Date.now();
 		this.rest = new REST({ version: '10' }).setToken(config.token);
+		
+		// Initialize web server
+		this.webServer = new WebServer(this);
 	}
 
 	async init() {
-		this.logger.info('Yukihana', `❄️ Initializing bot...`);
+		this.logger.info('Tymee', `❄️ Initializing bot...`);
 		try {
 			await this.eventHandler.loadAllEvents();
 			await this.commandHandler.loadCommands();
 			await this.login(config.token);
 
+			// Start web server after bot is ready
+			this.once('ready', () => {
+				this.webServer.start();
+			});
+
 			this.logger.success(
-				'Yukihana',
+				'Tymee',
 				`❄️ Bot has successfully initialized. 🌸`,
 			);
-			this.logger.info('Yukihana', '❄️ Coded by Bre4d777');
+			this.logger.info('Tymee', '❄️ Coded by Bre4d777');
 		} catch (error) {
 			this.logger.error(
-				'Yukihana',
+				'Tymee',
 				'❄️ Failed to initialize bot cluster:',
 				error,
 			);
@@ -94,17 +103,20 @@ export class Yukihana extends Client {
 	}
 
 	async cleanup() {
-		this.logger.warn('Yukihana', `❄️ Starting cleanup for bot...`);
+		this.logger.warn('Tymee', `❄️ Starting cleanup for bot...`);
 		try {
+			if (this.webServer) {
+				await this.webServer.stop();
+			}
 			await this.db.closeAll();
 			this.destroy();
 			this.logger.success(
-				'Yukihana',
+				'Tymee',
 				'❄️ Cleanup completed successfully. 🌸',
 			);
 		} catch (error) {
 			this.logger.error(
-				'Yukihana',
+				'Tymee',
 				'❄️ An error occurred during cleanup:',
 				error,
 			);

@@ -1,5 +1,6 @@
 import { logger } from "#utils/logger";
 import { EventUtils } from "#utils/EventUtils";
+import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
 
 export default {
   name: "trackEnd",
@@ -7,6 +8,10 @@ export default {
   async execute(player, track, payload, musicManager, client) {
     try {
       const endReason = payload.reason || 'FINISHED';
+
+      if (player.queue.tracks.length === 0) {
+        await VoiceChannelStatus.clearStatus(client, player.voiceChannelId);
+      }
 
       logger.debug('TrackEnd', `Track ended in guild ${player.guildId}:`, {
         track: track?.info?.title || 'Unknown',
@@ -101,6 +106,13 @@ export default {
         }
       }
 
+      // Clear update interval
+      const updateIntervalId = player.get('updateIntervalId');
+      if (updateIntervalId) {
+        clearInterval(updateIntervalId);
+        player.set('updateIntervalId', null);
+      }
+      
       player.set('nowPlayingMessageId', null);
       player.set('nowPlayingChannelId', null);
       player.set('stuckWarningMessageId', null);
@@ -109,6 +121,11 @@ export default {
 
       if (endReason === 'FINISHED' && track?.info) {
         logger.info('TrackEnd', `Track completed: "${track.info.title}" by ${track.info.author} in guild ${player.guildId}`);
+      }
+
+      // Update web dashboard
+      if (client.webServer) {
+        client.webServer.updatePlayerState(player.guildId);
       }
 
     } catch (error) {

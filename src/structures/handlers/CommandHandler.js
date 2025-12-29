@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { logger } from '#utils/logger';
 //demn
 const __filename = fileURLToPath(import.meta.url);
@@ -78,9 +78,8 @@ export class CommandHandler {
 
 	async _loadCommandFile(filePath, category) {
 		try {
-			const commandModule = await import(
-				`file://${filePath}?v=${Date.now()}`
-			);
+			// Use file URL for absolute path import in ESM
+			const commandModule = await import(pathToFileURL(filePath).href);
 
 			if (!commandModule?.default) {
 				logger.warn(

@@ -1,0 +1,46 @@
+Terms of Service for Tymee Music Bot
+
+Last Updated: [Insert Date]
+
+Welcome to Tymee Music Bot ("the Bot"), a Discord music bot service provided by [Your Name or Company Name] ("we," "us," or "our"). By using the Bot, you agree to these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use the Bot.
+
+1. Acceptance of Terms
+By accessing or using Tymee Music Bot, you accept and agree to be bound by these Terms. These Terms apply to all users of the Bot, including without limitation users who are contributors of content, information, and other materials or services on or through the Bot.
+
+2. Description of Service
+Tymee Music Bot is a Discord bot designed to play music in Discord servers. The Bot allows users to search, play, queue, and manage music tracks from various sources, including YouTube, Spotify, and other supported platforms. The Bot may also include features such as playlists, filters, and other music-related functionalities.
+
+3. User Conduct
+You agree to use the Bot in accordance with these Terms and all applicable laws and regulations. You must not:
+- Use the Bot for any illegal or unauthorized purpose.
+- Violate Discord's Terms of Service or Community Guidelines.
+- Attempt to hack, modify, or interfere with the Bot's functionality.
+- Use the Bot to harass, abuse, or harm others.
+- Upload or share content that infringes on intellectual property rights.
+- Spam or flood commands in a way that disrupts server operations.
+
+4. Intellectual Property
+All rights, title, and interest in and to the Bot, including its software, code, design, and any associated trademarks, are owned by us or our licensors. You may not copy, modify, distribute, or create derivative works based on the Bot without our prior written consent.
+
+5. Content and Third-Party Services
+The Bot integrates with third-party services such as Lavalink, YouTube, Spotify, and others to provide music streaming. We do not own or control these third-party services and are not responsible for their availability, content, or policies. Your use of these services is subject to their respective terms and conditions.
+
+6. Termination
+We reserve the right to terminate or suspend your access to the Bot at any time, without prior notice or liability, for any reason whatsoever, including without limitation if you breach these Terms.
+
+7. Disclaimers
+The Bot is provided on an "as is" and "as available" basis. We make no warranties, expressed or implied, and hereby disclaim and negate all other warranties including without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
+
+8. Limitation of Liability
+In no event shall we or our directors, employees, partners, agents, suppliers, or affiliates be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your use of the Bot.
+
+9. Governing Law
+These Terms shall be interpreted and governed by the laws of [Your Jurisdiction], without regard to its conflict of law provisions.
+
+10. Changes to Terms
+We reserve the right to modify these Terms at any time. We will notify users of any changes by posting the new Terms on our website or Discord server. Your continued use of the Bot after such modifications constitutes acceptance of the updated Terms.
+
+11. Contact Information
+If you have any questions about these Terms, please contact us at [Your Contact Email or Discord].
+
+By using Tymee Music Bot, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.

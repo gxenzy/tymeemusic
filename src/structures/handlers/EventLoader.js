@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { logger } from '#utils/logger';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,7 +51,7 @@ export class EventLoader {
 			for (const file of handlerFiles) {
 				if (file.endsWith('.js')) {
 					const handlerPath = path.join(this.handlersPath, file);
-					const handlerModule = await import(`file://${handlerPath}`);
+					const handlerModule = await import(pathToFileURL(handlerPath).href);
 
 					if (handlerModule?.default) {
 						const handler = new handlerModule.default(this.client);
@@ -135,7 +135,7 @@ export class EventLoader {
 
 	async loadEventFile(filePath, eventType) {
 		try {
-			const module = await import(`file://${filePath}?t=${Date.now()}`);
+			const module = await import(`${pathToFileURL(filePath).href}?t=${Date.now()}`);
 			if (!module?.default) return;
 
 			const event = module.default;

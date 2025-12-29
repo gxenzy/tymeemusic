@@ -5,7 +5,9 @@ export default {
 	once: false,
 	async execute(data) {
 		try {
-			client.lavalink.sendRawData(data);
+			if (client.lavalink) {
+				client.lavalink.sendRawData(data);
+			}
 		} catch (error) {
 			logger.error("LavalinkClient", "Error in raw event handler:", error);
 		}

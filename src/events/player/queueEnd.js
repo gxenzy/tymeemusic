@@ -3,6 +3,7 @@ import { db } from '#database/DatabaseManager';
 import { config } from "#config/config";
 import { PlayerManager } from "#managers/PlayerManager";
 import { EventUtils } from "#utils/EventUtils";
+import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
 
 const LASTFM_API_KEY = config.lastfm.apiKey
 const LASTFM_BASE_URL = "http://ws.audioscrobbler.com/2.0/";
@@ -13,6 +14,8 @@ export default {
   async execute(player, track, payload, musicManager, client) {
     try {
       logger.info('QueueEnd', `Queue ended in guild ${player.guildId}`);
+
+      await VoiceChannelStatus.clearStatus(client, player.voiceChannelId);
 
       const messageId = player.get('nowPlayingMessageId');
       const channelId = player.get('nowPlayingChannelId');

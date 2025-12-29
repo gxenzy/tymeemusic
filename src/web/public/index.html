@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tymee Music Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>🎵 Tymee Music Dashboard</h1>
+                <div class="auth-section">
+                    <input type="text" id="apiKeyInput" placeholder="Enter API Key" class="api-key-input">
+                    <input type="text" id="guildIdInput" placeholder="Enter Guild ID" class="guild-id-input">
+                    <button id="connectBtn" class="connect-btn">Connect</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Connection Status -->
+        <div id="connectionStatus" class="status-bar hidden">
+            <span id="statusText">Disconnected</span>
+        </div>
+
+        <!-- Main Content -->
+        <div id="mainContent" class="main-content hidden">
+            <!-- Player Section -->
+            <div class="player-section">
+                <div class="now-playing">
+                    <div class="album-art">
+                        <img id="albumArt" src="" alt="Album Art" class="album-image">
+                        <div id="noArtwork" class="no-artwork">♪</div>
+                    </div>
+                    <div class="track-info">
+                        <h2 id="trackTitle" class="track-title">No track playing</h2>
+                        <p id="trackArtist" class="track-artist">Unknown Artist</p>
+                        <p id="guildName" class="guild-name"></p>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-section">
+                    <div class="progress-bar-container">
+                        <div id="progressBar" class="progress-bar">
+                            <div id="progressFill" class="progress-fill"></div>
+                            <div id="progressHandle" class="progress-handle"></div>
+                        </div>
+                    </div>
+                    <div class="time-display">
+                        <span id="currentTime">0:00</span>
+                        <span id="totalTime">0:00</span>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls">
+                    <button id="shuffleBtn" class="control-btn" title="Shuffle">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 3h5v5M4 20l5-5M21 3l-5 5M21 16v5h-5M4 20l-5-5M9 3l5 5"/>
+                        </svg>
+                    </button>
+                    <button id="previousBtn" class="control-btn" title="Previous">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                        </svg>
+                    </button>
+                    <button id="playPauseBtn" class="control-btn play-pause" title="Play/Pause">
+                        <svg id="playIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <svg id="pauseIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+                            <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
+                        </svg>
+                    </button>
+                    <button id="nextBtn" class="control-btn" title="Next">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                        </svg>
+                    </button>
+                    <button id="repeatBtn" class="control-btn" title="Repeat">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Volume Control -->
+                <div class="volume-section">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                    </svg>
+                    <div class="volume-slider-container">
+                        <input type="range" id="volumeSlider" min="0" max="100" value="100" class="volume-slider">
+                    </div>
+                    <span id="volumeValue" class="volume-value">100%</span>
+                </div>
+            </div>
+
+            <!-- Queue Section -->
+            <div class="queue-section">
+                <div class="queue-header">
+                    <h3>Queue (<span id="queueCount">0</span>)</h3>
+                    <button id="refreshQueueBtn" class="refresh-btn" title="Refresh Queue">↻</button>
+                </div>
+                <div id="queueList" class="queue-list">
+                    <p class="empty-queue">No tracks in queue</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

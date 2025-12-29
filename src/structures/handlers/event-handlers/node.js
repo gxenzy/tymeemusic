@@ -9,6 +9,11 @@ export default class nodeHandler {
 
 	async register(event) {
 		try {
+			if (!this.music.lavalink) {
+				logger.warn('nodeEvent', `Cannot register event ${event.name}: Lavalink not initialized`);
+				return false;
+			}
+
 			const listener = (...args) => {
 				try {
 					event.execute(...args, this.client.music, this.client);
@@ -40,7 +45,7 @@ export default class nodeHandler {
 	}
 
 	async unregister(eventName) {
-		if (this.registeredEvents.has(eventName)) {
+		if (this.registeredEvents.has(eventName) && this.music.lavalink) {
 			this.music.lavalink.nodeManager.removeListener(
 				eventName,
 				this.registeredEvents.get(eventName),
@@ -50,8 +55,10 @@ export default class nodeHandler {
 	}
 
 	async unregisterAll() {
-		for (const [eventName, listener] of this.registeredEvents) {
-			this.music.lavalink.nodeManager.removeListener(eventName, listener);
+		if (this.music.lavalink) {
+			for (const [eventName, listener] of this.registeredEvents) {
+				this.music.lavalink.nodeManager.removeListener(eventName, listener);
+			}
 		}
 		this.registeredEvents.clear();
 	}

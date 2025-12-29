@@ -23,7 +23,7 @@ export const config = {
       host: process.env.LAVALINK_HOST,
       port: parseInt(process.env.LAVALINK_PORT) || 2333,
       authorization: process.env.LAVALINK_PASSWORD,
-      secure: process.env.LAVALINK_SECURE === 'true', // Use true for WSS connections
+      secure: false, // Use true for WSS connections (server on port 2333)
       retryAmount: 5, // Number of connection retry attempts
       retryDelay: 3000, // Delay between retries in milliseconds
     },

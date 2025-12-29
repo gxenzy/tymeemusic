@@ -268,20 +268,43 @@ export class MusicManager {
     }
 
     try {
-      const { source = "spsearch", requester } = options;
+      // For direct URLs, don't default to spsearch - let lavasrc handle it
+      // For search queries, default to spsearch
+      const isUrl = /^https?:\/\//.test(query);
+      const { source, requester } = options;
+      const finalSource = source || (isUrl ? undefined : "spsearch");
 
       const node = this.lavalink.nodeManager.leastUsedNodes("memory")[0];
-
-      const searchResult = await node.search({ query, source }, requester);
-
-      if (!searchResult || !searchResult.tracks?.length) {
-        logger.debug("MusicManager", `No tracks found for query: ${query}`);
+      
+      if (!node) {
+        logger.error("MusicManager", "No available Lavalink nodes found");
         return null;
       }
 
+      logger.debug("MusicManager", `Searching with query: ${query.substring(0, 100)}, source: ${finalSource || 'auto-detect'}`);
+      
+      // For direct URLs without source, lavasrc plugin will auto-detect from URL
+      // Pass source only if defined, otherwise let lavasrc handle URL recognition
+      const searchParams = finalSource 
+        ? { query, source: finalSource }
+        : { query };
+      
+      const searchResult = await node.search(searchParams, requester);
+
+      if (!searchResult) {
+        logger.warn("MusicManager", `Search returned null for query: ${query.substring(0, 100)}`);
+        return null;
+      }
+
+      if (!searchResult.tracks?.length && searchResult.loadType !== "playlist") {
+        logger.debug("MusicManager", `No tracks found for query: ${query.substring(0, 100)}, loadType: ${searchResult.loadType}`);
+        return searchResult; // Return even if empty so caller can handle it
+      }
+
+      logger.debug("MusicManager", `Search successful: ${searchResult.tracks?.length || 0} tracks, loadType: ${searchResult.loadType}`);
       return searchResult;
     } catch (error) {
-      logger.error("MusicManager", `Search error: ${error.message}`);
+      logger.error("MusicManager", `Search error for query "${query.substring(0, 100)}": ${error.message}`, error);
       return null;
     }
   }
@@ -328,9 +351,9 @@ export class MusicManager {
   async is247ModeEnabled(guildId) {
     const settings = db.guild.get247Settings(guildId);
     if (settings.enabled === true) {
-      return 
+      return true;
     } else {
-      
+      return false;
     }
   }
   parsePlayerOptions(options) {
