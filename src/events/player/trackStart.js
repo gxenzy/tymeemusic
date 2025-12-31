@@ -1,4 +1,4 @@
-  
+
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from "discord.js";
 import { logger } from "#utils/logger";
 import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
@@ -49,29 +49,26 @@ export default {
 
       let message;
 
-      // Use embed-based player for interactive dashboard-like experience
-      const useEmbedPlayer = process.env.USE_EMBED_PLAYER !== 'false'; // Default to true
-      
+      const useEmbedPlayer = process.env.USE_EMBED_PLAYER !== 'false';
+
       if (useEmbedPlayer) {
         try {
           const pm = new PlayerManager(player);
           const guild = client.guilds.cache.get(player.guildId);
-          const embed = DiscordPlayerEmbed.createPlayerEmbed(pm, guild);
+          const embed = DiscordPlayerEmbed.createPlayerEmbed(pm, guild, null, client);
           const components = createControlComponents(player.guildId, client);
 
           message = await EventUtils.sendPlayerMessage(client, player, {
             embeds: [embed],
             components,
           });
-          
-          // Start update interval for progress bar
+
           startPlayerUpdateInterval(client, player);
         } catch (embedError) {
           logger.error('TrackStart', 'Error creating embed player:', embedError);
-          // Fallback to image card
           try {
             const musicCard = new MusicCard();
-            const buffer = await musicCard.createMusicCard(track, player.position, player.guildId);
+            const buffer = await musicCard.createMusicCard(track, player.position, player.guildId, { requester: track.requester, queueSize: player.queue?.length ?? player.queueSize ?? 0 });
             const attachment = new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
             const components = createControlComponents(player.guildId, client);
 
@@ -89,10 +86,9 @@ export default {
           }
         }
       } else {
-        // Original image card method
         try {
           const musicCard = new MusicCard();
-          const buffer = await musicCard.createMusicCard(track, player.position, player.guildId);
+          const buffer = await musicCard.createMusicCard(track, player.position, player.guildId, { requester: track.requester, queueSize: player.queue?.length ?? player.queueSize ?? 0 });
           const attachment = new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
           const components = createControlComponents(player.guildId, client);
 
@@ -116,8 +112,7 @@ export default {
       }
 
       logger.info('TrackStart', `Track started: "${track.info.title}" by ${track.info.author} in guild ${player.guildId} (Autoplay: ${player.get('autoplayEnabled') ? 'ON' : 'OFF'})`);
-      
-      // Update web dashboard
+
       if (client.webServer) {
         client.webServer.updatePlayerState(player.guildId);
       }
@@ -149,92 +144,149 @@ export default {
 };
 
 export function createControlComponents(guildId, client) {
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId('music_controls_select')
-    .setPlaceholder('Select an option...')
+  const guild = client.guilds.cache.get(guildId);
+  const playerObj = client.music?.getPlayer(guildId);
+  const pm = playerObj ? new PlayerManager(playerObj) : null;
+
+  const resolveEmoji = (names, fallback) => {
+    if (!guild) return fallback;
+    const emoji = guild.emojis.cache.find(e => names.some(n => e.name.toLowerCase().includes(n.toLowerCase())));
+    if (emoji) return { id: emoji.id, name: emoji.name };
+    const botEmoji = client.emojis?.cache?.find(e => names.some(n => e.name.toLowerCase().includes(n.toLowerCase())));
+    if (botEmoji) return { id: botEmoji.id, name: botEmoji.name };
+    return fallback;
+  };
+
+  const similarMenu = new StringSelectMenuBuilder()
+    .setCustomId('music_similar_select')
+    .setPlaceholder('Similar songs selection menu')
+    .setMaxValues(1)
     .addOptions([
       {
-        label: 'Shuffle Queue',
-        description: 'Randomize the order of songs',
-        value: 'shuffle',
-      },
-      {
-        label: 'Loop: Off',
-        description: 'No repeat',
-        value: 'loop_off',
-      },
-      {
-        label: 'Loop: Track',
-        description: 'Repeat current song',
-        value: 'loop_track',
-      },
-      {
-        label: 'Loop: Queue',
-        description: 'Repeat entire queue',
-        value: 'loop_queue',
-      },
-      {
-        label: 'Volume -20%',
-        description: 'Decrease volume',
-        value: 'volume_down',
-      },
-      {
-        label: 'Volume +20%',
-        description: 'Increase volume',
-        value: 'volume_up',
+        label: 'Find similar songs',
+        description: 'Suggest similar songs for current track',
+        value: 'similar_search',
       },
     ]);
 
-  // Get web server URL for dashboard button
   const protocol = client.webServer?.secure ? 'https' : 'http';
   const webPort = client.webServer?.port || 3000;
   const apiKey = client.webServer?.apiKey || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ';
   const defaultGuildId = '1386498859471077426';
-  const dashboardUrl = `${protocol}://localhost:${webPort}?apiKey=${apiKey}&guildId=${guildId || defaultGuildId}`;
+  const webHost = client.webServer?.host || 'localhost';
+  const dashboardUrl = `${protocol}://${webHost}:${webPort}?apiKey=${apiKey}&guildId=${guildId || defaultGuildId}`;
 
-  const controlButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('music_previous')
-        .setEmoji('⏮️')
-        .setLabel('Previous')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('music_pause')
-        .setEmoji('⏸️')
-        .setLabel('Pause')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('music_skip')
-        .setEmoji('⏭️')
-        .setLabel('Next')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('music_stop')
-        .setEmoji('⏹️')
-        .setLabel('Stop')
-        .setStyle(ButtonStyle.Danger),
-    );
+  const infoBtnLabel = pm ? `Queue: ${pm.queueSize} track${pm.queueSize !== 1 ? 's' : ''}` : 'Queue is empty, use /play to add songs.';
+  const infoButton = new ButtonBuilder()
+    .setCustomId('music_queue_info')
+    .setLabel(infoBtnLabel)
+    .setStyle(ButtonStyle.Secondary)
+    .setDisabled(true);
 
-  // Add dashboard button row
-  const dashboardButton = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setLabel('🎛️ Open Dashboard')
-        .setStyle(ButtonStyle.Link)
-        .setURL(dashboardUrl),
-    );
+  const dashboardButton = new ButtonBuilder()
+    .setLabel('Dashboard')
+    .setStyle(ButtonStyle.Link)
+    .setURL(dashboardUrl);
+
+  const playEmoji = pm?.isPaused ? resolveEmoji(['play', 'resume'], '▶️') : resolveEmoji(['pause', 'paused'], '⏸️');
+  const playLabel = pm?.isPaused ? 'Play' : 'Pause';
+  const repeatActive = pm && pm.repeatMode && pm.repeatMode !== 'off';
+  const repeatStyle = repeatActive ? ButtonStyle.Danger : ButtonStyle.Secondary;
+
+  const controlRow1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('music_stop')
+      .setEmoji(resolveEmoji(['stop', 'stop_button'], '⏹️'))
+      .setLabel('Stop')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('music_previous')
+      .setEmoji(resolveEmoji(['previous', 'prev', 'back'], '⏮️'))
+      .setLabel('Previous')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_pause')
+      .setEmoji(playEmoji)
+      .setLabel(playLabel)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('music_skip')
+      .setEmoji(resolveEmoji(['next'], '⏭️'))
+      .setLabel('Next')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_repeat')
+      .setEmoji(resolveEmoji(['repeat', 'loop'], '🔁'))
+      .setLabel('Repeat')
+      .setStyle(repeatStyle),
+  );
+
+  const controlRow2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('music_volume_down')
+      .setEmoji(resolveEmoji(['volume', 'vol', 'down'], '🔉'))
+      .setLabel('- Vol')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_seek_back')
+      .setEmoji(resolveEmoji(['rewind', 'seekback'], '⏪'))
+      .setLabel('-10s')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_shuffle')
+      .setEmoji(resolveEmoji(['shuffle', 'random'], '🔀'))
+      .setLabel('Shuffle')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_seek_forward')
+      .setEmoji(resolveEmoji(['forward', 'seekforward'], '⏩'))
+      .setLabel('+10s')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_volume_up')
+      .setEmoji(resolveEmoji(['volume', 'vol', 'up'], '🔊'))
+      .setLabel('+ Vol')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  const controlRow3 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('music_favorite')
+      .setEmoji(resolveEmoji(['heart', 'love', 'fav'], '❤️'))
+      .setLabel('Save')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_effects')
+      .setEmoji(resolveEmoji(['equalizer', 'eq', 'fx'], '🎛️'))
+      .setLabel('Effects')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_filter')
+      .setEmoji(resolveEmoji(['filter', 'funnel'], '🔧'))
+      .setLabel('Filter')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_move')
+      .setEmoji(resolveEmoji(['move', 'swap'], '🔀'))
+      .setLabel('Move')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_misc')
+      .setEmoji(resolveEmoji(['info', 'dot'], '🔘'))
+      .setLabel('More')
+      .setStyle(ButtonStyle.Secondary),
+  );
 
   return [
-    new ActionRowBuilder().addComponents(selectMenu),
-    controlButtons,
-    dashboardButton,
+    new ActionRowBuilder().addComponents(similarMenu),
+    new ActionRowBuilder().addComponents(infoButton, dashboardButton),
+    controlRow1,
+    controlRow2,
+    controlRow3,
   ];
 }
 
-// Function to update player embed periodically
 function startPlayerUpdateInterval(client, player) {
-  // Clear any existing interval
   const existingInterval = player.get('updateIntervalId');
   if (existingInterval) {
     clearInterval(existingInterval);
@@ -243,51 +295,34 @@ function startPlayerUpdateInterval(client, player) {
   const messageId = player.get('nowPlayingMessageId');
   const channelId = player.get('nowPlayingChannelId');
 
-  if (!messageId || !channelId) return;
+  if (!messageId || !channelId) {
+    return;
+  }
 
-  // Update every 3 seconds for smoother progress updates
+  let updateCount = 0;
+
+  logger.info('TrackStart', 'Starting 3s auto update interval via updatePlayerMessageEmbed');
+
   const intervalId = setInterval(async () => {
     try {
-      const currentPlayer = client.music?.getPlayer(player.guildId);
-      if (!currentPlayer) {
-        clearInterval(intervalId);
-        player.set('updateIntervalId', null);
-        return;
-      }
+      updateCount++;
 
-      const pm = new PlayerManager(currentPlayer);
-      const guild = client.guilds.cache.get(player.guildId);
+      if (player.queue?.current) {
+        logger.info('TrackStart', `Update #${updateCount}: calling updatePlayerMessageEmbed`);
 
-      // Update if there's a current track (even if paused, to show correct time)
-      if (pm.currentTrack) {
-        // Get fresh position directly from Lavalink player with better fallback
-        const freshPosition = currentPlayer.position ?? pm.position ?? 0;
-        const freshPm = new PlayerManager(currentPlayer);
-
-        // Create embed with current position
-        const embed = DiscordPlayerEmbed.createPlayerEmbed(freshPm, guild, freshPosition);
-        const components = createControlComponents(player.guildId, client);
-
-        await EventUtils.editMessage(client, channelId, messageId, {
-          embeds: [embed],
-          components,
-        });
+        await updatePlayerMessageEmbed(client, player);
       } else {
-        // No track playing, stop updating
         clearInterval(intervalId);
         player.set('updateIntervalId', null);
       }
     } catch (error) {
-      // Message might be deleted or inaccessible
+      logger.error('TrackStart', `Interval error:`, error);
       if (error.code === 10008 || error.code === 10003) {
         clearInterval(intervalId);
         player.set('updateIntervalId', null);
-      } else {
-        // Log other errors but continue
-        logger.debug('TrackStart', `Error updating player embed: ${error.message}`);
       }
     }
-  }, 3000); // Update every 3 seconds for smoother progress
+  }, 3000);
 
   player.set('updateIntervalId', intervalId);
 }

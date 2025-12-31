@@ -1350,7 +1350,7 @@ export default class MusicCard {
 	// MAIN RENDER METHOD - MODIFIED FOR MODERN UI
 	// ═══════════════════════════════════════════════════════════
 
-	async createMusicCard(track, position = 0, guildId = null) {
+	async createMusicCard(track, position = 0, guildId = null, meta = {}) {
 		const width = 900;
 		const height = 280;
 		const padding = 32;
@@ -1461,6 +1461,22 @@ export default class MusicCard {
 		const source = track?.info?.sourceName || 'Unknown';
 		const badgeY = artistY + 16;
 		this.drawSourceBadge(ctx, source, contentX, badgeY);
+
+		// Requested by and queue info
+		const requestedBy = track?.requester?.tag || track?.requester?.username || meta?.requester?.tag || meta?.requester?.username || (typeof meta?.requester === 'string' ? meta.requester : null) || 'Unknown';
+		const requestedY = artistY + 34;
+		ctx.font = '13px "Inter"';
+		ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+		ctx.textAlign = 'left';
+		ctx.fillText(`Requested by: ${requestedBy}`, contentX, requestedY);
+
+		// Queue size (right aligned)
+		const queueSize = meta?.queueSize ?? (meta?.queueLength ?? null);
+		if (queueSize !== null && queueSize !== undefined) {
+			ctx.textAlign = 'right';
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+			ctx.fillText(`Queue: ${queueSize}`, contentX + contentWidth, requestedY);
+		}
 
 		// ═══════════════════════════════════════════════════════════
 		// PROGRESS SECTION

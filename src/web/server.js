@@ -19,6 +19,7 @@ export class WebServer {
     this.port = config.web.port;
     this.secure = config.web.secure;
     this.apiKey = config.web.apiKey;
+    this.host = config.web.host;
 
     // Create server (HTTP or HTTPS)
     if (this.secure) {
@@ -489,7 +490,7 @@ export class WebServer {
   start() {
     this.server.listen(this.port, () => {
       const protocol = this.secure ? 'https' : 'http';
-      logger.success('WebServer', `🌐 Web dashboard running on ${protocol}://localhost:${this.port}`);
+      logger.success('WebServer', `🌐 Web dashboard running on ${protocol}://${this.host}:${this.port}`);
       logger.info('WebServer', `📝 API Key: ${this.apiKey} (set WEB_API_KEY in .env to change)`);
       if (this.secure) {
         logger.info('WebServer', `🔒 HTTPS enabled with SSL certificates`);

@@ -57,6 +57,7 @@ export const config = {
     sslCert: process.env.WEB_SSL_CERT || null,
     sslKey: process.env.WEB_SSL_KEY || null,
     apiKey: process.env.WEB_API_KEY || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ',
+    host: process.env.WEB_HOST || 'localhost',
   },
   
   // Bot presence/status configuration
@@ -66,12 +67,13 @@ export const config = {
     type: 'CUSTOM' // Activity type
   },
   
-  // Embed color scheme (hex values)
+  // Embed color scheme (hex values) - Peach theme
   colors: {
-    info: '#3498db',     // Blue - informational messages
-    success: '#2ecc71',  // Green - success messages
-    warning: '#f39c12',  // Orange - warning messages
-    error: '#e74c3c'     // Red - error messages
+    primary: '#FFCBA4',   // Peach - primary color
+    info: '#FFCBA4',      // Peach - informational messages
+    success: '#E8A87C',  // Darker peach - success messages
+    warning: '#FFD4A6',  // Light peach - warning messages
+    error: '#FF6B6B'     // Coral red - error messages
   },
   
   // Discord webhook configuration for logging bot events

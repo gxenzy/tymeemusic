@@ -348,6 +348,8 @@ async function fetchRecommendations(track, client) {
   return processedTracks;
 }
 
+// Exported for use by control interactions (similar songs search)
+export { fetchRecommendations };
 function getPremiumStatus(guildId, userId) {
   if (!userId) return { hasPremium: false, maxSongs: config.queue.maxSongs.free };
 

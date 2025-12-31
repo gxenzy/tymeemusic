@@ -1,0 +1,45 @@
+name: Deploy to Dev Server on branch push
+
+on:
+  push:
+    branches:
+      - 'feature/player-button-refactor'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          port: ${{ secrets.DEV_SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd ${{ secrets.DEV_APP_PATH }} || exit 1
+            git fetch origin
+            git checkout feature/player-button-refactor
+            git reset --hard origin/feature/player-button-refactor
+            npm ci --production
+            if pm2 describe tymeemusic-dev >/dev/null 2>&1; then
+              pm2 restart tymeemusic-dev
+            else
+              pm2 start --name tymeemusic-dev --node-args="--trace-warnings" src/shard.js
+            fi
+            echo "Deployed branch feature/player-button-refactor"
+
+      - name: Notify (optional)
+        run: echo "Deployment job completed"
