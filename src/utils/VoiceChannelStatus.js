@@ -1,6 +1,6 @@
 import { Routes } from 'discord-api-types/v10';
 import { logger } from '#utils/logger';
-import emoji from '#config/emoji';
+import { emojiService } from '#services/EmojiService';
 
 /**
  * Utility class for managing voice channel status updates
@@ -26,26 +26,42 @@ export class VoiceChannelStatus {
     } else if (uri.includes('deezer.com') || sourceName.includes('deezer')) {
       return 'dz';
     }
-    return 'music'; // fallback
+    return 'music';
+  }
+
+  /**
+   * Get emoji string for a key, with optional guild/client for custom emojis
+   * @param {string} key - Emoji key
+   * @param {Guild} guild - Discord guild (optional)
+   * @param {Client} client - Discord client (optional)
+   * @returns {string} - Emoji string
+   */
+  static getEmoji(key, guild = null, client = null) {
+    return emojiService.getEmoji('global', key, guild, client);
   }
 
   /**
    * Format the "Requested by" status message
    * @param {string} username - The username who requested the song
+   * @param {Guild} guild - Discord guild (optional)
+   * @param {Client} client - Discord client (optional)
    * @returns {string} - Formatted status string
    */
-  static formatRequestedBy(username) {
-    return `:play: **Requested by ${username}**`;
+  static formatRequestedBy(username, guild = null, client = null) {
+    const playEmoji = this.getEmoji('play', guild, client);
+    return `${playEmoji} **Requested by ${username}**`;
   }
 
   /**
    * Format the "Now Playing" status message
    * @param {Object} track - The track object
+   * @param {Guild} guild - Discord guild (optional)
+   * @param {Client} client - Discord client (optional)
    * @returns {string} - Formatted status string
    */
-  static formatNowPlaying(track) {
+  static formatNowPlaying(track, guild = null, client = null) {
     const sourceKey = this.getSourceKey(track);
-    const sourceEmoji = `:${sourceKey}:`;
+    const sourceEmoji = this.getEmoji(sourceKey, guild, client);
     const title = track?.info?.title || 'Unknown';
     const author = track?.info?.author || 'Unknown';
 
@@ -74,8 +90,6 @@ export class VoiceChannelStatus {
         return false;
       }
 
-      // Use Discord REST API to set voice channel status
-      // PUT /channels/{channel.id}/voice-status
       await client.rest.put(Routes.channel(channelId) + '/voice-status', {
         body: {
           status: status || null
@@ -85,7 +99,6 @@ export class VoiceChannelStatus {
       logger.debug('VoiceChannelStatus', `Updated status for channel ${channelId}: ${status || '(cleared)'}`);
       return true;
     } catch (error) {
-      // Error code 50001 = Missing Access, 50013 = Missing Permissions
       if (error.code === 50001 || error.code === 50013) {
         logger.debug('VoiceChannelStatus', `Missing permissions to update status in channel ${channelId}`);
       } else {
@@ -100,9 +113,11 @@ export class VoiceChannelStatus {
    * @param {Client} client - Discord client
    * @param {string} channelId - Voice channel ID
    * @param {string} username - Username who requested
+   * @param {Guild} guild - Discord guild (optional)
+   * @param {Client} clientObj - Discord client (optional, renamed to avoid conflict)
    */
-  static async setRequestedBy(client, channelId, username) {
-    const status = this.formatRequestedBy(username);
+  static async setRequestedBy(client, channelId, username, guild = null, clientObj = null) {
+    const status = this.formatRequestedBy(username, guild, clientObj || client);
     return this.setStatus(client, channelId, status);
   }
 
@@ -111,9 +126,11 @@ export class VoiceChannelStatus {
    * @param {Client} client - Discord client
    * @param {string} channelId - Voice channel ID
    * @param {Object} track - Track object
+   * @param {Guild} guild - Discord guild (optional)
+   * @param {Client} clientObj - Discord client (optional, renamed to avoid conflict)
    */
-  static async setNowPlaying(client, channelId, track) {
-    const status = this.formatNowPlaying(track);
+  static async setNowPlaying(client, channelId, track, guild = null, clientObj = null) {
+    const status = this.formatNowPlaying(track, guild, clientObj || client);
     return this.setStatus(client, channelId, status);
   }
 
