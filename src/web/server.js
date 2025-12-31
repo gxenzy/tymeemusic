@@ -647,15 +647,15 @@ export class WebServer {
   }
 
   // Serve dashboard with auto-connect support
-    this.app.get('/', (req, res) => {
-      res.sendFile(join(__dirname, 'public', 'index.html'));
-    });
-    
-    // Auto-connect route (for Discord button links)
-    this.app.get('/connect', (req, res) => {
-      res.sendFile(join(__dirname, 'public', 'index.html'));
-    });
-  }
+  this.app.get('/', (req, res) => {
+    res.sendFile(join(__dirname, 'public', 'index.html'));
+  });
+  
+  // Auto-connect route (for Discord button links)
+  this.app.get('/connect', (req, res) => {
+    res.sendFile(join(__dirname, 'public', 'index.html'));
+  });
+}
 
   getPlayerState(pm, guildId) {
     const currentTrack = pm.currentTrack;
