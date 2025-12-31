@@ -50,6 +50,10 @@
                         <span class="nav-icon">⚙️</span>
                         <span class="nav-label">Settings</span>
                     </a>
+                    <a href="#" class="nav-item" data-tab="emoji">
+                        <span class="nav-icon">🎨</span>
+                        <span class="nav-label">Emoji</span>
+                    </a>
                 </div>
             </nav>
             
@@ -289,6 +293,20 @@
                                 </label>
                             </div>
                             <button class="save-settings-btn" id="saveSettingsBtn">Save Settings</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Emoji Tab -->
+                <div class="tab-content" id="emoji-tab">
+                    <div class="emoji-container">
+                        <div class="emoji-header">
+                            <h2>Emoji Management</h2>
+                            <button class="sync-emoji-btn" id="syncEmojiBtn">Sync Server Emojis</button>
+                        </div>
+                        <p class="emoji-description">Manage custom emojis for this server. Click on an emoji to change it.</p>
+                        <div class="emoji-grid" id="emojiGrid">
+                            <div class="empty-message">Loading emojis...</div>
                         </div>
                     </div>
                 </div>

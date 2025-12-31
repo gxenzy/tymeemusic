@@ -18,6 +18,7 @@ export default {
         logger.error('TrackStart', 'Invalid track data received:', track);
       }
 
+      const guild = client.guilds.cache.get(player.guildId);
       await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track, guild, client);
 
       player.set('lastPlayedTrack', track);

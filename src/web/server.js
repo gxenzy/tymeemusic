@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { logger } from '#utils/logger';
 import { config } from '#config/config';
+import { db } from '#database/DatabaseManager';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -435,9 +436,23 @@ export class WebServer {
           return res.status(404).json({ error: 'No player found' });
         }
         
-        await player.setFilters({});
+        const { config: filterConfig } = await import('#config/config');
+        const allFilters = {};
+        
         if (filters && filters.length > 0) {
-          await this.applyFilters(player, filters);
+          for (const filter of filters) {
+            if (filterConfig.filters && filterConfig.filters[filter]) {
+              Object.assign(allFilters, filterConfig.filters[filter]);
+            }
+          }
+        }
+        
+        if (player.filters) {
+          await player.filters.setFilters(allFilters);
+        } else if (player.setFilters) {
+          await player.setFilters(allFilters);
+        } else {
+          return res.status(400).json({ error: 'Filter API not available' });
         }
         
         res.json({ success: true, message: 'Filter applied' });
@@ -636,21 +651,6 @@ export class WebServer {
     this.app.get('/connect', (req, res) => {
       res.sendFile(join(__dirname, 'public', 'index.html'));
     });
-  }
-
-  async applyFilters(player, filters) {
-    const { config } = await import('#config/config');
-    const filterConfig = config.filters || {};
-    
-    const allFilters = {};
-    
-    for (const filter of filters) {
-      if (filterConfig[filter]) {
-        Object.assign(allFilters, filterConfig[filter]);
-      }
-    }
-    
-    await player.setFilters(allFilters);
   }
 
   getPlayerState(pm, guildId) {

@@ -91,6 +91,7 @@ class MusicDashboard {
         });
         
         document.getElementById('saveSettingsBtn').addEventListener('click', () => this.saveSettings());
+        document.getElementById('syncEmojiBtn').addEventListener('click', () => this.syncEmojis());
     }
 
     async loadGuilds() {
@@ -476,6 +477,41 @@ class MusicDashboard {
             this.showToast('Settings saved', 'success');
         } catch (error) {
             this.showToast('Failed to save settings', 'error');
+        }
+    }
+
+    async syncEmojis() {
+        try {
+            await this.apiCall('POST', '/api/emoji/sync', { guildId: this.guildId });
+            await this.loadEmojis();
+            this.showToast('Emojis synced', 'success');
+        } catch (error) {
+            this.showToast('Failed to sync emojis', 'error');
+        }
+    }
+
+    async loadEmojis() {
+        try {
+            const response = await fetch(`/api/emoji?apiKey=${this.apiKey}&guildId=${this.guildId}`);
+            if (response.ok) {
+                const emojis = await response.json();
+                const grid = document.getElementById('emojiGrid');
+                
+                if (Object.keys(emojis).length === 0) {
+                    grid.innerHTML = '<div class="empty-message">No custom emojis set. Click "Sync Server Emojis" to auto-map.</div>';
+                    return;
+                }
+                
+                grid.innerHTML = Object.entries(emojis).map(([key, emoji]) => `
+                    <div class="emoji-item" data-key="${key}">
+                        <div class="emoji-preview">${emoji}</div>
+                        <div class="emoji-key">${key}</div>
+                        <div class="emoji-name">Custom</div>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading emojis:', error);
         }
     }
 

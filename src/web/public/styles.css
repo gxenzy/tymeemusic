@@ -930,6 +930,87 @@ body {
     box-shadow: 0 4px 20px rgba(255, 203, 164, 0.3);
 }
 
+/* Emoji Tab */
+.emoji-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.emoji-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.emoji-header h2 {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.emoji-description {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+.sync-emoji-btn {
+    padding: 10px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-white);
+    font-size: 13px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.sync-emoji-btn:hover {
+    border-color: var(--peach);
+    color: var(--peach);
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 24px;
+}
+
+.emoji-item {
+    background: var(--bg-darker);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.emoji-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--peach);
+}
+
+.emoji-preview {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.emoji-key {
+    font-size: 12px;
+    color: var(--text-gray);
+    margin-bottom: 4px;
+}
+
+.emoji-name {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: monospace;
+}
+
 /* Toast Notifications */
 .toast-container {
     position: fixed;
