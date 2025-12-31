@@ -1,9 +1,11 @@
 import { Guild } from "#db/Guild";
 import { User } from "#db/User";
-import { Playlists } from "#db/Playlists";
+import { Playlists } from "#db/Playlists"
 import { Premium } from "#db/Premium";
 import { Emoji } from "#db/Emoji";
 import { logger } from "#utils/logger";
+import { config } from "#config/config";
+import { unlinkSync, existsSync } from "fs";
 
 export class DatabaseManager {
   constructor() {
@@ -12,15 +14,48 @@ export class DatabaseManager {
 
   initDatabases() {
     try {
+      // Reset databases if requested
+      if (config.databaseReset) {
+        this.resetAllDatabases();
+        logger.warn("DatabaseManager", "All databases have been reset as requested");
+      }
+
       this.guild = new Guild();
       this.user = new User();
       this.premium = new Premium();
       this.playlists = new Playlists();
       this.emoji = new Emoji();
-      logger.success("DatabaseManager", "All databases initialized successfully");
+      logger.success(
+        "DatabaseManager",
+        "All databases initialized successfully",
+      );
     } catch (error) {
       logger.error("DatabaseManager", "Failed to initialize databases", error);
       throw error;
+    }
+  }
+
+  resetAllDatabases() {
+    try {
+      // Close any existing connections first
+      this.closeAll();
+
+      // Delete database files
+      const dbPaths = Object.values(config.database);
+      for (const dbPath of dbPaths) {
+        try {
+          if (existsSync(dbPath)) {
+            unlinkSync(dbPath);
+            logger.info("DatabaseManager", `Deleted database: ${dbPath}`);
+          }
+        } catch (error) {
+          logger.warn("DatabaseManager", `Failed to delete ${dbPath}:`, error.message);
+        }
+      }
+
+      logger.success("DatabaseManager", "All databases reset successfully");
+    } catch (error) {
+      logger.error("DatabaseManager", "Error resetting databases", error);
     }
   }
 

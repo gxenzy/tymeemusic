@@ -1619,3 +1619,354 @@ Stack trace: SyntaxError: Identifier 'startPlayerUpdateInterval' has already bee
     at #translate (node:internal/modules/esm/loader:468:12)
     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
     at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+[2025-12-31T05:40:33.282Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-31T05:40:33.501Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:90
+    at Array.map (<anonymous>)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:61)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-31T05:40:36.516Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-31T05:40:36.668Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-31T05:40:39.680Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-31T05:40:39.843Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-31T05:40:42.849Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-31T05:40:42.996Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-31T05:40:46.005Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-31T05:40:46.182Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-31T05:40:49.197Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-31T05:40:49.343Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-31T05:40:52.427Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: Error: Unable to connect after 5 attempts.
+    at LavalinkNode.executeReconnect (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:1909:21)
+    at Timeout._onTimeout (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:1896:12)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-12-31T05:40:52.624Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+[2025-12-31T05:57:04.306Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:57:04.355Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:57:07.716Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:57:07.751Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:57:11.960Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:57:11.994Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:57:15.727Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:57:15.763Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:58:42.712Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:58:42.751Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:59:14.776Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:59:25.162Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:59:25.201Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:59:28.537Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:59:28.632Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:59:32.482Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:59:32.539Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:59:36.242Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:59:36.272Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T05:59:55.743Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T05:59:55.796Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:00:01.965Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T06:00:02.005Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:00:10.294Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T06:00:10.326Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:00:13.698Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T06:00:13.727Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:00:36.478Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T06:00:36.536Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:00:40.386Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T06:00:40.453Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:00:44.371Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T06:00:44.414Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:00:48.697Z] [ERROR] [Process] Uncaught Exception: uncaughtException
+Stack trace: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at WebServer.start (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/web/server.js:946:17)
+    at Tymee.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:87:20)
+    at Object.onceWrapper (node:events:633:26)
+    at Tymee.emit (node:events:530:35)
+    at WebSocketManager.triggerClientReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:386:21)
+    at WebSocketManager.checkShardsReady (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:368:10)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
+[2025-12-31T06:00:48.730Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:05:22.788Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+[2025-12-31T06:35:45.163Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:35:45.435Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:35:45.630Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:35:45.836Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:40:30.557Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:40:30.708Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:40:30.933Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-31T06:40:31.112Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
