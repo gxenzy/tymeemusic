@@ -172,6 +172,7 @@ class MusicDashboard {
             await this.loadPlayerState();
             await this.loadQueue();
             await this.loadSettings();
+            await this.loadFilters();
             await this.loadPlaylists();
             await this.loadHistory();
             await this.loadEmojis();
@@ -266,7 +267,7 @@ class MusicDashboard {
 
     async loadSettings() {
         if (!this.guildId) return;
-        
+
         try {
             const response = await fetch(`/api/guild/${this.guildId}/settings?apiKey=${this.apiKey}`);
             if (response.ok) {
@@ -280,6 +281,59 @@ class MusicDashboard {
         } catch (error) {
             console.error('Error loading settings:', error);
         }
+    }
+
+    async loadFilters() {
+        try {
+            const response = await fetch(`/api/filters?apiKey=${this.apiKey}`);
+            if (response.ok) {
+                const filters = await response.json();
+                this.updateFiltersUI(filters);
+            }
+        } catch (error) {
+            console.error('Error loading filters:', error);
+        }
+    }
+
+    updateFiltersUI(filters) {
+        // Clear existing filter buttons and regenerate them
+        const filterGroups = document.querySelectorAll('.filter-group');
+
+        filterGroups.forEach(group => {
+            const title = group.querySelector('h3').textContent.toLowerCase();
+            const buttonContainer = group.querySelector('.filter-buttons');
+
+            if (!buttonContainer) return;
+
+            buttonContainer.innerHTML = '';
+
+            let filterList = [];
+            if (title.includes('bass')) {
+                filterList = filters.bass || [];
+            } else if (title.includes('genre')) {
+                filterList = filters.genres || [];
+            } else if (title.includes('effects') || title.includes('special')) {
+                filterList = filters.special || [];
+            } else if (title.includes('enhancement')) {
+                filterList = filters.bass || []; // fallback
+            }
+
+            filterList.forEach(filter => {
+                const button = document.createElement('button');
+                button.className = 'filter-btn';
+                button.setAttribute('data-filter', filter);
+                button.textContent = this.formatFilterName(filter);
+                button.addEventListener('click', () => this.toggleFilter(filter));
+                buttonContainer.appendChild(button);
+            });
+        });
+
+        // Re-bind reset filters button
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => this.resetFilters());
+    }
+
+    formatFilterName(filter) {
+        return filter.split(/(?=[A-Z])/).join(' ').replace(/\b\w/g, l => l.toUpperCase());
     }
 
     async loadPlaylists() {
@@ -590,7 +644,7 @@ class MusicDashboard {
         }
         
         try {
-            await this.apiCall('POST', '/api/playlist/create', { name, userId: 'dashboard' });
+            await this.apiCall('POST', '/api/playlist/create', { name, guildId: this.guildId, userId: 'dashboard' });
             this.showToast('Playlist created', 'success');
             await this.loadPlaylists();
         } catch (error) {

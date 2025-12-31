@@ -472,7 +472,7 @@ export class WebServer {
           return res.status(404).json({ error: 'No player found' });
         }
         
-        const { filters: filterConfig } = await import('#config/filters.js');
+        const { filters: filterConfig } = await import('#config/filters');
         const allFilters = {};
         
         if (filters && filters.length > 0) {
@@ -511,7 +511,7 @@ export class WebServer {
     // Get available filters
     this.app.get('/api/filters', this.authenticate.bind(this), async (req, res) => {
       try {
-        const { filters: filterConfig } = await import('#config/filters.js');
+        const { filters: filterConfig } = await import('#config/filters');
         
         res.json({
           genres: filterConfig.getGenreFilters(),
