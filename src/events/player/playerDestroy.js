@@ -12,6 +12,11 @@ export default {
 				"playerDestroy",
 				`🎵 Player destroyed for guild: ${player.guildId},reason : ${reason}`,
 			);
+			
+			// Notify web dashboard that player is gone
+			if (player.manager?.client?.webServer) {
+				player.manager.client.webServer.updatePlayerState(player.guildId);
+			}
 		} catch (error) {
 			logger.error("PlayerDestroy", "Error in Pla event:", error);
 		}

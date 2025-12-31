@@ -98,3 +98,151 @@ export function formatPremiumExpiry(expiresAt) {
 	const minutes = Math.floor(timeLeft / 60000);
 	return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
 }
+
+// ============ TIER-BASED PERMISSION SYSTEM ============
+
+const tierHierarchy = {
+	denied: 0,
+	free: 1,
+	vip: 2,
+	premium: 3,
+	owner: 4
+};
+
+export function hasDjRole(userId, guild) {
+	if (!guild || !userId) return false;
+	
+	const guildDb = db.guild;
+	const djRoles = guildDb.getDjRoles(guild.id);
+	if (!djRoles || djRoles.length === 0) return false;
+	
+	const member = guild.members.cache.get(userId);
+	if (!member) return false;
+	
+	return djRoles.some(roleId => member.roles.cache.has(roleId));
+}
+
+export async function getUserTier(userId, guild) {
+	if (!guild || !userId) return 'denied';
+	
+	const guildDb = db.guild;
+	const tier = guildDb.getTier(guild.id) || 'free';
+	
+	// Check if user is bot owner
+	if (isOwner(userId)) return 'owner';
+	
+	// If tier is owner, only bot owners get it
+	if (tier === 'owner') {
+		return isOwner(userId) ? 'owner' : 'free';
+	}
+	
+	let member = guild.members.cache.get(userId);
+	if (!member) {
+		try {
+			member = await guild.members.fetch(userId);
+		} catch (e) {
+			// Ignore fetch errors
+		}
+		if (!member) {
+			return 'denied';
+		}
+	}
+	
+	// Get all tier data (roles and users)
+	const tierData = guildDb.getAllTierData(guild.id);
+	
+	// Check premium users first (highest tier after owner)
+	if (tierData.users.premium.includes(userId)) {
+		return 'premium';
+	}
+	
+	// Check premium roles
+	if (tierData.roles.premium.some(roleId => member.roles.cache.has(roleId))) {
+		return 'premium';
+	}
+
+	// Check VIP users
+	if (tierData.users.vip.includes(userId)) {
+		return 'vip';
+	}
+	
+	// Check VIP roles
+	if (tierData.roles.vip.some(roleId => member.roles.cache.has(roleId))) {
+		return 'vip';
+	}
+
+	// Check allowed users
+	if (tierData.users.allowed.includes(userId)) {
+		return 'free';
+	}
+	
+	// Check allowed roles for free tier
+	if (tierData.roles.allowed.some(roleId => member.roles.cache.has(roleId))) {
+		return 'free';
+	}
+
+	// No matching users or roles - check server tier setting
+	if (tier === 'free' || tier === 'vip' || tier === 'premium') {
+		return tier;
+	}
+
+	return 'denied';
+}
+
+export function getRequiredTier(command) {
+	// Check new tier property first
+	if (command.tier) {
+		const validTiers = ['free', 'vip', 'premium', 'owner'];
+		if (validTiers.includes(command.tier)) {
+			return command.tier;
+		}
+	}
+	
+	// Check legacy vipOnly flag
+	if (command.vipOnly) return 'vip';
+	
+	// Check legacy ownerOnly flag
+	if (command.ownerOnly) return 'owner';
+	
+	// Check legacy premium flags
+	if (command.userPrem || command.guildPrem || command.anyPrem) return 'premium';
+	
+	return 'free';
+}
+
+export async function canUseCommandByTier(userId, guild, command) {
+	const userTier = await getUserTier(userId, guild);
+	const requiredTier = getRequiredTier(command);
+	
+	const userTierLevel = tierHierarchy[userTier] || 0;
+	const requiredTierLevel = tierHierarchy[requiredTier] || 0;
+	
+	return userTierLevel >= requiredTierLevel;
+}
+
+export function getTierDisplayName(tier) {
+	const displayNames = {
+		owner: 'Owner',
+		premium: 'Premium',
+		vip: 'VIP',
+		free: 'Free',
+		denied: 'Denied'
+	};
+	return displayNames[tier] || tier;
+}
+
+export function getTierInfo(guildId) {
+	const guildDb = db.guild;
+	const tier = guildDb.getTier(guildId) || 'free';
+	const tierRoles = guildDb.getTierRoles(guildId);
+	
+	return {
+		tier,
+		displayName: getTierDisplayName(tier),
+		roles: {
+			allowed: tierRoles.allowed,
+			vip: tierRoles.vip,
+			premium: tierRoles.premium
+		}
+	};
+}

@@ -205,8 +205,9 @@ class PlayCommand extends Command {
 
       const pm = new PlayerManager(player);
 
-      // Set "Requested by" voice channel status
-      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, message.author.username);
+      // Set "Requested by" voice channel status with custom emoji support
+      const emojiManager = client.emojiManager || null;
+      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, message.author.username, message.guild, emojiManager);
 
       const result = await this._handlePlayRequest({
         client,
@@ -303,8 +304,9 @@ class PlayCommand extends Command {
 
       const pm = new PlayerManager(player);
 
-      // Set "Requested by" voice channel status
-      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, interaction.user.username);
+      // Set "Requested by" voice channel status with custom emoji support
+      const emojiManager = client.emojiManager || null;
+      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, interaction.user.username, interaction.guild, emojiManager);
 
       const result = await this._handlePlayRequest({
         client,

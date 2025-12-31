@@ -21,21 +21,68 @@ export class Guild extends Database {
         stay_247_voice_channel TEXT DEFAULT NULL,
         stay_247_text_channel TEXT DEFAULT NULL,
         music_card_settings TEXT DEFAULT NULL,
+        dj_roles TEXT DEFAULT '[]',
+        dj_role TEXT DEFAULT NULL,
+        auto_play BOOLEAN DEFAULT FALSE,
+        tier TEXT DEFAULT 'free',
+        allowed_roles TEXT DEFAULT '[]',
+        vip_roles TEXT DEFAULT '[]',
+        premium_roles TEXT DEFAULT '[]',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Check if music_card_settings column exists before adding it
-    const columns = this.all("PRAGMA table_info(guilds)");
-    const hasMusicCardSettings = columns.some(col => col.name === 'music_card_settings');
-
-    if (!hasMusicCardSettings) {
-      try {
+    try {
+      const columns = this.all("PRAGMA table_info(guilds)");
+      const colNames = columns.map(c => c.name);
+      
+      if (!colNames.includes('music_card_settings')) {
         this.exec(`ALTER TABLE guilds ADD COLUMN music_card_settings TEXT DEFAULT NULL`);
-      } catch (error) {
-        logger.error('GuildDB', 'Error adding music_card_settings column:', error);
       }
+      if (!colNames.includes('dj_role')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN dj_role TEXT DEFAULT NULL`);
+      }
+      if (!colNames.includes('auto_play')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN auto_play BOOLEAN DEFAULT FALSE`);
+      }
+      if (!colNames.includes('dj_roles')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN dj_roles TEXT DEFAULT '[]'`);
+      }
+      if (!colNames.includes('tier')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN tier TEXT DEFAULT 'free'`);
+      }
+      if (!colNames.includes('allowed_roles')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN allowed_roles TEXT DEFAULT '[]'`);
+      }
+      if (!colNames.includes('allowed_users')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN allowed_users TEXT DEFAULT '[]'`);
+      }
+      if (!colNames.includes('vip_roles')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN vip_roles TEXT DEFAULT '[]'`);
+      }
+      if (!colNames.includes('vip_users')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN vip_users TEXT DEFAULT '[]'`);
+      }
+      if (!colNames.includes('premium_roles')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN premium_roles TEXT DEFAULT '[]'`);
+      }
+      if (!colNames.includes('premium_users')) {
+        this.exec(`ALTER TABLE guilds ADD COLUMN premium_users TEXT DEFAULT '[]'`);
+      }
+      
+      // Migrate old dj_role to dj_roles array
+      const guildsWithDjRole = this.all("SELECT id, dj_role FROM guilds WHERE dj_role IS NOT NULL AND dj_role != ''");
+      for (const guild of guildsWithDjRole) {
+        try {
+          const djRoles = JSON.stringify([guild.dj_role]);
+          this.exec("UPDATE guilds SET dj_roles = ? WHERE id = ?", [djRoles, guild.id]);
+        } catch (e) {
+          logger.warn('GuildDB', `Failed to migrate dj_role for guild ${guild.id}`);
+        }
+      }
+    } catch (error) {
+      logger.error('GuildDB', 'Migration error:', error);
     }
   }
 
@@ -144,17 +191,28 @@ export class Guild extends Database {
 
   updateSettings(guildId, settings) {
     this.ensureGuild(guildId);
-    const allowedKeys   =["prefixes", "default_volume", "auto_disconnect", "stay_247", "stay_247_voice_channel", "stay_247_text_channel"];
-    const keys   =Object.keys(settings).filter(key   => allowedKeys.includes(key));
+    const allowedKeys = [
+      "prefixes", "default_volume", "auto_disconnect", 
+      "stay_247", "stay_247_voice_channel", "stay_247_text_channel",
+      "dj_roles", "auto_play", "tier", "allowed_roles", 
+      "vip_roles", "premium_roles", "allowed_users", 
+      "vip_users", "premium_users"
+    ];
+    const keys = Object.keys(settings).filter(key => allowedKeys.includes(key));
 
-    if (keys.length   ===0) return null;
+    if (keys.length === 0) return null;
 
-    const setClause   =keys.map((key)   => `${key}   =?`).join(", ");
-    const values   =keys.map((key)   => settings[key]);
+    const setClause = keys.map((key) => `${key} = ?`).join(", ");
+    const values = keys.map((key) => {
+      if (Array.isArray(settings[key])) {
+        return JSON.stringify(settings[key]);
+      }
+      return settings[key];
+    });
     values.push(guildId);
 
     return this.exec(
-      `UPDATE guilds SET ${setClause}, updated_at   =CURRENT_TIMESTAMP WHERE id   =?`,
+      `UPDATE guilds SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       values
     );
   }
@@ -198,20 +256,27 @@ export class Guild extends Database {
       autoDisconnect: guild.auto_disconnect   !==0 && guild.auto_disconnect   !==false
     };
   }
+  	set247Mode(guildId, enabled, voiceChannelId = null, textChannelId = null) {
+    	this.ensureGuild(guildId);
+    
+    	this.exec(
+      	"UPDATE guilds SET stay_247 = ?, stay_247_voice_channel = ?, stay_247_text_channel = ?, auto_disconnect = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      	[
+        		enabled ? 1 : 0,
+        		enabled ? voiceChannelId : null,
+        		enabled ? textChannelId : null,
+        		enabled ? 0 : 1,
+        		guildId
+      	]
+    	);
 
-  set247Mode(guildId, enabled, voiceChannelId   =null, textChannelId   =null) {
-    this.ensureGuild(guildId);
-    return this.exec(
-      "UPDATE guilds SET stay_247   =?, stay_247_voice_channel   =?, stay_247_text_channel   =?, auto_disconnect   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?",
-      [
-        enabled ? 1 : 0,
-        enabled ? voiceChannelId : null,
-        enabled ? textChannelId : null,
-        enabled ? 0 : 1,
-        guildId
-      ]
-    );
-  }
+    	// If enabling 24/7 mode with a voice channel, trigger auto-connect
+    	if (enabled && voiceChannelId) {
+      	logger.info('GuildDB', `24/7 mode enabled for guild ${guildId}, voice channel: ${voiceChannelId}`);
+    	}
+    
+    	return { enabled, voiceChannelId, textChannelId };
+  	}
 
   getAll247Guilds() {
     return this.all("SELECT * FROM guilds WHERE stay_247   =1 AND stay_247_voice_channel IS NOT NULL");
@@ -257,5 +322,194 @@ export class Guild extends Database {
       "UPDATE guilds SET music_card_settings = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       [settingsJson, guildId]
     );
+  }
+
+  // ============ TIER & ROLE MANAGEMENT ============
+
+  getTier(guildId) {
+    const guild = this.ensureGuild(guildId);
+    return guild.tier || 'free';
+  }
+
+  setTier(guildId, tier) {
+    this.ensureGuild(guildId);
+    const validTiers = ['free', 'vip', 'premium', 'owner'];
+    const sanitizedTier = validTiers.includes(tier) ? tier : 'free';
+    return this.exec(
+      "UPDATE guilds SET tier = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [sanitizedTier, guildId]
+    );
+  }
+
+  getDjRoles(guildId) {
+    const guild = this.ensureGuild(guildId);
+    try {
+      return JSON.parse(guild.dj_roles || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  setDjRoles(guildId, roles) {
+    this.ensureGuild(guildId);
+    const rolesJson = JSON.stringify(Array.isArray(roles) ? roles : []);
+    return this.exec(
+      "UPDATE guilds SET dj_roles = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [rolesJson, guildId]
+    );
+  }
+
+  getAllowedRoles(guildId) {
+    const guild = this.ensureGuild(guildId);
+    try {
+      return JSON.parse(guild.allowed_roles || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  setAllowedRoles(guildId, roles) {
+    this.ensureGuild(guildId);
+    const rolesJson = JSON.stringify(Array.isArray(roles) ? roles : []);
+    return this.exec(
+      "UPDATE guilds SET allowed_roles = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [rolesJson, guildId]
+    );
+  }
+
+  getVipRoles(guildId) {
+    const guild = this.ensureGuild(guildId);
+    try {
+      return JSON.parse(guild.vip_roles || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  setVipRoles(guildId, roles) {
+    this.ensureGuild(guildId);
+    const rolesJson = JSON.stringify(Array.isArray(roles) ? roles : []);
+    return this.exec(
+      "UPDATE guilds SET vip_roles = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [rolesJson, guildId]
+    );
+  }
+
+  getPremiumRoles(guildId) {
+    const guild = this.ensureGuild(guildId);
+    try {
+      return JSON.parse(guild.premium_roles || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  setPremiumRoles(guildId, roles) {
+    this.ensureGuild(guildId);
+    const rolesJson = JSON.stringify(Array.isArray(roles) ? roles : []);
+    return this.exec(
+      "UPDATE guilds SET premium_roles = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [rolesJson, guildId]
+    );
+  }
+
+  getTierRoles(guildId) {
+    const guild = this.ensureGuild(guildId);
+    return {
+      allowed: JSON.parse(guild.allowed_roles || '[]'),
+      allowedUsers: JSON.parse(guild.allowed_users || '[]'),
+      vip: JSON.parse(guild.vip_roles || '[]'),
+      vipUsers: JSON.parse(guild.vip_users || '[]'),
+      premium: JSON.parse(guild.premium_roles || '[]'),
+      premiumUsers: JSON.parse(guild.premium_users || '[]')
+    };
+  }
+
+  setTierRoles(guildId, roles) {
+    this.ensureGuild(guildId);
+    const allowedRoles = JSON.stringify(Array.isArray(roles?.allowed) ? roles.allowed : []);
+    const allowedUsers = JSON.stringify(Array.isArray(roles?.allowedUsers) ? roles.allowedUsers : []);
+    const vipRoles = JSON.stringify(Array.isArray(roles?.vip) ? roles.vip : []);
+    const vipUsers = JSON.stringify(Array.isArray(roles?.vipUsers) ? roles.vipUsers : []);
+    const premiumRoles = JSON.stringify(Array.isArray(roles?.premium) ? roles.premium : []);
+    const premiumUsers = JSON.stringify(Array.isArray(roles?.premiumUsers) ? roles.premiumUsers : []);
+    
+    return this.exec(
+      "UPDATE guilds SET allowed_roles = ?, allowed_users = ?, vip_roles = ?, vip_users = ?, premium_roles = ?, premium_users = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [allowedRoles, allowedUsers, vipRoles, vipUsers, premiumRoles, premiumUsers, guildId]
+    );
+  }
+
+  // ============ USER-BASED TIER MANAGEMENT ============
+
+  getAllowedUsers(guildId) {
+    const guild = this.ensureGuild(guildId);
+    try {
+      return JSON.parse(guild.allowed_users || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  setAllowedUsers(guildId, users) {
+    this.ensureGuild(guildId);
+    const usersJson = JSON.stringify(Array.isArray(users) ? users : []);
+    return this.exec(
+      "UPDATE guilds SET allowed_users = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [usersJson, guildId]
+    );
+  }
+
+  getVipUsers(guildId) {
+    const guild = this.ensureGuild(guildId);
+    try {
+      return JSON.parse(guild.vip_users || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  setVipUsers(guildId, users) {
+    this.ensureGuild(guildId);
+    const usersJson = JSON.stringify(Array.isArray(users) ? users : []);
+    return this.exec(
+      "UPDATE guilds SET vip_users = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [usersJson, guildId]
+    );
+  }
+
+  getPremiumUsers(guildId) {
+    const guild = this.ensureGuild(guildId);
+    try {
+      return JSON.parse(guild.premium_users || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  setPremiumUsers(guildId, users) {
+    this.ensureGuild(guildId);
+    const usersJson = JSON.stringify(Array.isArray(users) ? users : []);
+    return this.exec(
+      "UPDATE guilds SET premium_users = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [usersJson, guildId]
+    );
+  }
+
+  // Combined method to get all tier data (roles + users)
+  getAllTierData(guildId) {
+    const guild = this.ensureGuild(guildId);
+    return {
+      roles: {
+        allowed: JSON.parse(guild.allowed_roles || '[]'),
+        vip: JSON.parse(guild.vip_roles || '[]'),
+        premium: JSON.parse(guild.premium_roles || '[]')
+      },
+      users: {
+        allowed: JSON.parse(guild.allowed_users || '[]'),
+        vip: JSON.parse(guild.vip_users || '[]'),
+        premium: JSON.parse(guild.premium_users || '[]')
+      }
+    };
   }
 }

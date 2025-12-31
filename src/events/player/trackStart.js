@@ -5,6 +5,7 @@ import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
 import { EventUtils } from "#utils/EventUtils";
 import { PlayerManager } from "#managers/PlayerManager";
 import { DiscordPlayerEmbed } from "#utils/DiscordPlayerEmbed";
+import { updatePlayerMessageEmbed } from "#events/discord/music/Playerbuttons";
 import { db } from "#database/DatabaseManager";
 import MusicCard from "#structures/classes/MusicCard";
 
@@ -17,7 +18,12 @@ export default {
         logger.error('TrackStart', 'Invalid track data received:', track);
       }
 
-      await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track);
+      // Get guild and emoji manager for custom emoji support
+      const guild = player.guildId ? client.guilds.cache.get(player.guildId) : null;
+      const emojiManager = client.emojiManager || null;
+
+      // Pass guild and emojiManager for custom emoji resolution
+      await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track, guild, emojiManager);
 
       player.set('lastPlayedTrack', track);
 

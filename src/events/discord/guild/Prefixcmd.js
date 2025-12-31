@@ -409,6 +409,32 @@ export default {
         }
       }
 
+      // Tier-based permission check
+      const { canUseCommandByTier, getUserTier, getTierDisplayName, getRequiredTier } = await import('#utils/permissionUtil');
+      
+      const userTier = await getUserTier(message.author.id, message.guild);
+      const requiredTier = getRequiredTier(command);
+      
+      if (userTier === 'denied') {
+        return _sendError(
+          message,
+          "Access Denied",
+          `You don't have permission to use this command in this server.\n` +
+          `Required tier: **${getTierDisplayName(requiredTier)}**\n` +
+          `Your tier: **${getTierDisplayName(userTier)}**\n\n` +
+          `Contact a server admin to get access.`
+        );
+      }
+      
+      if (!await canUseCommandByTier(message.author.id, message.guild, command)) {
+        return _sendError(
+          message,
+          "Insufficient Tier",
+          `This command requires **${getTierDisplayName(requiredTier)}** tier.\n` +
+          `Your current tier: **${getTierDisplayName(userTier)}**`
+        );
+      }
+
       if (command.userPrem && !db.isUserPremium(message.author.id))
         return _sendPremiumError(message, "user");
       if (command.guildPrem && !db.isGuildPremium(message.guild.id))

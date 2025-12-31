@@ -175,8 +175,20 @@ class HelpCommand extends Command {
         return null;
       }
 
+      // Auto-assign tier based on category and command name
+      let commandData = { ...CommandClass };
+      
+      // Only call _determineCommandTier if tier is 'free' or undefined
+      // (not explicitly set to vip/premium/owner)
+      const explicitlySetTier = commandData.tier && ['vip', 'premium', 'owner'].includes(commandData.tier);
+      
+      if (!explicitlySetTier) {
+        const determinedTier = this._determineCommandTier(categoryName, commandData.name);
+        commandData.tier = determinedTier;
+      }
+
       const command = {
-        ...CommandClass,
+        ...commandData,
         category: categoryName,
       };
 
@@ -204,14 +216,68 @@ class HelpCommand extends Command {
     }
   }
 
+  _determineCommandTier(category, commandName) {
+    const tierHierarchy = {
+      // Premium tier commands
+      premium: [
+        'create-playlist', 'delete-playlist', 'my-playlists', 'playlist-info',
+        'edit-playlist', 'add2pl', 'remove-track', 'load-playlist',
+        'link-spotify', 'unlink-spotify', 'spotify-playlists',
+        'premium', 'noptoggle', 'userprefix',
+        'blacklist', 'rl', 'updateslash',
+        'autoplay', 'history', 'search', 'recommendations',
+        'musiccard'
+      ],
+      // VIP tier commands  
+      vip: [
+        'seek', 'forward', 'rewind', 'replay',
+        'loop', 'bump', 'move',
+        'classical', 'electronic', 'hiphop', 'jazz', 'pop', 'rock', 'reggae',
+        '247', 'setdefaultvolume'
+      ],
+      // Free tier is default
+      free: []
+    };
+
+    // Check premium commands
+    if (tierHierarchy.premium.includes(commandName.toLowerCase())) {
+      return 'premium';
+    }
+
+    // Check VIP commands
+    if (tierHierarchy.vip.includes(commandName.toLowerCase())) {
+      return 'vip';
+    }
+
+    // Check premium categories
+    const premiumCategories = ['playlists', 'Spotify', 'developer', 'premium'];
+    if (premiumCategories.includes(category.toLowerCase())) {
+      return 'premium';
+    }
+
+    // Check VIP categories
+    const vipCategories = ['settings'];
+    if (vipCategories.includes(category.toLowerCase())) {
+      return 'vip';
+    }
+
+    // Default to free tier
+    return 'free';
+  }
+
   async execute({ client, message, args }) {
     try {
+      // Get user's tier for this guild
+      const userTier = await this._getUserTier(message.author.id, message.guild.id, client);
       const { commands, categories, subcategories } =
         await this._scanCommandDirectories();
 
+      // Filter commands based on user's tier
+      const filteredCommands = this._filterCommandsByTier(commands, userTier);
+
       if (args.length > 0) {
         const commandName = args[0].toLowerCase();
-        const command = commands.get(commandName);
+        const command = filteredCommands.get(commandName);
 
         if (command) {
           return await this._sendCommandHelp(
@@ -219,30 +285,34 @@ class HelpCommand extends Command {
             command,
             "message",
             client,
-            commands,
+            filteredCommands,
             categories,
             subcategories,
+            userTier,
           );
         } else {
           return message.reply({
             components: [
-              this._createErrorContainer(`Command "${commandName}" not found.`),
+              this._createErrorContainer(`Command "${commandName}" not found or you don't have access.`),
             ],
             flags: MessageFlags.IsComponentsV2,
           });
         }
       }
 
-      if (categories.size === 0) {
+      // Filter categories based on available commands
+      const filteredCategories = this._filterCategoriesByCommands(categories, filteredCommands);
+      
+      if (filteredCategories.size === 0) {
         return message.reply({
-          components: [this._createErrorContainer("No commands available.")],
+          components: [this._createErrorContainer("No commands available for your tier.")],
           flags: MessageFlags.IsComponentsV2,
         });
       }
 
       const helpMessage = await message.reply({
         components: [
-          this._createMainContainer(commands, categories, subcategories),
+          this._createMainContainer(filteredCommands, filteredCategories, subcategories, userTier),
         ],
         flags: MessageFlags.IsComponentsV2,
       });
@@ -251,9 +321,10 @@ class HelpCommand extends Command {
         helpMessage,
         message.author.id,
         client,
-        commands,
-        categories,
+        filteredCommands,
+        filteredCategories,
         subcategories,
+        userTier,
       );
     } catch (error) {
       client.logger?.error(
@@ -274,12 +345,18 @@ class HelpCommand extends Command {
 
   async slashExecute({ client, interaction }) {
     try {
+      // Get user's tier for this guild
+      const userTier = await this._getUserTier(interaction.user.id, interaction.guild.id, client);
       const { commands, categories, subcategories } =
         await this._scanCommandDirectories();
+      
+      // Filter commands based on user's tier
+      const filteredCommands = this._filterCommandsByTier(commands, userTier);
+      
       const commandName = interaction.options.getString("command");
 
       if (commandName) {
-        const command = commands.get(commandName.toLowerCase());
+        const command = filteredCommands.get(commandName.toLowerCase());
 
         if (command) {
           return await this._sendCommandHelp(
@@ -287,14 +364,15 @@ class HelpCommand extends Command {
             command,
             "interaction",
             client,
-            commands,
+            filteredCommands,
             categories,
             subcategories,
+            userTier,
           );
         } else {
           return interaction.reply({
             components: [
-              this._createErrorContainer(`Command "${commandName}" not found.`),
+              this._createErrorContainer(`Command "${commandName}" not found or you don't have access.`),
             ],
             flags: MessageFlags.IsComponentsV2,
             ephemeral: true,
@@ -302,9 +380,12 @@ class HelpCommand extends Command {
         }
       }
 
-      if (categories.size === 0) {
+      // Filter categories based on available commands
+      const filteredCategories = this._filterCategoriesByCommands(categories, filteredCommands);
+
+      if (filteredCategories.size === 0) {
         return interaction.reply({
-          components: [this._createErrorContainer("No commands available.")],
+          components: [this._createErrorContainer("No commands available for your tier.")],
           flags: MessageFlags.IsComponentsV2,
           ephemeral: true,
         });
@@ -312,7 +393,7 @@ class HelpCommand extends Command {
 
       const helpMessage = await interaction.reply({
         components: [
-          this._createMainContainer(commands, categories, subcategories),
+          this._createMainContainer(filteredCommands, filteredCategories, subcategories, userTier),
         ],
         flags: MessageFlags.IsComponentsV2,
         fetchReply: true,
@@ -322,9 +403,10 @@ class HelpCommand extends Command {
         helpMessage,
         interaction.user.id,
         client,
-        commands,
-        categories,
+        filteredCommands,
+        filteredCategories,
         subcategories,
+        userTier,
       );
     } catch (error) {
       client.logger?.error(
@@ -382,7 +464,155 @@ class HelpCommand extends Command {
     }
   }
 
-  _createMainContainer(commands, categories, subcategories) {
+  // ============ TIER-BASED COMMAND FILTERING ============
+
+  async _getUserTier(userId, guildId, client) {
+    try {
+      // Check if user is bot owner
+      const { config } = await import('#config/config');
+      if (config.ownerIds?.includes(userId)) {
+        return 'owner';
+      }
+
+      // Get guild settings
+      const { DatabaseManager } = await import('#database/DatabaseManager');
+      const { db } = await import('#database/DatabaseManager');
+      const guildDb = db.guild;
+      
+      const guild = guildDb.ensureGuild(guildId);
+      const tier = guildDb.getTier(guildId) || 'free';
+      
+      // If tier is owner, only bot owners get it
+      if (tier === 'owner') {
+        return config.ownerIds?.includes(userId) ? 'owner' : 'free';
+      }
+
+      const guildObj = client.guilds.cache.get(guildId);
+      if (!guildObj) return 'denied';
+      
+      let member = guildObj.members.cache.get(userId);
+      if (!member) {
+        try {
+          member = await guildObj.members.fetch(userId);
+        } catch (e) {
+          // Ignore
+        }
+      }
+      if (!member) return 'denied';
+
+      // Get all tier data (roles and users)
+      const tierData = guildDb.getAllTierData(guildId);
+
+      // Check premium users first
+      if (tierData.users.premium.includes(userId)) {
+        return 'premium';
+      }
+
+      // Check premium roles
+      if (tierData.roles.premium.some(roleId => member.roles.cache.has(roleId))) {
+        return 'premium';
+      }
+
+      // Check VIP users
+      if (tierData.users.vip.includes(userId)) {
+        return 'vip';
+      }
+
+      // Check VIP roles
+      if (tierData.roles.vip.some(roleId => member.roles.cache.has(roleId))) {
+        return 'vip';
+      }
+
+      // Check allowed users
+      if (tierData.users.allowed.includes(userId)) {
+        return 'free';
+      }
+
+      // Check allowed roles for free tier
+      if (tierData.roles.allowed.some(roleId => member.roles.cache.has(roleId))) {
+        return 'free';
+      }
+
+      // No matching users or roles - check server tier setting
+      if (tier === 'free' || tier === 'vip' || tier === 'premium') {
+        return tier;
+      }
+
+      return 'denied';
+    } catch (error) {
+      logger.error("HelpCommand", "Error getting user tier:", error);
+      return 'free';
+    }
+  }
+
+  _getCommandTier(command) {
+    // Check new tier property first
+    if (command.tier) {
+      const validTiers = ['free', 'vip', 'premium', 'owner'];
+      if (validTiers.includes(command.tier)) {
+        return command.tier;
+      }
+    }
+
+    // Check legacy flags
+    if (command.ownerOnly) return 'owner';
+    if (command.vipOnly) return 'vip';
+    if (command.userPrem || command.guildPrem || command.anyPrem) return 'premium';
+
+    return 'free';
+  }
+
+  _filterCommandsByTier(commands, userTier) {
+    const tierHierarchy = { denied: 0, free: 1, vip: 2, premium: 3, owner: 4 };
+    const userTierLevel = tierHierarchy[userTier] || 0;
+
+    const filtered = new Map();
+    
+    for (const [name, command] of commands) {
+      // Only add unique commands (not aliases)
+      if (name !== command.name) continue;
+
+      const commandTier = this._getCommandTier(command);
+      const commandTierLevel = tierHierarchy[commandTier] || 0;
+
+      // User can access command if their tier >= command's tier
+      if (userTierLevel >= commandTierLevel) {
+        filtered.set(name, command);
+      }
+    }
+
+    return filtered;
+  }
+
+  _filterCategoriesByCommands(categories, filteredCommands) {
+    const filtered = new Map();
+    
+    for (const [categoryName, commands] of categories) {
+      // Filter commands in this category
+      const filteredCategoryCommands = commands.filter(cmd => 
+        filteredCommands.has(cmd.name)
+      );
+      
+      if (filteredCategoryCommands.length > 0) {
+        filtered.set(categoryName, filteredCategoryCommands);
+      }
+    }
+
+    return filtered;
+  }
+
+  _getTierDisplayName(tier) {
+    const names = {
+      free: 'Free',
+      vip: 'VIP',
+      premium: 'Premium',
+      owner: 'Owner',
+      denied: 'Denied'
+    };
+    return names[tier] || tier;
+  }
+
+  _createMainContainer(commands, categories, subcategories, userTier = 'free') {
     try {
       const categoryArray = Array.from(categories.keys());
       const uniqueCommands = Array.from(commands.values()).filter(
@@ -406,11 +636,26 @@ class HelpCommand extends Command {
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
       );
 
-      let content = `**Bot Command Information**\n\n`;
+      // Show user's tier
+      const tierEmoji = {
+        free: '🎵',
+        vip: '⭐',
+        premium: '💎',
+        owner: '👑'
+      };
+      const tierColor = {
+        free: '#5865F2',
+        vip: '#FEE75C',
+        premium: '#EB459E',
+        owner: '#ED4245'
+      };
+
+      let content = `**Your Access: ${tierEmoji[userTier] || '🎵'} ${this._getTierDisplayName(userTier)} Tier**\n\n`;
       content += `┌─ **${emoji.get("info")} Statistics**\n`;
-      content += `├─ Prefix Commands: ${uniqueCommands.length}\n`;
+      content += `├─ Available Commands: ${uniqueCommands.length}\n`;
       content += `├─ Slash Commands: ${slashCommands.length}\n`;
-      content += `└─ Categories: ${categoryArray.length}\n\n`;
+      content += `├─ Categories: ${categoryArray.length}\n`;
+      content += `└─ Your Tier: ${this._getTierDisplayName(userTier)}\n\n`;
 
       content += `**Available Categories:**\n`;
 
@@ -478,7 +723,7 @@ class HelpCommand extends Command {
     }
   }
 
-  _createCategoryContainer(category, categories, subcategories) {
+  _createCategoryContainer(category, categories, subcategories, userTier = 'free') {
     try {
       const commands = categories.get(category) || [];
       const subcats = subcategories.get(category);
@@ -502,6 +747,7 @@ class HelpCommand extends Command {
       );
 
       let content = `**${this._capitalize(category)} Category**\n\n`;
+      content += `Your Tier: ${this._getTierDisplayName(userTier)}\n\n`;
 
       
       const directCommands = commands.filter((cmd) => {
@@ -597,9 +843,9 @@ class HelpCommand extends Command {
     }
   }
 
-  _createCommandContainer(command, category) {
+  _createCommandContainer(command, category, userTier = 'free') {
     try {
-      if (!command) return this._createErrorContainer("Command not found.");
+      if (!command) return this._createErrorContainer("Command not found");
 
       const container = new ContainerBuilder();
 
@@ -613,12 +859,17 @@ class HelpCommand extends Command {
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
       );
 
+      // Get command's required tier
+      const commandTier = this._getCommandTier(command);
+      const tierEmoji = { free: '🎵', vip: '⭐', premium: '💎', owner: '👑' };
+      
       let content = `**Command Information**\n\n`;
       content += `┌─ **${emoji.get("info")} Basic Info**\n`;
       content += `├─ Description: ${command.description || "No description provided"}\n`;
       content += `├─ Usage: \`${command.usage || command.name}\`\n`;
       content += `├─ Category: ${this._capitalize(command.category || "misc")}\n`;
-      content += `└─ Cooldown: ${command.cooldown || 3}s\n\n`;
+      content += `├─ Cooldown: ${command.cooldown || 3}s\n`;
+      content += `└─ Required Tier: ${tierEmoji[commandTier] || '🎵'} ${this._getTierDisplayName(commandTier)}\n\n`;
 
       if (command.aliases?.length) {
         content += `**Aliases:**\n`;
@@ -641,15 +892,24 @@ class HelpCommand extends Command {
       }
 
       const requirements = [];
-      if (command.ownerOnly) requirements.push("Bot Owner");
-      if (command.userPrem) requirements.push("User Premium");
-      if (command.guildPrem) requirements.push("Server Premium");
-      if (command.anyPrem) requirements.push("Any Premium (User or Server)");
-      if (command.voiceRequired) requirements.push("Voice Channel");
-      if (command.sameVoiceRequired) requirements.push("Same Voice Channel");
-      if (command.playerRequired) requirements.push("Music Player");
-      if (command.playingRequired) requirements.push("Currently Playing");
-      if (command.maintenance) requirements.push("Maintenance Mode");
+      
+      // Tier access info
+      const tierHierarchy = { free: 1, vip: 2, premium: 3, owner: 4 };
+      const userTierLevel = tierHierarchy[userTier] || 0;
+      const commandTierLevel = tierHierarchy[commandTier] || 0;
+      
+      if (userTierLevel >= commandTierLevel) {
+        content += `✅ You have access to this command!\n\n`;
+      } else {
+        content += `❌ You need ${this._getTierDisplayName(commandTier)} tier to use this command.\n\n`;
+      }
+
+      // Other requirements
+      if (command.voiceRequired) requirements.push("Voice Channel Required");
+      if (command.sameVoiceRequired) requirements.push("Same Voice Channel Required");
+      if (command.playerRequired) requirements.push("Music Player Required");
+      if (command.playingRequired) requirements.push("Currently Playing Required");
+      if (command.maintenance) requirements.push("Maintenance Mode Active");
       if (command.userPermissions?.length)
         requirements.push(
           `User Permissions: ${command.userPermissions.join(", ")}`,
@@ -658,7 +918,7 @@ class HelpCommand extends Command {
         requirements.push(`Bot Permissions: ${command.permissions.join(", ")}`);
 
       if (requirements.length) {
-        content += `**Requirements:**\n`;
+        content += `**Other Requirements:**\n`;
         requirements.forEach((req, i) => {
           const isLast = i === requirements.length - 1;
           const prefix = isLast ? "└─" : "├─";
@@ -682,15 +942,9 @@ class HelpCommand extends Command {
 
       const buttons = [
         new ButtonBuilder()
-          .setCustomId(
-            `help_back_category_${category || command.category || "misc"}`,
-          )
+          .setCustomId("help_back_main")
           .setLabel("Back")
           .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId("help_back_main")
-          .setLabel("Home")
-          .setStyle(ButtonStyle.Primary),
       ];
 
       if (command.enabledSlash && command.slashData) {
@@ -852,9 +1106,10 @@ class HelpCommand extends Command {
     commands,
     categories,
     subcategories,
+    userTier,
   ) {
     try {
-      const container = this._createCommandContainer(command, command.category);
+      const container = this._createCommandContainer(command, command.category, userTier);
 
       if (type === "message") {
         const helpMessage = await messageOrInteraction.reply({
@@ -868,6 +1123,7 @@ class HelpCommand extends Command {
           commands,
           categories,
           subcategories,
+          userTier,
         );
       } else {
         const helpMessage = await messageOrInteraction.reply({
@@ -882,6 +1138,7 @@ class HelpCommand extends Command {
           commands,
           categories,
           subcategories,
+          userTier,
         );
       }
     } catch (error) {
@@ -896,6 +1153,7 @@ class HelpCommand extends Command {
     commands,
     categories,
     subcategories,
+    userTier,
   ) {
     try {
       const filter = (i) => i.user.id === userId;
@@ -917,7 +1175,7 @@ class HelpCommand extends Command {
           if (interaction.customId === "help_back_main") {
             await interaction.editReply({
               components: [
-                this._createMainContainer(commands, categories, subcategories),
+                this._createMainContainer(commands, categories, subcategories, userTier),
               ],
             });
             return;
@@ -931,6 +1189,7 @@ class HelpCommand extends Command {
                   category,
                   categories,
                   subcategories,
+                  userTier,
                 ),
               ],
             });
@@ -947,7 +1206,7 @@ class HelpCommand extends Command {
 
             if (command) {
               await interaction.editReply({
-                components: [this._createCommandContainer(command, category)],
+                components: [this._createCommandContainer(command, category, userTier)],
               });
             }
             return;
@@ -964,6 +1223,7 @@ class HelpCommand extends Command {
                   category,
                   categories,
                   subcategories,
+                  userTier,
                 ),
               ],
             });
@@ -997,7 +1257,7 @@ class HelpCommand extends Command {
 
             if (command) {
               await interaction.editReply({
-                components: [this._createCommandContainer(command, category)],
+                components: [this._createCommandContainer(command, category, userTier)],
               });
             }
             return;

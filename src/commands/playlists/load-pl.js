@@ -180,8 +180,9 @@ class LoadPlaylistCommand extends Command {
 			const pm = new PlayerManager(player);
 			if (!pm.isConnected) await pm.connect();
 
-			// Set "Requested by" voice channel status
-			VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, user.username);
+			// Set "Requested by" voice channel status with custom emoji support
+			const emojiManager = client.emojiManager || null;
+			VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, user.username, context.guild, emojiManager);
 
 			const finalTracks = tracksToProcess.slice(0, queueCheck.tracksToAdd);
 			let addedCount = 0;

@@ -30,22 +30,77 @@ export class VoiceChannelStatus {
   }
 
   /**
+   * Resolve an emoji key to actual Discord emoji (custom or unicode)
+   * @param {string} emojiKey - The emoji key (sp, yt, play, etc.)
+   * @param {Object} guild - Discord guild object
+   * @param {Object} emojiManager - Optional EmojiManager instance
+   * @returns {string} - Resolved emoji string
+   */
+  static async resolveEmoji(emojiKey, guild, emojiManager = null) {
+    // First check emojiManager for custom emoji mapping
+    if (emojiManager && guild) {
+      try {
+        const emojiData = await emojiManager.getEmoji(guild.id, emojiKey);
+        if (emojiData && emojiData.id && emojiData.available) {
+          // Return custom emoji format
+          return emojiData.animated
+            ? `<a:${emojiData.name}:${emojiData.id}>`
+            : `<:${emojiData.name}:${emojiData.id}>`;
+        }
+      } catch (error) {
+        logger.debug('VoiceChannelStatus', `EmojiManager lookup failed for ${emojiKey}: ${error.message}`);
+      }
+    }
+
+    // Fallback: Check if custom emoji exists in guild
+    if (guild) {
+      // Try finding by exact name match
+      let serverEmoji = guild.emojis.cache.find(e => 
+        e.name.toLowerCase() === emojiKey.toLowerCase()
+      );
+      
+      if (serverEmoji) {
+        return serverEmoji.toString();
+      }
+
+      // Try finding by partial name match
+      serverEmoji = guild.emojis.cache.find(e => 
+        e.name.toLowerCase().includes(emojiKey.toLowerCase()) ||
+        emojiKey.toLowerCase().includes(e.name.toLowerCase())
+      );
+      
+      if (serverEmoji) {
+        return serverEmoji.toString();
+      }
+    }
+
+    // Fallback to unicode emoji from config
+    const unicodeEmoji = emoji[emojiKey] || emoji.music || '🎵';
+    return unicodeEmoji;
+  }
+
+  /**
    * Format the "Requested by" status message
    * @param {string} username - The username who requested the song
-   * @returns {string} - Formatted status string
+   * @param {Object} guild - Discord guild object
+   * @param {Object} emojiManager - Optional EmojiManager instance
+   * @returns {Promise<string>} - Formatted status string
    */
-  static formatRequestedBy(username) {
-    return `:play: **Requested by ${username}**`;
+  static async formatRequestedBy(username, guild, emojiManager = null) {
+    const playEmoji = await this.resolveEmoji('play', guild, emojiManager);
+    return `${playEmoji} **Requested by ${username}**`;
   }
 
   /**
    * Format the "Now Playing" status message
    * @param {Object} track - The track object
-   * @returns {string} - Formatted status string
+   * @param {Object} guild - Discord guild object
+   * @param {Object} emojiManager - Optional EmojiManager instance
+   * @returns {Promise<string>} - Formatted status string
    */
-  static formatNowPlaying(track) {
+  static async formatNowPlaying(track, guild, emojiManager = null) {
     const sourceKey = this.getSourceKey(track);
-    const sourceEmoji = `:${sourceKey}:`;
+    const sourceEmoji = await this.resolveEmoji(sourceKey, guild, emojiManager);
     const title = track?.info?.title || 'Unknown';
     const author = track?.info?.author || 'Unknown';
 
@@ -100,9 +155,11 @@ export class VoiceChannelStatus {
    * @param {Client} client - Discord client
    * @param {string} channelId - Voice channel ID
    * @param {string} username - Username who requested
+   * @param {Object} guild - Discord guild object (needed for custom emojis)
+   * @param {Object} emojiManager - Optional EmojiManager instance
    */
-  static async setRequestedBy(client, channelId, username) {
-    const status = this.formatRequestedBy(username);
+  static async setRequestedBy(client, channelId, username, guild = null, emojiManager = null) {
+    const status = await this.formatRequestedBy(username, guild, emojiManager);
     return this.setStatus(client, channelId, status);
   }
 
@@ -111,9 +168,11 @@ export class VoiceChannelStatus {
    * @param {Client} client - Discord client
    * @param {string} channelId - Voice channel ID
    * @param {Object} track - Track object
+   * @param {Object} guild - Discord guild object (needed for custom emojis)
+   * @param {Object} emojiManager - Optional EmojiManager instance
    */
-  static async setNowPlaying(client, channelId, track) {
-    const status = this.formatNowPlaying(track);
+  static async setNowPlaying(client, channelId, track, guild = null, emojiManager = null) {
+    const status = await this.formatNowPlaying(track, guild, emojiManager);
     return this.setStatus(client, channelId, status);
   }
 

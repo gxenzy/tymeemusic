@@ -204,7 +204,7 @@ async function connect247Guild(client, guildData) {
       `Connecting to 24/7 channel ${voiceChannel.name} in guild ${guild.name}`,
     );
 
-    const player = client.music.createPlayer({
+    const player = await client.music.createPlayer({
       guildId: guild.id,
       textChannelId: textChannel.id,
       voiceChannelId: voiceChannel.id,
@@ -214,19 +214,10 @@ async function connect247Guild(client, guildData) {
     });
 
     if (player) {
-      // Wait for player to be fully connected before setting properties
-      setTimeout(() => {
-        try {
-          if (player && typeof player.set === 'function') {
-            player.set("247Mode", true);
-            player.set("247VoiceChannel", voiceChannel.id);
-            player.set("247TextChannel", textChannel.id);
-            player.set("247LastConnected", Date.now());
-          }
-        } catch (error) {
-          logger.warn("247Mode", `Failed to set player properties for guild ${guild.name}: ${error.message}`);
-        }
-      }, 1000);
+      player.set("247Mode", true);
+      player.set("247VoiceChannel", voiceChannel.id);
+      player.set("247TextChannel", textChannel.id);
+      player.set("247LastConnected", Date.now());
     }
 
     logger.success(
@@ -309,7 +300,7 @@ async function checkSingle247Connection(client, guildData) {
         textChannel = voiceChannel;
       }
 
-      const newPlayer = client.music.createPlayer({
+      const newPlayer = await client.music.createPlayer({
         guildId: guild.id,
         textChannelId: textChannel.id,
         voiceChannelId: voiceChannel.id,
@@ -317,9 +308,12 @@ async function checkSingle247Connection(client, guildData) {
         selfDeaf: true,
         volume: db.guild.getDefaultVolume(guild.id),
       });
-      if (!newPlayer.connected) {
-        await newPlayer.connect();
+      
+      if (!newPlayer) {
+        logger.error("247Mode", `Failed to create player for guild ${guild.name}`);
+        return;
       }
+      
       newPlayer.set("247Mode", true);
       newPlayer.set("247VoiceChannel", voiceChannel.id);
       newPlayer.set("247TextChannel", textChannel.id);

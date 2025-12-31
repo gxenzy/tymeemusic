@@ -121,6 +121,11 @@ export default {
       }
 
       logSessionStats(player);
+      
+      // Notify web dashboard about state change
+      if (client.webServer) {
+        client.webServer.updatePlayerState(player.guildId);
+      }
 
     } catch (error) {
       logger.error('QueueEnd', 'Error in queueEnd event:', error);

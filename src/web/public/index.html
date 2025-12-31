@@ -5,6 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tymee Music Dashboard</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // Immediate auth check on page load - just set localStorage if auth works
+        (async function() {
+            console.log('=== INLINE AUTH CHECK ===');
+            try {
+                const response = await fetch('/auth/check');
+                const data = await response.json();
+                
+                if (data.authenticated && data.user) {
+                    console.log('Inline: Auth succeeded for user:', data.user.username);
+                    localStorage.setItem('dashboard_user', JSON.stringify(data.user));
+                    localStorage.setItem('dashboard_auth', 'true');
+                } else {
+                    console.log('Inline: Auth failed, keeping existing localStorage');
+                    // Don't clear localStorage here - let MusicDashboard handle it
+                }
+            } catch (e) {
+                console.error('Inline auth check failed:', e);
+                // Don't clear localStorage on network error
+            }
+        })();
+    </script>
 </head>
 <body>
     <div class="container">
@@ -12,13 +34,34 @@
         <header class="header">
             <div class="header-content">
                 <h1>🎵 Tymee Music Dashboard</h1>
-                <div class="auth-section">
-                    <input type="text" id="apiKeyInput" placeholder="Enter API Key" class="api-key-input">
-                    <input type="text" id="guildIdInput" placeholder="Enter Guild ID" class="guild-id-input">
-                    <button id="connectBtn" class="connect-btn">Connect</button>
+                <div class="auth-section" id="authSection">
+                    <button id="loginBtn" class="login-btn" onclick="this.disabled=true;this.textContent='Logging in...';window.location.href='/auth/discord'">Login with Discord</button>
+                </div>
+                <div class="user-section hidden" id="userSection">
+                    <img id="userAvatar" class="user-avatar" src="" alt="User Avatar">
+                    <span id="userName" class="user-name"></span>
+                    <button id="logoutBtn" class="logout-btn">Logout</button>
                 </div>
             </div>
         </header>
+
+        <!-- Server Selector -->
+        <div id="serverSelector" class="server-selector hidden">
+            <h3>Select a Server</h3>
+            <div id="serverList" class="server-list"></div>
+        </div>
+
+        <!-- Navigation -->
+        <nav id="navBar" class="nav-bar hidden">
+            <button id="backToServersBtn" class="nav-btn secondary" onclick="dashboard.showServerSelector()">← Servers</button>
+            <div class="nav-divider"></div>
+            <button class="nav-btn active" data-page="player">🎵 Player</button>
+            <button class="nav-btn" data-page="queue">📋 Queue</button>
+            <button class="nav-btn" data-page="playlists">📝 Playlists</button>
+            <button class="nav-btn" data-page="settings">⚙️ Settings</button>
+            <button class="nav-btn" data-page="emojis">😀 Emojis</button>
+            <button class="nav-btn" data-page="stats">📊 Stats</button>
+        </nav>
 
         <!-- Connection Status -->
         <div id="connectionStatus" class="status-bar hidden">
@@ -26,93 +69,623 @@
         </div>
 
         <!-- Main Content -->
-        <div id="mainContent" class="main-content hidden">
-            <!-- Player Section -->
-            <div class="player-section">
-                <div class="now-playing">
-                    <div class="album-art">
-                        <img id="albumArt" src="" alt="Album Art" class="album-image">
-                        <div id="noArtwork" class="no-artwork">♪</div>
-                    </div>
-                    <div class="track-info">
-                        <h2 id="trackTitle" class="track-title">No track playing</h2>
-                        <p id="trackArtist" class="track-artist">Unknown Artist</p>
-                        <p id="guildName" class="guild-name"></p>
-                    </div>
-                </div>
+        <main id="mainContent" class="main-content">
+            <!-- Login Required Message -->
+            <div id="loginRequired" class="login-required">
+                <h2>🔐 Login Required</h2>
+                <p>Please login with Discord to access the dashboard.</p>
+                <button id="loginRequiredBtn" class="login-btn" onclick="this.disabled=true;this.textContent='Logging in...';window.location.href='/auth/discord'">Login with Discord</button>
+            </div>
 
-                <!-- Progress Bar -->
-                <div class="progress-section">
-                    <div class="progress-bar-container">
-                        <div id="progressBar" class="progress-bar">
-                            <div id="progressFill" class="progress-fill"></div>
-                            <div id="progressHandle" class="progress-handle"></div>
+            <!-- Error Display -->
+            <div id="errorDisplay" class="login-required hidden" style="background: #ed4245; color: white;">
+                <h2>❌ Error</h2>
+                <p id="errorMessage">An error occurred</p>
+            </div>
+
+            <!-- Player Page -->
+            <div id="playerPage" class="page hidden">
+                <div class="player-section">
+                    <div class="now-playing">
+                        <div class="album-art">
+                            <img id="albumArt" src="" alt="Album Art" class="album-image hidden">
+                            <div id="noArtwork" class="no-artwork">♪</div>
+                        </div>
+                        <div class="track-info">
+                            <h2 id="trackTitle" class="track-title">No track playing</h2>
+                            <p id="trackArtist" class="track-artist">Unknown Artist</p>
+                            <p id="guildName" class="guild-name"></p>
                         </div>
                     </div>
-                    <div class="time-display">
-                        <span id="currentTime">0:00</span>
-                        <span id="totalTime">0:00</span>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-section">
+                        <div class="progress-bar-container">
+                            <div id="progressBar" class="progress-bar">
+                                <div id="progressFill" class="progress-fill"></div>
+                            </div>
+                        </div>
+                        <div class="time-display">
+                            <span id="currentTime">0:00</span>
+                            <span id="totalTime">0:00</span>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Controls -->
-                <div class="controls">
-                    <button id="shuffleBtn" class="control-btn" title="Shuffle">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 3h5v5M4 20l5-5M21 3l-5 5M21 16v5h-5M4 20l-5-5M9 3l5 5"/>
-                        </svg>
-                    </button>
-                    <button id="previousBtn" class="control-btn" title="Previous">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-                        </svg>
-                    </button>
-                    <button id="playPauseBtn" class="control-btn play-pause" title="Play/Pause">
-                        <svg id="playIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
-                        <svg id="pauseIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="hidden">
-                            <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
-                        </svg>
-                    </button>
-                    <button id="nextBtn" class="control-btn" title="Next">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-                        </svg>
-                    </button>
-                    <button id="repeatBtn" class="control-btn" title="Repeat">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/>
-                        </svg>
-                    </button>
-                </div>
+                    <!-- Controls -->
+                    <div class="controls">
+                        <button id="shuffleBtn" class="control-btn" title="Shuffle">🔀</button>
+                        <button id="previousBtn" class="control-btn" title="Previous">⏮️</button>
+                        <button id="playPauseBtn" class="control-btn play-pause" title="Play/Pause">▶️</button>
+                        <button id="nextBtn" class="control-btn" title="Next">⏭️</button>
+                        <button id="repeatBtn" class="control-btn" title="Repeat">🔁</button>
+                    </div>
 
-                <!-- Volume Control -->
-                <div class="volume-section">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                    </svg>
-                    <div class="volume-slider-container">
+                    <!-- Volume Control -->
+                    <div class="volume-section">
+                        <span id="volumeIcon">🔊</span>
                         <input type="range" id="volumeSlider" min="0" max="100" value="100" class="volume-slider">
+                        <span id="volumeValue" class="volume-value">100%</span>
                     </div>
-                    <span id="volumeValue" class="volume-value">100%</span>
                 </div>
             </div>
 
-            <!-- Queue Section -->
-            <div class="queue-section">
-                <div class="queue-header">
-                    <h3>Queue (<span id="queueCount">0</span>)</h3>
-                    <button id="refreshQueueBtn" class="refresh-btn" title="Refresh Queue">↻</button>
-                </div>
-                <div id="queueList" class="queue-list">
-                    <p class="empty-queue">No tracks in queue</p>
+            <!-- Queue Page -->
+            <div id="queuePage" class="page hidden">
+                <div class="queue-section">
+                    <div class="queue-header">
+                        <h3>Queue (<span id="queueCount">0</span>)</h3>
+                        <div class="queue-actions">
+                            <button id="shuffleQueueBtn" class="action-btn" title="Shuffle">🔀 Shuffle</button>
+                            <button id="clearQueueBtn" class="action-btn danger" title="Clear">🗑️ Clear</button>
+                        </div>
+                    </div>
+                    <div id="queueList" class="queue-list">
+                        <p class="empty-queue">No tracks in queue</p>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            <!-- Playlists Page -->
+            <div id="playlistsPage" class="page hidden">
+                <div class="playlists-section">
+                    <div class="playlists-header">
+                        <button id="backToPlaylistsBtn" class="action-btn secondary hidden" onclick="dashboard.showPlaylistsList()">← Back</button>
+                        <h3 id="playlistsPageTitle">My Playlists</h3>
+                        <div class="playlists-actions">
+                            <button id="refreshPlaylistsBtn" class="action-btn" onclick="dashboard.loadPlaylists()">🔄</button>
+                            <button id="createPlaylistBtn" class="action-btn primary">➕ Create Playlist</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Create Playlist Modal -->
+                    <div id="createPlaylistModal" class="modal hidden">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4>Create New Playlist</h4>
+                                <button class="modal-close" onclick="dashboard.closeModal('createPlaylistModal')">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label>Playlist Name:</label>
+                                    <input type="text" id="newPlaylistName" placeholder="My Awesome Playlist">
+                                </div>
+                                <div class="form-group">
+                                    <label>Description (optional):</label>
+                                    <textarea id="newPlaylistDescription" placeholder="What's this playlist about?"></textarea>
+                                </div>
+                                <div class="form-group checkbox-group">
+                                    <label>
+                                        <input type="checkbox" id="newPlaylistPublic">
+                                        Make public (anyone can view)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button onclick="dashboard.closeModal('createPlaylistModal')" class="action-btn">Cancel</button>
+                                <button onclick="dashboard.createPlaylist()" class="action-btn primary">Create</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Import from Spotify Modal -->
+                    <div id="importSpotifyModal" class="modal hidden">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3>🎵 Import from Spotify</h3>
+                                <button class="modal-close" onclick="dashboard.closeModal('importSpotifyModal')">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <p>Paste a Spotify playlist link to import its tracks:</p>
+                                <input type="text" id="spotifyPlaylistUrl" class="setting-input" placeholder="https://open.spotify.com/playlist/...">
+                                <p class="import-note">Tracks will be searched on YouTube and added to your playlist.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button onclick="dashboard.closeModal('importSpotifyModal')" class="action-btn">Cancel</button>
+                                <button onclick="dashboard.importFromSpotify()" class="action-btn primary">Import</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Import from YouTube Music Modal -->
+                    <div id="importYTMModal" class="modal hidden">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3>▶️ Import from YouTube Music</h3>
+                                <button class="modal-close" onclick="dashboard.closeModal('importYTMModal')">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <p>Search for a YouTube Music playlist or paste a link:</p>
+                                <input type="text" id="ytmSearchInput" class="setting-input" placeholder="Search playlists..." onkeypress="if(event.key==='Enter') dashboard.searchYTMPlaylists()">
+                                <div id="ytmSearchResults" class="ytm-search-results"></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button onclick="dashboard.closeModal('importYTMModal')" class="action-btn">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Playlist Details View -->
+                    <div id="playlistDetailsView" class="hidden">
+                        <div class="playlist-header">
+                            <div id="playlistCover" class="playlist-cover">
+                                <span class="playlist-cover-placeholder">♪</span>
+                            </div>
+                            <div class="playlist-header-info">
+                                <p class="playlist-type">Playlist</p>
+                                <h1 id="playlistTitle" class="playlist-title">Playlist Name</h1>
+                                <p id="playlistDescription" class="playlist-description"></p>
+                                <div class="playlist-meta">
+                                    <span id="playlistCreator" class="playlist-creator"></span>
+                                    <span class="meta-dot">•</span>
+                                    <span id="playlistTrackCount"></span>
+                                    <span class="meta-dot">•</span>
+                                    <span id="playlistDuration"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="playlist-controls">
+                            <button id="playlistPlayBtn" class="playlist-play-btn" onclick="dashboard.playPlaylist()">▶</button>
+                            <button id="playlistShuffleBtn" class="playlist-control-btn" onclick="dashboard.shufflePlaylist()" title="Shuffle">🔀</button>
+                            <button id="playlistMoreBtn" class="playlist-control-btn" onclick="dashboard.showPlaylistMoreOptions()" title="More options">⋮</button>
+                        </div>
+                        
+                        <!-- Import from External Services -->
+                        <div class="playlist-import-section">
+                            <button class="action-btn secondary" onclick="dashboard.openImportSpotifyModal()">🎵 Import from Spotify</button>
+                            <button class="action-btn secondary" onclick="dashboard.openImportYTMModal()">▶️ Import from YouTube Music</button>
+                        </div>
+                        
+                        <!-- Search & Add Tracks -->
+                        <div class="playlist-search-section">
+                            <input type="text" id="playlistSearchInput" class="playlist-search-input" placeholder="Search for songs to add..." onkeypress="if(event.key==='Enter') dashboard.searchTracksForPlaylist()">
+                            <select id="playlistSearchSource" class="playlist-search-source">
+                                <option value="all">All Sources</option>
+                                <option value="youtube">YouTube</option>
+                                <option value="spotify">Spotify</option>
+                                <option value="soundcloud">SoundCloud</option>
+                                <option value="apple">Apple Music</option>
+                                <option value="deezer">Deezer</option>
+                            </select>
+                            <button class="action-btn primary" onclick="dashboard.searchTracksForPlaylist()">🔍 Search</button>
+                        </div>
+                        
+                        <!-- Search Results -->
+                        <div id="playlistSearchResults" class="playlist-search-results hidden"></div>
+                        
+                        <div class="playlist-tracks-header">
+                            <div class="track-col-num">#</div>
+                            <div class="track-col-title">Title</div>
+                            <div class="track-col-album">Album</div>
+                            <div class="track-col-duration">🕒</div>
+                            <div class="track-col-actions"></div>
+                        </div>
+                        <div id="playlistTracksList" class="playlist-tracks-list"></div>
+                    </div>
+
+                    <!-- Playlists Grid View -->
+                    <div id="playlistsList" class="playlists-list">
+                        <p class="empty-playlists">No playlists found. Create your first playlist!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="settingsPage" class="page hidden">
+                <div class="settings-section">
+                    <h3>⚙️ Server Settings</h3>
+                    
+                    <div class="settings-tabs">
+                        <button class="settings-tab active" data-tab="general">General</button>
+                        <button class="settings-tab" data-tab="djroles">DJ Roles</button>
+                        <button class="settings-tab" data-tab="permissions">Permissions</button>
+                        <button class="settings-tab" data-tab="247">24/7 Mode</button>
+                        <button class="settings-tab" data-tab="premium">Premium</button>
+                    </div>
+
+                    <!-- General Settings -->
+                    <div id="settings-general" class="settings-tab-content">
+                        <div class="settings-group">
+                            <label>Command Prefix</label>
+                            <input type="text" id="prefixInput" class="setting-input" placeholder="." maxlength="5">
+                            <span class="setting-help">The character used before commands (e.g., .play)</span>
+                        </div>
+
+                        <div class="settings-group">
+                            <label>Default Volume: <span id="defaultVolumeValue">100%</span></label>
+                            <input type="range" id="defaultVolumeSlider" min="0" max="100" value="100" class="setting-slider">
+                        </div>
+
+                        <div class="settings-group checkbox-group">
+                            <label class="toggle-label" onclick="return dashboard.handleToggleClick(event, 'autoPlayCheck')">
+                                <span class="toggle-text">Auto-play</span>
+                                <div class="toggle-switch">
+                                    <span class="toggle-slider"></span>
+                                </div>
+                                <input type="checkbox" id="autoPlayCheck" style="display:none;">
+                            </label>
+                            <span class="setting-help">Automatically play similar songs when queue ends</span>
+                        </div>
+
+                        <div class="settings-group checkbox-group">
+                            <label class="toggle-label" onclick="return dashboard.handleToggleClick(event, 'leaveOnEmptyCheck')">
+                                <span class="toggle-text">Leave on Empty</span>
+                                <div class="toggle-switch">
+                                    <span class="toggle-slider"></span>
+                                </div>
+                                <input type="checkbox" id="leaveOnEmptyCheck" style="display:none;">
+                            </label>
+                            <span class="setting-help">Bot leaves voice channel when queue is empty</span>
+                        </div>
+                    </div>
+
+                    <!-- DJ Roles Settings (Multi-Select) -->
+                    <div id="settings-djroles" class="settings-tab-content hidden">
+                        <div class="settings-group">
+                            <label>DJ Roles</label>
+                            <p class="setting-description">Users with any of these roles will have DJ privileges</p>
+                            
+                            <div class="role-multi-select">
+                                <div class="role-tags" id="djRolesTags"></div>
+                                <select id="djRolesSelect" class="setting-select" onchange="dashboard.addDjRole()">
+                                    <option value="">Select a role to add...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Permissions Settings (Tier System) -->
+                    <div id="settings-permissions" class="settings-tab-content hidden">
+                        <div class="settings-group">
+                            <label>Access Tier</label>
+                            <p class="setting-description">Choose which tier of commands users can access based on their roles or direct user assignment</p>
+                            
+                            <div class="tier-selector">
+                                <!-- Free Tier -->
+                                <div class="tier-option">
+                                    <label class="tier-option-label">
+                                        <input type="radio" name="tier" value="free" onchange="dashboard.updateTierDisplay()">
+                                        <span class="tier-name">🎵 Free</span>
+                                        <span class="tier-desc">Basic commands only</span>
+                                    </label>
+                                    <div class="tier-roles">
+                                        <label class="sub-label">Roles:</label>
+                                        <div class="role-tags" id="allowedRolesTags"></div>
+                                        <select id="allowedRolesSelect" class="setting-select" onchange="dashboard.addAllowedRole()">
+                                            <option value="">Select a role...</option>
+                                        </select>
+                                        
+                                        <label class="sub-label">Users:</label>
+                                        <div class="user-tags" id="allowedUsersTags"></div>
+                                        <select id="allowedUsersSelect" class="setting-select" onchange="dashboard.addAllowedUser()">
+                                            <option value="">Select a user...</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- VIP Tier -->
+                                <div class="tier-option">
+                                    <label class="tier-option-label">
+                                        <input type="radio" name="tier" value="vip" onchange="dashboard.updateTierDisplay()">
+                                        <span class="tier-name">⭐ VIP</span>
+                                        <span class="tier-desc">Extended features</span>
+                                    </label>
+                                    <div class="tier-roles">
+                                        <label class="sub-label">Roles:</label>
+                                        <div class="role-tags" id="vipRolesTags"></div>
+                                        <select id="vipRolesSelect" class="setting-select" onchange="dashboard.addVipRole()">
+                                            <option value="">Select a role...</option>
+                                        </select>
+                                        
+                                        <label class="sub-label">Users:</label>
+                                        <div class="user-tags" id="vipUsersTags"></div>
+                                        <select id="vipUsersSelect" class="setting-select" onchange="dashboard.addVipUser()">
+                                            <option value="">Select a user...</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Premium Tier -->
+                                <div class="tier-option">
+                                    <label class="tier-option-label">
+                                        <input type="radio" name="tier" value="premium" onchange="dashboard.updateTierDisplay()">
+                                        <span class="tier-name">💎 Premium</span>
+                                        <span class="tier-desc">All features</span>
+                                    </label>
+                                    <div class="tier-roles">
+                                        <label class="sub-label">Roles:</label>
+                                        <div class="role-tags" id="premiumRolesTags"></div>
+                                        <select id="premiumRolesSelect" class="setting-select" onchange="dashboard.addPremiumRole()">
+                                            <option value="">Select a role...</option>
+                                        </select>
+                                        
+                                        <label class="sub-label">Users:</label>
+                                        <div class="user-tags" id="premiumUsersTags"></div>
+                                        <select id="premiumUsersSelect" class="setting-select" onchange="dashboard.addPremiumUser()">
+                                            <option value="">Select a user...</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 24/7 Mode Settings -->
+                    <div id="settings-247" class="settings-tab-content hidden">
+                        <div class="settings-group checkbox-group">
+                            <label class="toggle-label" onclick="return dashboard.handleToggleClick(event, 'stay247Check')">
+                                <span class="toggle-text">24/7 Mode</span>
+                                <div class="toggle-switch">
+                                    <span class="toggle-slider"></span>
+                                </div>
+                                <input type="checkbox" id="stay247Check" onchange="dashboard.toggle247Channels()" style="display:none;">
+                            </label>
+                            <span class="setting-help">Bot stays connected to voice channel even when not playing music</span>
+                        </div>
+
+                        <div id="247ChannelsSection" class="hidden">
+                            <div class="settings-group">
+                                <label>24/7 Text Channel</label>
+                                <select id="247TextChannelSelect" class="setting-select">
+                                    <option value="">None</option>
+                                </select>
+                                <span class="setting-help">Channel for bot status updates</span>
+                            </div>
+
+                            <div class="settings-group">
+                                <label>24/7 Voice Channel</label>
+                                <select id="247VoiceChannelSelect" class="setting-select">
+                                    <option value="">None</option>
+                                </select>
+                                <span class="setting-help">Voice channel to auto-connect to</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Premium Settings -->
+                    <div id="settings-premium" class="settings-tab-content hidden">
+                        <div class="premium-info-card">
+                            <h4>💎 Premium Features</h4>
+                            <p>Premium users get access to advanced features:</p>
+                            <ul>
+                                <li>Unlimited queue size</li>
+                                <li>Higher audio quality</li>
+                                <li>Custom playlists</li>
+                                <li>Priority support</li>
+                            </ul>
+                            <div class="premium-status" id="premiumStatus">
+                                <span class="status-badge free">Free Plan</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="saveSettingsBtn" class="action-btn primary large">💾 Save All Settings</button>
+                </div>
+            </div>
+
+            <!-- Emoji Management Page -->
+            <div id="emojisPage" class="page hidden">
+                <div class="emojis-section">
+                    <h3>Emoji Management</h3>
+                    
+                    <!-- Server Emoji Sync Panel -->
+                    <div class="emoji-sync-panel">
+                        <div class="sync-header">
+                            <h4>🔗 Server Emoji Sync</h4>
+                            <button id="syncPreviewBtn" class="action-btn">👀 Preview Sync</button>
+                        </div>
+                        <p class="sync-description">Auto-detect and match server emojis with bot functions based on name similarity.</p>
+                        <button id="syncAllBtn" class="action-btn primary">⚡ Auto-Sync All</button>
+                    </div>
+
+                    <!-- Server Emojis Picker -->
+                    <div class="server-emojis-panel">
+                        <div class="server-emojis-header">
+                            <h4>🎨 Server Emojis</h4>
+                            <div class="server-emoji-filters">
+                                <button class="filter-btn active" data-filter="all">All</button>
+                                <button class="filter-btn" data-filter="animated">Animated</button>
+                                <button class="filter-btn" data-filter="static">Static</button>
+                                <input type="text" id="emojiSearch" class="emoji-search" placeholder="Search emojis...">
+                            </div>
+                        </div>
+                        <div id="serverEmojisGrid" class="server-emojis-grid">
+                            <p class="loading">Loading server emojis...</p>
+                        </div>
+                    </div>
+
+                    <!-- Emoji Mappings List -->
+                    <div class="emoji-mappings-panel">
+                        <h4>📋 Emoji Mappings</h4>
+                        <div class="emoji-filters">
+                            <select id="emojiCategoryFilter" class="category-select">
+                                <option value="all">All Categories</option>
+                                <option value="player_controls">Player Controls</option>
+                                <option value="voice_status">Voice Channel Status</option>
+                                <option value="now_playing">Now Playing</option>
+                                <option value="embeds">Embeds</option>
+                                <option value="actions">Actions</option>
+                                <option value="filters">Filters</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                            <input type="text" id="mappingSearch" class="mapping-search" placeholder="Search mappings...">
+                        </div>
+                        <div id="emojiMappings" class="emoji-mappings-list">
+                            <p class="loading-emojis">Loading emoji mappings...</p>
+                        </div>
+                    </div>
+
+                    <!-- Add New Mapping -->
+                    <div class="add-mapping-panel">
+                        <h4>➕ Add New Mapping</h4>
+                        <div class="add-mapping-form">
+                            <div class="form-group">
+                                <label>Bot Function Name:</label>
+                                <input type="text" id="newBotName" placeholder="e.g., play, sp, music">
+                            </div>
+                            <div class="form-group">
+                                <label>Emoji:</label>
+                                <div class="emoji-input-group">
+                                    <input type="text" id="newEmoji" placeholder="Paste emoji or select from server">
+                                    <button id="selectFromServerBtn" class="action-btn small">📋 Select</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Category:</label>
+                                <select id="newEmojiCategory">
+                                    <option value="player_controls">Player Controls</option>
+                                    <option value="voice_status">Voice Channel Status</option>
+                                    <option value="now_playing">Now Playing</option>
+                                    <option value="embeds">Embeds</option>
+                                    <option value="actions">Actions</option>
+                                    <option value="filters">Filters</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <button id="addMappingBtn" class="action-btn primary">✅ Add Mapping</button>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="emoji-actions">
+                        <button id="resetEmojisBtn" class="action-btn danger">🔄 Reset All to Defaults</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Server Emoji Picker Modal -->
+            <div id="emojiPickerModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4>Select Server Emoji</h4>
+                        <button class="modal-close" onclick="dashboard.closeEmojiPicker()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="modalEmojiGrid" class="server-emojis-grid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sync Preview Modal -->
+            <div id="syncPreviewModal" class="modal hidden">
+                <div class="modal-content large">
+                    <div class="modal-header">
+                        <h4>🔄 Sync Preview</h4>
+                        <button class="modal-close" onclick="dashboard.closeSyncPreview()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="sync-info">The following emojis will be automatically mapped:</p>
+                        <div id="syncPreviewList" class="sync-preview-list"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button onclick="dashboard.closeSyncPreview()" class="action-btn">Cancel</button>
+                        <button onclick="dashboard.applySync()" class="action-btn primary">Apply Sync</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Page -->
+            <div id="statsPage" class="page hidden">
+                <div class="stats-section">
+                    <h3>📊 Statistics</h3>
+                    
+                    <!-- Server Stats -->
+                    <div class="stats-header">
+                        <h4>Server Statistics</h4>
+                        <button onclick="dashboard.loadStats()" class="action-btn small">🔄 Refresh</button>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">🎵</div>
+                            <h4>Total Plays</h4>
+                            <span id="totalPlays" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">👥</div>
+                            <h4>Unique Users</h4>
+                            <span id="uniqueUsers" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🎧</div>
+                            <h4>Top Source</h4>
+                            <span id="topGenre" class="stat-value">N/A</span>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⏱️</div>
+                            <h4>Bot Uptime</h4>
+                            <span id="botUptime" class="stat-value">0h</span>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📀</div>
+                            <h4>Tracks Played</h4>
+                            <span id="historyCount" class="stat-value">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Top Songs -->
+                    <div class="stats-section-detailed">
+                        <h4>🏆 Top Played Songs</h4>
+                        <div id="topSongsList" class="top-songs-list">
+                            <p class="loading-stats">Loading statistics...</p>
+                        </div>
+                    </div>
+
+                    <!-- Source Distribution -->
+                    <div class="stats-section-detailed">
+                        <h4>📡 Music Sources</h4>
+                        <div id="sourceDistribution" class="source-distribution">
+                            <p class="loading-stats">Loading source data...</p>
+                        </div>
+                    </div>
+
+                    <!-- Global Bot Stats (if admin) -->
+                    <div id="globalStatsSection" class="stats-section-detailed hidden">
+                        <h4>🌐 Global Bot Statistics</h4>
+                        <div class="stats-grid">
+                            <div class="stat-card small">
+                                <h4>Total Servers</h4>
+                                <span id="globalGuilds" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-card small">
+                                <h4>Active Players</h4>
+                                <span id="globalPlayers" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-card small">
+                                <h4>Total Plays</h4>
+                                <span id="globalPlays" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-card small">
+                                <h4>Unique Users</h4>
+                                <span id="globalUsers" class="stat-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <script src="app.js"></script>
 </body>
 </html>
-

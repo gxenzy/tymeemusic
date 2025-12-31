@@ -294,6 +294,32 @@ async function handleChatInputCommand(interaction, client) {
       }
     }
 
+    // Tier-based permission check
+    const { canUseCommandByTier, getUserTier, getTierDisplayName, getRequiredTier } = await import('#utils/permissionUtil');
+    
+    const userTier = await getUserTier(interaction.user.id, interaction.guild);
+    const requiredTier = getRequiredTier(commandToExecute);
+    
+    if (userTier === 'denied') {
+      return _sendError(
+        interaction,
+        "Access Denied",
+        `You don't have permission to use this command in this server.\n` +
+        `Required tier: **${getTierDisplayName(requiredTier)}**\n` +
+        `Your tier: **${getTierDisplayName(userTier)}**\n\n` +
+        `Contact a server admin to get access.`
+      );
+    }
+    
+    if (!await canUseCommandByTier(interaction.user.id, interaction.guild, commandToExecute)) {
+      return _sendError(
+        interaction,
+        "Insufficient Tier",
+        `This command requires **${getTierDisplayName(requiredTier)}** tier.\n` +
+        `Your current tier: **${getTierDisplayName(userTier)}**`
+      );
+    }
+
     if (
       commandToExecute.userPrem &&
       !hasPremiumAccess(interaction.user.id, interaction.guild.id, "user")
