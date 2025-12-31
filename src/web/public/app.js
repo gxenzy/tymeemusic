@@ -1,26 +1,31 @@
 class MusicDashboard {
     constructor() {
-        this.apiKey = '';
+        this.apiKey = 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ'; // Default API key from config
+        this.guildId = '';
         this.guildId = '';
         this.ws = null;
         this.playerState = null;
         this.queue = [];
-        this.positionUpdateInterval = null;
         this.guilds = [];
         this.playlists = [];
         this.history = [];
         this.activeFilters = new Set();
-        this.currentSearchResults = [];
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
         
-        this.initializeElements();
-        this.attachEventListeners();
+        this.init();
+    }
+
+    init() {
+        this.cacheElements();
+        this.bindEvents();
         this.loadGuilds();
     }
 
-    initializeElements() {
+    cacheElements() {
         this.guildSelect = document.getElementById('guildSelect');
-        this.connectionStatus = document.getElementById('connectionStatus');
-        this.statusText = document.getElementById('statusText');
+        this.connectionIndicator = document.getElementById('connectionIndicator');
+        this.indicatorText = document.getElementById('indicatorText');
         
         this.albumArt = document.getElementById('albumArt');
         this.noArtwork = document.getElementById('noArtwork');
@@ -30,7 +35,6 @@ class MusicDashboard {
         
         this.progressBar = document.getElementById('progressBar');
         this.progressFill = document.getElementById('progressFill');
-        this.progressHandle = document.getElementById('progressHandle');
         this.currentTime = document.getElementById('currentTime');
         this.totalTime = document.getElementById('totalTime');
         
@@ -43,19 +47,16 @@ class MusicDashboard {
         this.repeatBtn = document.getElementById('repeatBtn');
         
         this.volumeSlider = document.getElementById('volumeSlider');
+        this.volumeValue = document.getElementById('volumeValue');
         this.muteBtn = document.getElementById('muteBtn');
         
         this.queueList = document.getElementById('queueList');
         this.queueCount = document.getElementById('queueCount');
         
-        this.searchInput = document.getElementById('searchInput');
-        this.searchResults = document.getElementById('searchResults');
-        
         this.toastContainer = document.getElementById('toastContainer');
-        this.createPlaylistModal = document.getElementById('createPlaylistModal');
     }
 
-    attachEventListeners() {
+    bindEvents() {
         this.guildSelect.addEventListener('change', (e) => this.selectGuild(e.target.value));
         
         this.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
@@ -67,12 +68,7 @@ class MusicDashboard {
         this.volumeSlider.addEventListener('input', (e) => this.setVolume(e.target.value));
         this.muteBtn.addEventListener('click', () => this.toggleMute());
         
-        document.querySelectorAll('.preset-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.setVolume(e.target.dataset.volume));
-        });
-        
         this.progressBar.addEventListener('click', (e) => this.seek(e));
-        this.progressBar.addEventListener('mousemove', (e) => this.updateProgressHandle(e));
         
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => this.switchTab(e));
@@ -80,56 +76,49 @@ class MusicDashboard {
         
         document.getElementById('shuffleQueueBtn').addEventListener('click', () => this.shuffleQueue());
         document.getElementById('clearQueueBtn').addEventListener('click', () => this.clearQueue());
-        document.getElementById('saveQueueBtn').addEventListener('click', () => this.showSaveQueueModal());
         
         document.querySelectorAll('.filter-btn[data-filter]').forEach(btn => {
             btn.addEventListener('click', (e) => this.toggleFilter(e.target.dataset.filter));
         });
         
-        document.getElementById('resetFilterBtn').addEventListener('click', () => this.resetFilters());
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => this.resetFilters());
         
-        document.getElementById('createPlaylistBtn').addEventListener('click', () => this.openModal());
-        document.getElementById('closeModal').addEventListener('click', () => this.closeModal());
-        document.getElementById('cancelPlaylistBtn').addEventListener('click', () => this.closeModal());
-        document.getElementById('confirmPlaylistBtn').addEventListener('click', () => this.createPlaylist());
+        document.getElementById('createPlaylistBtn').addEventListener('click', () => this.createPlaylist());
+        document.getElementById('clearHistoryBtn').addEventListener('click', () => this.clearHistory());
         
-        document.getElementById('searchBtn').addEventListener('click', () => this.search());
-        this.searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.search();
+        document.getElementById('settingVolume').addEventListener('input', (e) => {
+            document.getElementById('settingVolumeValue').textContent = e.target.value + '%';
         });
         
         document.getElementById('saveSettingsBtn').addEventListener('click', () => this.saveSettings());
-        
-        document.getElementById('syncEmojiBtn').addEventListener('click', () => this.syncEmojis());
-        
-        document.getElementById('clearHistoryBtn').addEventListener('click', () => this.clearHistory());
-        
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-            this.switchTab({ target: { dataset: { tab: 'settings' } } });
-        });
-        
-        this.createPlaylistModal.addEventListener('click', (e) => {
-            if (e.target === this.createPlaylistModal) this.closeModal();
-        });
     }
 
     async loadGuilds() {
         try {
-            const response = await fetch('/api/players?apiKey=' + this.getApiKey());
+            const response = await fetch('/api/players?apiKey=' + this.apiKey);
             if (response.ok) {
                 const data = await response.json();
                 this.guilds = data.players || [];
                 this.populateGuildSelect();
+            } else {
+                this.showToast('Failed to load servers', 'error');
             }
         } catch (error) {
             console.error('Error loading guilds:', error);
-            this.showToast('Failed to load servers', 'error');
+            this.showToast('Connection failed', 'error');
         }
     }
 
     populateGuildSelect() {
         const currentValue = this.guildSelect.value;
         this.guildSelect.innerHTML = '<option value="">Select a server...</option>';
+        
+        if (this.guilds.length === 0) {
+            const option = document.createElement('option');
+            option.textContent = 'No servers with music';
+            this.guildSelect.appendChild(option);
+            return;
+        }
         
         this.guilds.forEach(player => {
             const option = document.createElement('option');
@@ -143,10 +132,6 @@ class MusicDashboard {
         }
     }
 
-    getApiKey() {
-        return this.apiKey || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ';
-    }
-
     async selectGuild(guildId) {
         if (!guildId) {
             this.disconnect();
@@ -154,20 +139,18 @@ class MusicDashboard {
         }
         
         this.guildId = guildId;
-        const player = this.guilds.find(p => p.guildId === guildId);
+        this.reconnectAttempts = 0;
         
+        const player = this.guilds.find(p => p.guildId === guildId);
         if (player) {
-            document.getElementById('guildName').textContent = player.guildName;
+            this.trackArtist.textContent = player.guildName;
         }
         
         await this.connect();
-        this.updateStats();
     }
 
     async connect() {
         if (!this.guildId) return;
-        
-        this.apiKey = this.getApiKey();
         
         try {
             const response = await fetch(`/api/player/${this.guildId}?apiKey=${this.apiKey}`);
@@ -180,16 +163,14 @@ class MusicDashboard {
             this.connectWebSocket();
             await this.loadPlayerState();
             await this.loadQueue();
-            await this.loadPlaylists();
-            await this.loadHistory();
-            await this.loadSettings();
             
-            this.updateConnectionStatus(true);
-            this.showStats();
+            this.setConnected(true);
+            this.showToast('Connected to server', 'success');
             
         } catch (error) {
-            this.showToast(`Connection failed: ${error.message}`, 'error');
-            this.updateConnectionStatus(false);
+            console.error('Connection error:', error);
+            this.setConnected(false);
+            this.showToast(error.message || 'Connection failed', 'error');
         }
     }
 
@@ -205,18 +186,32 @@ class MusicDashboard {
         
         this.ws.onopen = () => {
             console.log('WebSocket connected');
+            this.reconnectAttempts = 0;
+            this.setConnected(true);
         };
         
         this.ws.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            this.handleWebSocketMessage(message);
+            try {
+                const message = JSON.parse(event.data);
+                this.handleWebSocketMessage(message);
+            } catch (error) {
+                console.error('WebSocket message error:', error);
+            }
         };
         
         this.ws.onclose = () => {
             console.log('WebSocket disconnected');
-            setTimeout(() => {
-                if (this.guildId) this.connectWebSocket();
-            }, 3000);
+            this.setConnected(false);
+            
+            if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                this.reconnectAttempts++;
+                const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+                setTimeout(() => {
+                    if (this.guildId) {
+                        this.connectWebSocket();
+                    }
+                }, delay);
+            }
         };
         
         this.ws.onerror = (error) => {
@@ -229,7 +224,6 @@ class MusicDashboard {
             this.playerState = message.data;
             this.updateUI();
             this.updateQueueUI();
-            this.updateStats();
         }
     }
 
@@ -258,64 +252,18 @@ class MusicDashboard {
         }
     }
 
-    async loadPlaylists() {
-        try {
-            const response = await fetch(`/api/playlists?apiKey=${this.apiKey}`);
-            if (response.ok) {
-                this.playlists = await response.json();
-                this.updatePlaylistsUI();
-            }
-        } catch (error) {
-            console.error('Error loading playlists:', error);
-        }
-    }
-
-    async loadHistory() {
-        this.historyList = document.getElementById('historyList');
-        this.historyList.innerHTML = `
-            <div class="empty-state">
-                <span class="empty-icon">📜</span>
-                <p>Loading history...</p>
-            </div>
-        `;
-        
-        try {
-            const response = await fetch(`/api/player/${this.guildId}/history?apiKey=${this.apiKey}`);
-            if (response.ok) {
-                const data = await response.json();
-                this.history = data.history || [];
-                this.updateHistoryUI();
-            }
-        } catch (error) {
-            console.error('Error loading history:', error);
-            this.historyList.innerHTML = `
-                <div class="empty-state">
-                    <span class="empty-icon">📜</span>
-                    <p>No history yet</p>
-                    <span class="empty-hint">Played tracks will appear here</span>
-                </div>
-            `;
-        }
-    }
-
-    async loadSettings() {
-        try {
-            const response = await fetch(`/api/guild/${this.guildId}/settings?apiKey=${this.apiKey}`);
-            if (response.ok) {
-                const settings = await response.json();
-                document.getElementById('settingPrefix').value = settings.prefixes?.[0] || '!';
-                document.getElementById('settingVolume').value = settings.default_volume || 100;
-                document.getElementById('settingVolumeValue').textContent = (settings.default_volume || 100) + '%';
-                document.getElementById('setting247').checked = settings.stay_247 || false;
-                document.getElementById('settingAutoDisconnect').checked = settings.auto_disconnect !== false;
-            }
-        } catch (error) {
-            console.error('Error loading settings:', error);
-        }
-    }
-
     updateUI() {
-        if (!this.playerState) return;
+        if (!this.playerState) {
+            this.trackTitle.textContent = 'No track playing';
+            this.trackArtist.textContent = 'Select a server to start';
+            this.trackAlbum.textContent = '';
+            this.albumArt.style.display = 'none';
+            this.noArtwork.style.display = 'flex';
+            this.progressFill.style.width = '0%';
+            this.currentTime.textContent = '0:00';
+            this.totalTime.textContent = '0:00';
+            return;
+        }
         
         const { currentTrack, isPlaying, isPaused, volume, repeatMode, position } = this.playerState;
         
@@ -350,9 +298,9 @@ class MusicDashboard {
         
         this.repeatBtn.classList.toggle('active', repeatMode !== 'off');
         this.volumeSlider.value = volume;
+        this.volumeValue.textContent = volume + '%';
         
         this.updateProgress();
-        this.updateStats();
     }
 
     updateProgress() {
@@ -368,11 +316,9 @@ class MusicDashboard {
         
         if (duration > 0 && !currentTrack.isStream) {
             const progress = (position / duration) * 100;
-            this.progressFill.style.width = `${progress}%`;
-            this.progressHandle.style.left = `${progress}%`;
+            this.progressFill.style.width = progress + '%';
         } else {
             this.progressFill.style.width = '100%';
-            this.progressHandle.style.left = '100%';
         }
         
         this.currentTime.textContent = this.formatTime(position);
@@ -383,13 +329,7 @@ class MusicDashboard {
         this.queueCount.textContent = this.queue.length;
         
         if (this.queue.length === 0) {
-            this.queueList.innerHTML = `
-                <div class="empty-queue">
-                    <span class="empty-icon">📋</span>
-                    <p>No tracks in queue</p>
-                    <span class="empty-hint">Use /play in Discord or search below to add songs</span>
-                </div>
-            `;
+            this.queueList.innerHTML = '<div class="empty-message">No tracks in queue</div>';
             return;
         }
         
@@ -404,15 +344,14 @@ class MusicDashboard {
                     </div>
                     <div class="queue-item-duration">${this.formatTime(track.duration)}</div>
                     <div class="queue-item-actions">
-                        <button class="queue-action-btn" data-action="play" data-position="${index + 1}" title="Play Now">▶️</button>
-                        <button class="queue-action-btn" data-action="remove" data-position="${index + 1}" title="Remove">🗑️</button>
-                        <button class="queue-action-btn" data-action="bump" data-position="${index + 1}" title="Bump to Front">⬆️</button>
+                        <button class="queue-item-btn" data-action="play" data-position="${index + 1}" title="Play">▶️</button>
+                        <button class="queue-item-btn" data-action="remove" data-position="${index + 1}" title="Remove">🗑️</button>
                     </div>
                 </div>
             `;
         }).join('');
         
-        this.queueList.querySelectorAll('.queue-action-btn').forEach(btn => {
+        this.queueList.querySelectorAll('.queue-item-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const action = btn.dataset.action;
@@ -420,72 +359,6 @@ class MusicDashboard {
                 this.handleQueueAction(action, position);
             });
         });
-    }
-
-    updatePlaylistsUI() {
-        const grid = document.getElementById('playlistsGrid');
-        
-        if (this.playlists.length === 0) {
-            grid.innerHTML = `
-                <div class="empty-state">
-                    <span class="empty-icon">📁</span>
-                    <p>No playlists yet</p>
-                    <span class="empty-hint">Create a playlist to save your favorite tracks</span>
-                </div>
-            `;
-            return;
-        }
-        
-        grid.innerHTML = this.playlists.map(playlist => `
-            <div class="playlist-card" data-name="${playlist.name}">
-                <span class="playlist-icon">🎵</span>
-                <div class="playlist-name">${this.escapeHtml(playlist.name)}</div>
-                <div class="playlist-info">${playlist.trackCount || 0} tracks</div>
-            </div>
-        `).join('');
-        
-        grid.querySelectorAll('.playlist-card').forEach(card => {
-            card.addEventListener('click', () => this.loadPlaylist(card.dataset.name));
-        });
-    }
-
-    updateHistoryUI() {
-        const list = document.getElementById('historyList');
-        
-        if (this.history.length === 0) {
-            list.innerHTML = `
-                <div class="empty-state">
-                    <span class="empty-icon">📜</span>
-                    <p>No history yet</p>
-                    <span class="empty-hint">Played tracks will appear here</span>
-                </div>
-            `;
-            return;
-        }
-        
-        list.innerHTML = this.history.slice(0, 50).map((track, index) => `
-            <div class="queue-item" data-position="${index + 1}">
-                <img src="${track.artworkUrl || ''}" alt="${track.title}" class="queue-item-artwork" onerror="this.style.display='none'">
-                <div class="queue-item-info">
-                    <div class="queue-item-title">${this.escapeHtml(track.title)}</div>
-                    <div class="queue-item-artist">${this.escapeHtml(track.author)}</div>
-                </div>
-                <div class="queue-item-duration">${this.formatTime(track.duration)}</div>
-            </div>
-        `).join('');
-    }
-
-    showStats() {
-        document.getElementById('statsGrid').style.display = 'grid';
-    }
-
-    updateStats() {
-        if (!this.playerState) return;
-        
-        document.getElementById('statPlaying').textContent = this.playerState.currentTrack ? '1' : '0';
-        document.getElementById('statQueue').textContent = this.playerState.queueSize || 0;
-        document.getElementById('statVolume').textContent = this.playerState.volume + '%';
-        document.getElementById('statLoop').textContent = this.playerState.repeatMode || 'Off';
     }
 
     switchTab(e) {
@@ -504,25 +377,29 @@ class MusicDashboard {
     handleQueueAction(action, position) {
         switch (action) {
             case 'play':
-                this.apiCall('POST', `/api/player/${this.guildId}/seek`, { position: 0 });
+                this.seekToTrack(position);
                 break;
             case 'remove':
-                this.apiCall('DELETE', `/api/player/${this.guildId}/queue/${position}`);
-                this.loadQueue();
-                break;
-            case 'bump':
-                this.bumpTrack(position);
+                this.removeTrack(position);
                 break;
         }
     }
 
-    async bumpTrack(position) {
+    async seekToTrack(position) {
         try {
-            await this.apiCall('POST', `/api/player/${this.guildId}/bump`, { position });
-            this.loadQueue();
-            this.showToast('Track moved to front', 'success');
+            await this.apiCall('POST', `/api/player/${this.guildId}/seek`, { position: 0 });
         } catch (error) {
-            this.showToast('Failed to bump track', 'error');
+            this.showToast('Failed to play track', 'error');
+        }
+    }
+
+    async removeTrack(position) {
+        try {
+            await this.apiCall('DELETE', `/api/player/${this.guildId}/queue/${position}`);
+            this.loadQueue();
+            this.showToast('Track removed', 'success');
+        } catch (error) {
+            this.showToast('Failed to remove track', 'error');
         }
     }
 
@@ -560,71 +437,29 @@ class MusicDashboard {
         }
     }
 
-    async search() {
-        const query = this.searchInput.value.trim();
-        if (!query) return;
-        
-        this.searchResults.innerHTML = `
-            <div class="search-hint">
-                <span>⏳</span>
-                <p>Searching...</p>
-            </div>
-        `;
-        
-        try {
-            const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&apiKey=${this.apiKey}`);
-            if (response.ok) {
-                this.currentSearchResults = await response.json();
-                this.displaySearchResults();
-            } else {
-                throw new Error('Search failed');
-            }
-        } catch (error) {
-            console.error('Search error:', error);
-            this.searchResults.innerHTML = `
-                <div class="search-hint">
-                    <span>❌</span>
-                    <p>No results found</p>
-                </div>
-            `;
-        }
-    }
-
-    displaySearchResults() {
-        if (this.currentSearchResults.length === 0) {
-            this.searchResults.innerHTML = `
-                <div class="search-hint">
-                    <span>🔍</span>
-                    <p>No results found</p>
-                </div>
-            `;
+    async createPlaylist() {
+        const name = prompt('Enter playlist name:');
+        if (!name || !name.trim()) {
+            this.showToast('Please enter a playlist name', 'warning');
             return;
         }
         
-        this.searchResults.innerHTML = this.currentSearchResults.map(track => `
-            <div class="search-result-item" data-uri="${track.uri}">
-                <img src="${track.artworkUrl || ''}" alt="${track.title}" class="search-result-artwork" onerror="this.style.display='none'">
-                <div class="search-result-info">
-                    <div class="search-result-title">${this.escapeHtml(track.title)}</div>
-                    <div class="search-result-artist">${this.escapeHtml(track.author)}</div>
-                </div>
-                <div class="search-result-duration">${this.formatTime(track.duration)}</div>
-                <button class="search-result-add" data-uri="${track.uri}">Add</button>
-            </div>
-        `).join('');
-        
-        this.searchResults.querySelectorAll('.search-result-add').forEach(btn => {
-            btn.addEventListener('click', () => this.addToQueue(btn.dataset.uri));
-        });
+        try {
+            await this.apiCall('POST', '/api/playlist/create', { name, userId: 'dashboard' });
+            this.showToast('Playlist created', 'success');
+        } catch (error) {
+            this.showToast('Failed to create playlist', 'error');
+        }
     }
 
-    async addToQueue(uri) {
+    async clearHistory() {
+        if (!confirm('Clear all history?')) return;
+        
         try {
-            await this.apiCall('POST', `/api/player/${this.guildId}/play`, { query: uri });
-            this.showToast('Added to queue', 'success');
-            this.loadQueue();
+            await this.apiCall('DELETE', `/api/player/${this.guildId}/history`);
+            this.showToast('History cleared', 'success');
         } catch (error) {
-            this.showToast('Failed to add to queue', 'error');
+            this.showToast('Failed to clear history', 'error');
         }
     }
 
@@ -644,91 +479,6 @@ class MusicDashboard {
         }
     }
 
-    async syncEmojis() {
-        try {
-            await this.apiCall('POST', `/api/emoji/sync`, { guildId: this.guildId });
-            this.showToast('Emojis synced', 'success');
-            this.loadEmojis();
-        } catch (error) {
-            this.showToast('Failed to sync emojis', 'error');
-        }
-    }
-
-    async loadEmojis() {
-        try {
-            const response = await fetch(`/api/emoji?apiKey=${this.apiKey}&guildId=${this.guildId}`);
-            if (response.ok) {
-                const emojis = await response.json();
-                const grid = document.getElementById('emojiGrid');
-                grid.innerHTML = Object.entries(emojis).map(([key, emoji]) => `
-                    <div class="emoji-card" data-key="${key}">
-                        <div class="emoji-display">${emoji}</div>
-                        <div class="emoji-key">${key}</div>
-                        <div class="emoji-name">Custom</div>
-                    </div>
-                `).join('');
-            }
-        } catch (error) {
-            console.error('Error loading emojis:', error);
-        }
-    }
-
-    async clearHistory() {
-        try {
-            await this.apiCall('DELETE', `/api/player/${this.guildId}/history`);
-            this.history = [];
-            this.updateHistoryUI();
-            this.showToast('History cleared', 'success');
-        } catch (error) {
-            this.showToast('Failed to clear history', 'error');
-        }
-    }
-
-    openModal() {
-        this.createPlaylistModal.classList.add('active');
-        document.getElementById('playlistNameInput').focus();
-    }
-
-    closeModal() {
-        this.createPlaylistModal.classList.remove('active');
-        document.getElementById('playlistNameInput').value = '';
-    }
-
-    async createPlaylist() {
-        const name = document.getElementById('playlistNameInput').value.trim();
-        if (!name) {
-            this.showToast('Please enter a playlist name', 'warning');
-            return;
-        }
-        
-        try {
-            await this.apiCall('POST', '/api/playlist/create', { name, guildId: this.guildId });
-            this.showToast('Playlist created', 'success');
-            this.closeModal();
-            this.loadPlaylists();
-        } catch (error) {
-            this.showToast('Failed to create playlist', 'error');
-        }
-    }
-
-    async loadPlaylist(name) {
-        try {
-            await this.apiCall('POST', '/api/playlist/load', { name, guildId: this.guildId });
-            this.showToast(`Loading "${name}"`, 'success');
-            this.loadQueue();
-        } catch (error) {
-            this.showToast('Failed to load playlist', 'error');
-        }
-    }
-
-    async showSaveQueueModal() {
-        if (this.queue.length === 0) {
-            this.showToast('Queue is empty', 'warning');
-            return;
-        }
-        this.openModal();
-    }
-
     async togglePlayPause() {
         const endpoint = this.playerState?.isPaused ? 'play' : 'pause';
         await this.apiCall('POST', `/api/player/${this.guildId}/${endpoint}`);
@@ -745,6 +495,7 @@ class MusicDashboard {
     async shuffle() {
         await this.apiCall('POST', `/api/player/${this.guildId}/shuffle`);
         await this.loadQueue();
+        this.showToast('Queue shuffled', 'success');
     }
 
     async shuffleQueue() {
@@ -753,8 +504,12 @@ class MusicDashboard {
 
     async clearQueue() {
         if (this.queue.length === 0) return;
+        if (!confirm('Clear all tracks from queue?')) return;
+        
         try {
-            await this.apiCall('DELETE', `/api/player/${this.guildId}/queue`);
+            for (let i = this.queue.length; i > 0; i--) {
+                await this.apiCall('DELETE', `/api/player/${this.guildId}/queue/${i}`);
+            }
             this.queue = [];
             this.updateQueueUI();
             this.showToast('Queue cleared', 'success');
@@ -774,6 +529,7 @@ class MusicDashboard {
 
     async setVolume(volume) {
         this.volumeSlider.value = volume;
+        this.volumeValue.textContent = volume + '%';
         await this.apiCall('POST', `/api/player/${this.guildId}/volume`, { volume: parseInt(volume) });
     }
 
@@ -798,19 +554,9 @@ class MusicDashboard {
         await this.apiCall('POST', `/api/player/${this.guildId}/seek`, { position });
     }
 
-    updateProgressHandle(e) {
-        if (!this.playerState || !this.playerState.currentTrack) return;
-        
-        const rect = this.progressBar.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-        this.progressHandle.style.left = `${percent}%`;
-    }
-
-    updateConnectionStatus(connected) {
-        this.connectionStatus.classList.remove('connected', 'disconnected');
-        this.connectionStatus.classList.add(connected ? 'connected' : 'disconnected');
-        this.statusText.textContent = connected ? 'Connected' : 'Disconnected';
+    setConnected(connected) {
+        this.connectionIndicator.classList.toggle('connected', connected);
+        this.indicatorText.textContent = connected ? 'Connected' : 'Disconnected';
     }
 
     disconnect() {
@@ -820,14 +566,13 @@ class MusicDashboard {
         }
         this.playerState = null;
         this.queue = [];
-        this.updateConnectionStatus(false);
+        this.setConnected(false);
         this.trackTitle.textContent = 'No track playing';
-        this.trackArtist.textContent = 'Unknown Artist';
+        this.trackArtist.textContent = 'Select a server to start';
         this.albumArt.style.display = 'none';
         this.noArtwork.style.display = 'flex';
         this.progressFill.style.width = '0%';
-        this.queueList.innerHTML = '';
-        document.getElementById('statsGrid').style.display = 'none';
+        this.queueList.innerHTML = '<div class="empty-message">No tracks in queue</div>';
     }
 
     async apiCall(method, endpoint, body = null) {

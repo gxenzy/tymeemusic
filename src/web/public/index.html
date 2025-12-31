@@ -20,12 +20,7 @@
             
             <nav class="sidebar-nav">
                 <div class="nav-section">
-                    <span class="nav-section-title">Main</span>
-                    <a href="#" class="nav-item active" data-tab="home">
-                        <span class="nav-icon">🏠</span>
-                        <span class="nav-label">Home</span>
-                    </a>
-                    <a href="#" class="nav-item" data-tab="player">
+                    <a href="#" class="nav-item active" data-tab="player">
                         <span class="nav-icon">▶️</span>
                         <span class="nav-label">Player</span>
                     </a>
@@ -40,7 +35,6 @@
                 </div>
                 
                 <div class="nav-section">
-                    <span class="nav-section-title">Library</span>
                     <a href="#" class="nav-item" data-tab="playlists">
                         <span class="nav-icon">📁</span>
                         <span class="nav-label">Playlists</span>
@@ -49,31 +43,22 @@
                         <span class="nav-icon">📜</span>
                         <span class="nav-label">History</span>
                     </a>
-                    <a href="#" class="nav-item" data-tab="search">
-                        <span class="nav-icon">🔍</span>
-                        <span class="nav-label">Search</span>
-                    </a>
                 </div>
                 
                 <div class="nav-section">
-                    <span class="nav-section-title">Management</span>
                     <a href="#" class="nav-item" data-tab="settings">
                         <span class="nav-icon">⚙️</span>
                         <span class="nav-label">Settings</span>
-                    </a>
-                    <a href="#" class="nav-item" data-tab="emoji">
-                        <span class="nav-icon">🎨</span>
-                        <span class="nav-label">Emoji</span>
                     </a>
                 </div>
             </nav>
             
             <div class="sidebar-footer">
                 <div class="user-info">
-                    <img id="botAvatar" src="" alt="Bot" class="bot-avatar">
+                    <img id="botAvatar" src="" alt="Bot" class="bot-avatar" style="display: none;">
                     <div class="user-details">
                         <span class="user-name">TymeeMusic</span>
-                        <span class="user-status">Online</span>
+                        <span class="user-status" id="connectionStatusText">Offline</span>
                     </div>
                 </div>
             </div>
@@ -88,93 +73,39 @@
                         <select id="guildSelect">
                             <option value="">Select a server...</option>
                         </select>
-                        <span class="selector-arrow">▼</span>
                     </div>
                 </div>
                 <div class="header-right">
-                    <div class="connection-status" id="connectionStatus">
-                        <span class="status-dot"></span>
-                        <span class="status-text">Disconnected</span>
-                    </div>
-                    <button class="header-btn" id="settingsBtn" title="Settings">⚙️</button>
+                    <span class="connection-indicator" id="connectionIndicator">
+                        <span class="indicator-dot"></span>
+                        <span class="indicator-text" id="indicatorText">Disconnected</span>
+                    </span>
                 </div>
             </header>
             
-            <!-- Tab Content -->
+            <!-- Content Area -->
             <div class="content-area">
-                <!-- Home Tab -->
-                <div class="tab-content active" id="home-tab">
-                    <div class="welcome-section">
-                        <h1>Welcome to TymeeMusic</h1>
-                        <p>Select a server to start managing your music</p>
-                    </div>
-                    
-                    <div class="stats-grid" id="statsGrid" style="display: none;">
-                        <div class="stat-card">
-                            <span class="stat-icon">🎵</span>
-                            <span class="stat-value" id="statPlaying">0</span>
-                            <span class="stat-label">Now Playing</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-icon">📋</span>
-                            <span class="stat-value" id="statQueue">0</span>
-                            <span class="stat-label">In Queue</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-icon">🔊</span>
-                            <span class="stat-value" id="statVolume">100%</span>
-                            <span class="stat-label">Volume</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-icon">🔁</span>
-                            <span class="stat-value" id="statLoop">Off</span>
-                            <span class="stat-label">Loop Mode</span>
-                        </div>
-                    </div>
-                    
-                    <div class="quick-actions">
-                        <h2>Quick Actions</h2>
-                        <div class="action-buttons">
-                            <button class="action-btn" id="actionPlayPause">
-                                <span class="action-icon">▶️</span>
-                                <span>Play/Pause</span>
-                            </button>
-                            <button class="action-btn" id="actionSkip">
-                                <span class="action-icon">⏭️</span>
-                                <span>Skip</span>
-                            </button>
-                            <button class="action-btn" id="actionShuffle">
-                                <span class="action-icon">🔀</span>
-                                <span>Shuffle</span>
-                            </button>
-                            <button class="action-btn" id="actionClear">
-                                <span class="action-icon">🗑️</span>
-                                <span>Clear Queue</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Player Tab -->
-                <div class="tab-content" id="player-tab">
+                <div class="tab-content active" id="player-tab">
                     <div class="player-container">
-                        <div class="player-main">
+                        <!-- Now Playing -->
+                        <div class="now-playing-card">
                             <div class="album-art-container">
                                 <img id="albumArt" src="" alt="Album Art" class="album-art">
                                 <div id="noArtwork" class="no-artwork">🎵</div>
                                 <div class="album-glow"></div>
                             </div>
                             
-                            <div class="track-details">
+                            <div class="track-info">
                                 <h2 id="trackTitle" class="track-title">No track playing</h2>
-                                <p id="trackArtist" class="track-artist">Unknown Artist</p>
+                                <p id="trackArtist" class="track-artist">Select a server to start</p>
                                 <p id="trackAlbum" class="track-album"></p>
                             </div>
                             
+                            <!-- Progress -->
                             <div class="progress-section">
                                 <div class="progress-bar" id="progressBar">
                                     <div class="progress-fill" id="progressFill"></div>
-                                    <div class="progress-handle" id="progressHandle"></div>
                                 </div>
                                 <div class="time-display">
                                     <span id="currentTime">0:00</span>
@@ -182,52 +113,49 @@
                                 </div>
                             </div>
                             
+                            <!-- Controls -->
                             <div class="player-controls">
                                 <button class="control-btn" id="shuffleBtn" title="Shuffle">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M16 3h5v5M4 20l5-5M21 3l-5 5M21 16v5h-5M4 20l-5-5M9 3l5 5"/>
                                     </svg>
                                 </button>
                                 <button class="control-btn" id="previousBtn" title="Previous">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
                                     </svg>
                                 </button>
                                 <button class="control-btn play-btn" id="playPauseBtn" title="Play/Pause">
-                                    <svg id="playIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <svg id="playIcon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M8 5v14l11-7z"/>
                                     </svg>
-                                    <svg id="pauseIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+                                    <svg id="pauseIcon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" class="hidden">
                                         <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
                                     </svg>
                                 </button>
                                 <button class="control-btn" id="nextBtn" title="Next">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
                                     </svg>
                                 </button>
                                 <button class="control-btn" id="repeatBtn" title="Repeat">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/>
                                     </svg>
                                 </button>
                             </div>
                             
+                            <!-- Volume -->
                             <div class="volume-section">
                                 <button class="volume-btn" id="muteBtn" title="Mute">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
                                     </svg>
                                 </button>
                                 <div class="volume-slider-container">
                                     <input type="range" id="volumeSlider" min="0" max="100" value="100" class="volume-slider">
                                 </div>
-                                <div class="volume-presets">
-                                    <button class="preset-btn" data-volume="25">25%</button>
-                                    <button class="preset-btn" data-volume="50">50%</button>
-                                    <button class="preset-btn" data-volume="75">75%</button>
-                                    <button class="preset-btn" data-volume="100">100%</button>
-                                </div>
+                                <span id="volumeValue" class="volume-value">100%</span>
                             </div>
                         </div>
                     </div>
@@ -235,202 +163,140 @@
                 
                 <!-- Queue Tab -->
                 <div class="tab-content" id="queue-tab">
-                    <div class="queue-header">
-                        <h2>Queue <span class="queue-count">(<span id="queueCount">0</span>)</span></h2>
-                        <div class="queue-actions">
-                            <input type="text" id="queueSearch" placeholder="Search in queue..." class="queue-search">
-                            <button class="queue-btn" id="shuffleQueueBtn" title="Shuffle">🔀 Shuffle</button>
-                            <button class="queue-btn" id="clearQueueBtn" title="Clear">🗑️ Clear</button>
-                            <button class="queue-btn" id="saveQueueBtn" title="Save as Playlist">💾 Save</button>
+                    <div class="queue-container">
+                        <div class="queue-header">
+                            <h2>Queue <span class="queue-count">(<span id="queueCount">0</span>)</span></h2>
+                            <div class="queue-actions">
+                                <button class="queue-action-btn" id="shuffleQueueBtn" title="Shuffle">🔀</button>
+                                <button class="queue-action-btn" id="clearQueueBtn" title="Clear">🗑️</button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="queue-list" id="queueList">
-                        <div class="empty-queue">
-                            <span class="empty-icon">📋</span>
-                            <p>No tracks in queue</p>
-                            <span class="empty-hint">Use /play in Discord or search below to add songs</span>
+                        <div class="queue-list" id="queueList">
+                            <div class="empty-message">No tracks in queue</div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Filters Tab -->
                 <div class="tab-content" id="filters-tab">
-                    <h2>Audio Filters</h2>
-                    <div class="filters-grid">
-                        <div class="filter-category">
-                            <h3>Bass</h3>
-                            <div class="filter-buttons">
-                                <button class="filter-btn" data-filter="bassboost">Bass Boost</button>
-                                <button class="filter-btn" data-filter="deepbass">Deep Bass</button>
-                                <button class="filter-btn" data-filter="superbass">Super Bass</button>
+                    <div class="filters-container">
+                        <h2>Audio Filters</h2>
+                        <div class="filters-grid">
+                            <div class="filter-group">
+                                <h3>Bass</h3>
+                                <div class="filter-buttons">
+                                    <button class="filter-btn" data-filter="bassboost">Bass Boost</button>
+                                    <button class="filter-btn" data-filter="deepbass">Deep Bass</button>
+                                    <button class="filter-btn" data-filter="superbass">Super Bass</button>
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <h3>Effects</h3>
+                                <div class="filter-buttons">
+                                    <button class="filter-btn" data-filter="nightcore">Nightcore</button>
+                                    <button class="filter-btn" data-filter="vaporwave">Vaporwave</button>
+                                    <button class="filter-btn" data-filter="metal">Metal</button>
+                                    <button class="filter-btn" data-filter="oldschool">Old School</button>
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <h3>Genre</h3>
+                                <div class="filter-buttons">
+                                    <button class="filter-btn" data-filter="classical">Classical</button>
+                                    <button class="filter-btn" data-filter="electronic">Electronic</button>
+                                    <button class="filter-btn" data-filter="hiphop">Hip Hop</button>
+                                    <button class="filter-btn" data-filter="jazz">Jazz</button>
+                                    <button class="filter-btn" data-filter="pop">Pop</button>
+                                    <button class="filter-btn" data-filter="reggae">Reggae</button>
+                                    <button class="filter-btn" data-filter="rock">Rock</button>
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <h3>Enhancement</h3>
+                                <div class="filter-buttons">
+                                    <button class="filter-btn" data-filter="boost">Boost</button>
+                                    <button class="filter-btn" data-filter="flat">Flat</button>
+                                    <button class="filter-btn" data-filter="soft">Soft</button>
+                                    <button class="filter-btn" data-filter="warm">Warm</button>
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <h3>Special</h3>
+                                <div class="filter-buttons">
+                                    <button class="filter-btn" data-filter="gaming">Gaming</button>
+                                    <button class="filter-btn" data-filter="vocals">Vocals</button>
+                                </div>
                             </div>
                         </div>
-                        <div class="filter-category">
-                            <h3>Effects</h3>
-                            <div class="filter-buttons">
-                                <button class="filter-btn" data-filter="nightcore">Nightcore</button>
-                                <button class="filter-btn" data-filter="vaporwave">Vaporwave</button>
-                                <button class="filter-btn" data-filter="metal">Metal</button>
-                                <button class="filter-btn" data-filter="oldschool">Old School</button>
-                            </div>
-                        </div>
-                        <div class="filter-category">
-                            <h3>Genre</h3>
-                            <div class="filter-buttons">
-                                <button class="filter-btn" data-filter="classical">Classical</button>
-                                <button class="filter-btn" data-filter="electronic">Electronic</button>
-                                <button class="filter-btn" data-filter="hiphop">Hip Hop</button>
-                                <button class="filter-btn" data-filter="jazz">Jazz</button>
-                                <button class="filter-btn" data-filter="pop">Pop</button>
-                                <button class="filter-btn" data-filter="reggae">Reggae</button>
-                                <button class="filter-btn" data-filter="rock">Rock</button>
-                            </div>
-                        </div>
-                        <div class="filter-category">
-                            <h3>Enhancement</h3>
-                            <div class="filter-buttons">
-                                <button class="filter-btn" data-filter="boost">Boost</button>
-                                <button class="filter-btn" data-filter="flat">Flat</button>
-                                <button class="filter-btn" data-filter="soft">Soft</button>
-                                <button class="filter-btn" data-filter="warm">Warm</button>
-                            </div>
-                        </div>
-                        <div class="filter-category">
-                            <h3>Special</h3>
-                            <div class="filter-buttons">
-                                <button class="filter-btn" data-filter="gaming">Gaming</button>
-                                <button class="filter-btn" data-filter="vocals">Vocals Only</button>
-                            </div>
-                        </div>
-                        <div class="filter-category">
-                            <h3>Treble</h3>
-                            <div class="filter-buttons">
-                                <button class="filter-btn" data-filter="bright">Bright</button>
-                                <button class="filter-btn" data-filter="treble">Treble</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="filter-actions">
-                        <button class="filter-btn active" id="resetFilterBtn">🔄 Reset All Filters</button>
+                        <button class="reset-filters-btn" id="resetFiltersBtn">Reset All Filters</button>
                     </div>
                 </div>
                 
                 <!-- Playlists Tab -->
                 <div class="tab-content" id="playlists-tab">
-                    <div class="playlists-header">
-                        <h2>Playlists</h2>
-                        <div class="playlist-actions">
-                            <button class="playlist-btn" id="createPlaylistBtn">➕ Create Playlist</button>
+                    <div class="playlists-container">
+                        <div class="playlists-header">
+                            <h2>Playlists</h2>
+                            <button class="create-playlist-btn" id="createPlaylistBtn">+ Create</button>
                         </div>
-                    </div>
-                    <div class="playlists-grid" id="playlistsGrid">
-                        <div class="empty-state">
-                            <span class="empty-icon">📁</span>
-                            <p>No playlists yet</p>
-                            <span class="empty-hint">Create a playlist to save your favorite tracks</span>
+                        <div class="playlists-list" id="playlistsList">
+                            <div class="empty-message">No playlists yet</div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- History Tab -->
                 <div class="tab-content" id="history-tab">
-                    <div class="history-header">
-                        <h2>Play History</h2>
-                        <button class="history-btn" id="clearHistoryBtn">🗑️ Clear History</button>
-                    </div>
-                    <div class="history-list" id="historyList">
-                        <div class="empty-state">
-                            <span class="empty-icon">📜</span>
-                            <p>No history yet</p>
-                            <span class="empty-hint">Played tracks will appear here</span>
+                    <div class="history-container">
+                        <div class="history-header">
+                            <h2>Play History</h2>
+                            <button class="clear-history-btn" id="clearHistoryBtn">Clear</button>
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Search Tab -->
-                <div class="tab-content" id="search-tab">
-                    <div class="search-container">
-                        <div class="search-header">
-                            <h2>Search Music</h2>
-                        </div>
-                        <div class="search-box">
-                            <input type="text" id="searchInput" placeholder="Search for songs, artists, or albums..." class="search-input">
-                            <button class="search-btn" id="searchBtn">🔍</button>
-                        </div>
-                        <div class="search-results" id="searchResults">
-                            <div class="search-hint">
-                                <span>🔍</span>
-                                <p>Search for music to add to queue</p>
-                            </div>
+                        <div class="history-list" id="historyList">
+                            <div class="empty-message">No history yet</div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Settings Tab -->
                 <div class="tab-content" id="settings-tab">
-                    <h2>Server Settings</h2>
-                    <div class="settings-form">
-                        <div class="setting-group">
-                            <label>Command Prefix</label>
-                            <input type="text" id="settingPrefix" class="setting-input" placeholder="!">
-                        </div>
-                        <div class="setting-group">
-                            <label>Default Volume</label>
-                            <div class="setting-range">
-                                <input type="range" id="settingVolume" min="1" max="100" value="100">
-                                <span id="settingVolumeValue">100%</span>
+                    <div class="settings-container">
+                        <h2>Server Settings</h2>
+                        <div class="settings-form">
+                            <div class="setting-item">
+                                <label>Command Prefix</label>
+                                <input type="text" id="settingPrefix" class="setting-input" placeholder="!">
                             </div>
+                            <div class="setting-item">
+                                <label>Default Volume</label>
+                                <div class="setting-slider">
+                                    <input type="range" id="settingVolume" min="1" max="100" value="100">
+                                    <span id="settingVolumeValue">100%</span>
+                                </div>
+                            </div>
+                            <div class="setting-item toggle">
+                                <label>24/7 Mode</label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="setting247">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item toggle">
+                                <label>Auto Disconnect</label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="settingAutoDisconnect" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <button class="save-settings-btn" id="saveSettingsBtn">Save Settings</button>
                         </div>
-                        <div class="setting-group toggle">
-                            <label>24/7 Mode (Keep bot in voice channel)</label>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="setting247">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div class="setting-group toggle">
-                            <label>Auto-Disconnect (Leave when queue ends)</label>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="settingAutoDisconnect" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <button class="save-settings-btn" id="saveSettingsBtn">💾 Save Settings</button>
-                    </div>
-                </div>
-                
-                <!-- Emoji Tab -->
-                <div class="tab-content" id="emoji-tab">
-                    <div class="emoji-header">
-                        <h2>Emoji Management</h2>
-                        <button class="emoji-btn" id="syncEmojiBtn">🔄 Auto-Sync Server Emojis</button>
-                    </div>
-                    <div class="emoji-grid" id="emojiGrid">
-                        <!-- Emojis will be loaded here -->
                     </div>
                 </div>
             </div>
         </main>
     </div>
     
-    <!-- Modal for Playlist Create -->
-    <div class="modal" id="createPlaylistModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Create Playlist</h3>
-                <button class="modal-close" id="closeModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <input type="text" id="playlistNameInput" placeholder="Playlist name..." class="modal-input">
-            </div>
-            <div class="modal-footer">
-                <button class="modal-btn cancel" id="cancelPlaylistBtn">Cancel</button>
-                <button class="modal-btn confirm" id="confirmPlaylistBtn">Create</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Toast Notifications -->
+    <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
     
     <script src="app.js"></script>
