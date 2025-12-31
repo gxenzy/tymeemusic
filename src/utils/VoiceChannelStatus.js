@@ -1,6 +1,6 @@
 import { Routes } from 'discord-api-types/v10';
 import { logger } from '#utils/logger';
-import { emojiService } from '#services/EmojiService';
+import { emojiService, DEFAULT_EMOJIS } from '#services/EmojiService';
 
 export class VoiceChannelStatus {
   static getSourceKey(track) {
@@ -21,34 +21,44 @@ export class VoiceChannelStatus {
     return 'music';
   }
 
-  static getEmoji(key, guild = null, client = null, useAlternatives = false, fallbackIndex = 0) {
+  static getDisplayEmoji(key, guild = null) {
     if (!guild?.id) {
-      return emojiService.getEmoji('global', key);
+      return DEFAULT_EMOJIS[key] || "🎵";
     }
-    
-    if (useAlternatives) {
-      return emojiService.getEmojiWithFallback(guild.id, key, guild, client, fallbackIndex);
-    }
-    
-    return emojiService.getEmoji(guild.id, key, guild, client);
+    return emojiService.getDisplayEmoji(guild.id, key, guild);
   }
 
-  static getSourceEmoji(track, guild, useAlternatives = false) {
-    if (!guild?.id) {
-      return emojiService.getSourceEmoji(track?.info?.sourceName);
+  static getSourceEmoji(track, guild = null) {
+    if (!track || !track.info) {
+      return this.getDisplayEmoji('music', guild);
     }
     
-    return emojiService.getVoiceStatusEmoji(track, guild.id, guild);
+    const uri = track.info.uri?.toLowerCase() || '';
+    const sourceName = track.info.sourceName?.toLowerCase() || '';
+    
+    if (uri.includes('spotify.com') || sourceName.includes('spotify')) {
+      return this.getDisplayEmoji('sp', guild);
+    } else if (uri.includes('youtube.com') || uri.includes('youtu.be') || sourceName.includes('youtube')) {
+      return this.getDisplayEmoji('yt', guild);
+    } else if (uri.includes('soundcloud.com') || sourceName.includes('soundcloud')) {
+      return this.getDisplayEmoji('sc', guild);
+    } else if (uri.includes('music.apple.com') || sourceName.includes('apple')) {
+      return this.getDisplayEmoji('am', guild);
+    } else if (uri.includes('deezer.com') || sourceName.includes('deezer')) {
+      return this.getDisplayEmoji('dz', guild);
+    }
+    
+    return this.getDisplayEmoji('music', guild);
   }
 
-  static formatRequestedBy(username, guild = null, client = null) {
-    const playEmoji = this.getEmoji('play', guild, client);
+  static formatRequestedBy(username, guild = null) {
+    const playEmoji = this.getDisplayEmoji('play', guild);
     return `${playEmoji} **Requested by ${username}**`;
   }
 
-  static formatNowPlaying(track, guild = null, client = null) {
+  static formatNowPlaying(track, guild = null) {
     if (!track || !track.info) {
-      const musicEmoji = this.getEmoji('music', guild, client);
+      const musicEmoji = this.getDisplayEmoji('music', guild);
       return `${musicEmoji} **No track playing**`;
     }
 
@@ -67,9 +77,9 @@ export class VoiceChannelStatus {
     return statusText;
   }
 
-  static formatNowPlayingAdvanced(track, guild = null, client = null) {
+  static formatNowPlayingAdvanced(track, guild = null) {
     if (!track || !track.info) {
-      const musicEmoji = this.getEmoji('music', guild, client);
+      const musicEmoji = this.getDisplayEmoji('music', guild);
       return {
         emoji: musicEmoji,
         text: 'No track playing',
@@ -77,7 +87,7 @@ export class VoiceChannelStatus {
       };
     }
 
-    const sourceEmoji = this.getSourceEmoji(track, guild, true);
+    const sourceEmoji = this.getSourceEmoji(track, guild);
     const title = track.info.title || 'Unknown';
     const author = track.info.author || 'Unknown';
     const sourceName = track.info.sourceName || 'Unknown';
@@ -119,18 +129,18 @@ export class VoiceChannelStatus {
     }
   }
 
-  static async setRequestedBy(client, channelId, username, guild = null, clientObj = null) {
-    const status = this.formatRequestedBy(username, guild, clientObj || client);
+  static async setRequestedBy(client, channelId, username, guild = null) {
+    const status = this.formatRequestedBy(username, guild);
     return this.setStatus(client, channelId, status);
   }
 
-  static async setNowPlaying(client, channelId, track, guild = null, clientObj = null) {
-    const status = this.formatNowPlaying(track, guild, clientObj || client);
+  static async setNowPlaying(client, channelId, track, guild = null) {
+    const status = this.formatNowPlaying(track, guild);
     return this.setStatus(client, channelId, status);
   }
 
-  static async setNowPlayingAdvanced(client, channelId, track, guild = null, clientObj = null) {
-    const formatted = this.formatNowPlayingAdvanced(track, guild, clientObj || client);
+  static async setNowPlayingAdvanced(client, channelId, track, guild = null) {
+    const formatted = this.formatNowPlayingAdvanced(track, guild);
     return this.setStatus(client, channelId, formatted.fullText);
   }
 
@@ -148,7 +158,7 @@ export class VoiceChannelStatus {
     }
 
     if (player.queue && player.queue.current) {
-      return this.setNowPlaying(client, player.voiceChannelId, player.queue.current, guild, client);
+      return this.setNowPlaying(client, player.voiceChannelId, player.queue.current, guild);
     }
 
     return this.clearStatus(client, player.voiceChannelId);

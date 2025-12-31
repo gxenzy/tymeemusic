@@ -1,9 +1,9 @@
 import { EmbedBuilder } from 'discord.js';
 import { PlayerManager } from '#managers/PlayerManager';
 import { emojiService } from '#services/EmojiService';
+import { DEFAULT_EMOJIS } from '#services/EmojiService';
 
 export class DiscordPlayerEmbed {
-  // pm: PlayerManager, guild: Guild object (optional), currentPosition: ms (optional), client: discord client (optional)
   static createPlayerEmbed(pm, guild, currentPosition = null, client = null) {
     const track = pm.currentTrack;
     const player = pm.player;
@@ -12,13 +12,8 @@ export class DiscordPlayerEmbed {
     const isStream = track?.info?.isStream || duration === 0;
     const progress = isStream ? 1 : (duration > 0 ? Math.min(Math.max(0, position) / duration, 1) : 0);
     
-    // Peach color theme (#FFCBA4 - soft peach)
     const peachColor = 0xFFCBA4;
-    const darkPeach = 0xE8A87C;
-    
-    // Get guild ID for emoji service
-    const guildId = guild?.id || pm.player?.guildId || 'global';
-    const emojis = emojiService.getAllEmojis(guildId, guild, client);
+    const guildId = guild?.id || pm.player?.guildId || 'default';
     
     const embed = new EmbedBuilder()
       .setColor(peachColor)
@@ -30,26 +25,23 @@ export class DiscordPlayerEmbed {
         embed.setThumbnail(artworkUrl);
       }
       
-      // Modern header with custom emoji
+      const displayEmoji = emojiService.getDisplayEmoji(guildId, 'music', guild);
       embed.setAuthor({
-        name: `${emojis.music} Now Playing`,
-        iconURL: 'https://cdn.discordapp.com/emojis/837570776794009610.png' // Default music icon
+        name: `${displayEmoji} Now Playing`,
+        iconURL: 'https://cdn.discordapp.com/emojis/837570776794009610.png'
       });
       
-      // Main track info - Modern styling
       const title = this.escapeMarkdown(track.info?.title || 'Unknown');
       const artist = this.escapeMarkdown(track.info?.author || 'Unknown Artist');
 
-      // Requester display (prefer mention if id available)
       const requester = track.requester ? (track.requester.id ? `<@${track.requester.id}>` : (track.requester.username || track.requester.tag || 'Unknown')) : 'Unknown';
       
       embed.setDescription(
         `**${title}**\n` +
-        `${emojis.artist} ${artist}\n\n` +
+        `${DEFAULT_EMOJIS.artist} ${artist}\n\n` +
         `**Requested by:** ${requester}`
       );
       
-      // Modern progress bar with peach theme
       const progressBar = this.createModernProgressBar(progress, 35);
       const currentTime = this.formatTime(position);
       const totalTime = isStream ? '🔴 LIVE' : this.formatTime(duration);
@@ -60,52 +52,58 @@ export class DiscordPlayerEmbed {
         inline: false,
       });
       
-      // Modern status info with custom emojis
+      const statusEmoji = emojiService.getDisplayEmoji(guildId, 'status', guild);
+      const volumeEmoji = emojiService.getDisplayEmoji(guildId, 'volume', guild);
+      const loopEmoji = emojiService.getDisplayEmoji(guildId, 'loop', guild);
+      const offEmoji = emojiService.getDisplayEmoji(guildId, 'off', guild);
+      const trackEmoji = emojiService.getDisplayEmoji(guildId, 'track', guild);
+      const queueEmoji = emojiService.getDisplayEmoji(guildId, 'queue', guild);
+      const musicEmoji = emojiService.getDisplayEmoji(guildId, 'music', guild);
+      const voiceEmoji = emojiService.getDisplayEmoji(guildId, 'voice', guild);
+      
       embed.addFields(
         {
-          name: `${emojis.status} Status`,
-          value: pm.isPaused ? `${emojis.paused} Paused` : `${emojis.playing} Playing`,
+          name: `${statusEmoji} Status`,
+          value: pm.isPaused ? `${DEFAULT_EMOJIS.pause} Paused` : `${DEFAULT_EMOJIS.play} Playing`,
           inline: true,
         },
         {
-          name: `${emojis.volume} Volume`,
+          name: `${volumeEmoji} Volume`,
           value: `${pm.volume}%`,
           inline: true,
         },
         {
-          name: `${emojis.loop} Loop`,
-          value: pm.repeatMode === 'off' ? `${emojis.off} Off` : 
-                pm.repeatMode === 'track' ? `${emojis.track} Track` : `${emojis.queue} Queue`,
+          name: `${loopEmoji} Loop`,
+          value: pm.repeatMode === 'off' ? `${offEmoji} Off` : 
+                pm.repeatMode === 'track' ? `${trackEmoji} Track` : `${queueEmoji} Queue`,
           inline: true,
         },
         {
-          name: `${emojis.queue} Queue`,
+          name: `${queueEmoji} Queue`,
           value: `${pm.queueSize} track${pm.queueSize !== 1 ? 's' : ''}`,
           inline: true,
         },
         {
-          name: `${emojis.music} Requested`,
+          name: `${musicEmoji} Requested`,
           value: track.requester ? (track.requester.username ? track.requester.username : `<@${track.requester.id}>`) : 'Unknown',
           inline: true,
         },
         {
-          name: `${emojis.voice} Channel`,
+          name: `${voiceEmoji} Channel`,
           value: pm.voiceChannelId ? 
             `<#${pm.voiceChannelId}>` : 'Not connected',
           inline: true,
         }
       );
       
-      // Footer with source and modern styling
       const source = track.info?.sourceName || 'Unknown';
-      const sourceEmoji = emojiService.getEmoji(guildId, source.toLowerCase(), guild, client) || 
-                         emojiService.getEmoji(guildId, 'music', guild, client);
+      const sourceDisplayEmoji = emojiService.getDisplayEmoji(guildId, source.toLowerCase(), guild) || DEFAULT_EMOJIS.music;
       embed.setFooter({ 
-        text: `${sourceEmoji} ${source.toUpperCase()} • TymeeMusic`,
+        text: `${sourceDisplayEmoji} ${source.toUpperCase()} • TymeeMusic`,
         iconURL: guild?.iconURL() || undefined
       });
     } else {
-      embed.setDescription(`${emojis.idle} No track is currently playing.`);
+      embed.setDescription(`${DEFAULT_EMOJIS.idle} No track is currently playing.`);
     }
     
     return embed;
@@ -118,57 +116,14 @@ export class DiscordPlayerEmbed {
     return '▰'.repeat(filled) + '▱'.repeat(empty);
   }
   
-  static createSpotifyProgressBar(progress, length = 35) {
-    if (progress <= 0) {
-      return '○' + '▬'.repeat(length - 1);
-    }
-    if (progress >= 1) {
-      return '▬'.repeat(length - 1) + '●';
-    }
-    
-    const filled = Math.round(progress * length);
-    const empty = length - filled;
-    
-    if (filled === 0) {
-      return '○' + '▬'.repeat(length - 1);
-    }
-    if (filled >= length) {
-      return '▬'.repeat(length - 1) + '●';
-    }
-    
-    const beforeIndicator = Math.max(0, filled - 1);
-    const afterIndicator = Math.max(0, empty);
-    
-    return '▬'.repeat(beforeIndicator) + '●' + '▬'.repeat(afterIndicator);
-  }
-  
   static createModernProgressBar(progress, length = 35) {
-    if (progress <= 0) {
-      return '⬜' + '⬛'.repeat(length - 1);
-    }
-    if (progress >= 1) {
-      return '▪️'.repeat(length);
-    }
-    
-    const filled = Math.round(progress * length);
+    const filled = Math.floor(progress * length);
     const empty = length - filled;
     
-    // Modern peach-themed progress bar
-    const filledBar = '▪️';
-    const emptyBar = '⬜';
-    const indicator = '🔶';
+    const filledChar = '▇';
+    const emptyChar = '▇';
     
-    if (filled === 0) {
-      return indicator + emptyBar.repeat(length - 1);
-    }
-    if (filled >= length) {
-      return filledBar.repeat(length);
-    }
-    
-    const beforeIndicator = filled - 1;
-    const afterIndicator = Math.max(0, length - filled - 1);
-    
-    return filledBar.repeat(beforeIndicator) + indicator + emptyBar.repeat(afterIndicator);
+    return filledChar.repeat(filled) + ' ' + emptyChar.repeat(empty);
   }
   
   static formatTime(ms) {
@@ -187,12 +142,11 @@ export class DiscordPlayerEmbed {
   static escapeMarkdown(text) {
     if (!text) return '';
     return text
-      .replace(/\*/g, '\\*')
-      .replace(/_/g, '\\_')
-      .replace(/~/g, '\\~')
-      .replace(/`/g, '\\`')
-      .replace(/\|/g, '\\|')
-      .replace(/\n/g, ' ');
+      .replace(/(\*|_|`|~)/g, '\\$1')
+      .replace(/@everyone/g, '@ everyone')
+      .replace(/@&/g, '@ &')
+      .replace(/#/g, '#');
   }
 }
 
+export default DiscordPlayerEmbed;

@@ -631,6 +631,34 @@ export class EmojiService {
       kaomoji: EMOJI_CATEGORIES.kaomoji
     };
   }
+
+  getDisplayEmoji(guildId, key, guild = null) {
+    if (!guildId || guildId === 'global') {
+      guildId = 'default';
+    }
+
+    if (!guild) {
+      return DEFAULT_EMOJIS[key] || "❓";
+    }
+
+    const emojiStr = this.getEmoji(guildId, key, guild, null);
+
+    if (emojiStr && !emojiStr.startsWith('<')) {
+      return emojiStr;
+    }
+
+    if (emojiStr && emojiStr.startsWith('<')) {
+      const emoji = this.parseEmoji(emojiStr);
+      if (emoji) {
+        const guildEmoji = guild.emojis.cache.get(emoji.id);
+        if (guildEmoji) {
+          return emojiStr;
+        }
+      }
+    }
+
+    return DEFAULT_EMOJIS[key] || "❓";
+  }
 }
 
 export const emojiService = new EmojiService();

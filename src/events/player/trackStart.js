@@ -40,10 +40,11 @@ export default {
               title: track.info.title,
               author: track.info.author,
               uri: track.info.uri,
-           },
+            },
           })}`);
 
           db.user.addTrackToHistory(track.requester.id, track.info);
+          db.guild.addToHistory(player.guildId, track.info);
         } catch (historyError) {
           logger.error('TrackStart', 'Error adding track to history:', historyError);
         }
@@ -181,10 +182,10 @@ export function createControlComponents(guildId, client) {
     .setStyle(ButtonStyle.Link)
     .setURL(dashboardUrl);
 
-  const playEmoji = emojiService.getEmoji(guildId, pm?.isPaused ? 'play' : 'pause', guild, client);
+  const playEmoji = emojiService.getDisplayEmoji(guildId, pm?.isPaused ? 'play' : 'pause', guild);
   const playEmojiDisplay = pm?.isPaused ? 
-    emojiService.getEmoji(guildId, 'play', guild, client) : 
-    emojiService.getEmoji(guildId, 'pause', guild, client);
+    emojiService.getDisplayEmoji(guildId, 'play', guild) : 
+    emojiService.getDisplayEmoji(guildId, 'pause', guild);
   const playLabel = pm?.isPaused ? 'Play' : 'Pause';
   const repeatActive = pm && pm.repeatMode && pm.repeatMode !== 'off';
   const repeatStyle = repeatActive ? ButtonStyle.Danger : ButtonStyle.Secondary;
@@ -192,12 +193,12 @@ export function createControlComponents(guildId, client) {
   const controlRow1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('music_stop')
-      .setEmoji(emojiService.getEmoji(guildId, 'stop', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'stop', guild))
       .setLabel('Stop')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId('music_previous')
-      .setEmoji(emojiService.getEmoji(guildId, 'previous', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'previous', guild))
       .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
@@ -207,12 +208,12 @@ export function createControlComponents(guildId, client) {
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('music_skip')
-      .setEmoji(emojiService.getEmoji(guildId, 'next', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'next', guild))
       .setLabel('Next')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_repeat')
-      .setEmoji(emojiService.getEmoji(guildId, 'loop', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'loop', guild))
       .setLabel('Repeat')
       .setStyle(repeatStyle),
   );
@@ -220,27 +221,27 @@ export function createControlComponents(guildId, client) {
   const controlRow2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('music_volume_down')
-      .setEmoji(emojiService.getEmoji(guildId, 'volume', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'volume', guild))
       .setLabel('- Vol')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_seek_back')
-      .setEmoji(emojiService.getEmoji(guildId, 'seek_back', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'seek_back', guild))
       .setLabel('-10s')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_shuffle')
-      .setEmoji(emojiService.getEmoji(guildId, 'shuffle', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'shuffle', guild))
       .setLabel('Shuffle')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_seek_forward')
-      .setEmoji(emojiService.getEmoji(guildId, 'seek_forward', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'seek_forward', guild))
       .setLabel('+10s')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_volume_up')
-      .setEmoji(emojiService.getEmoji(guildId, 'volume', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'volume', guild))
       .setLabel('+ Vol')
       .setStyle(ButtonStyle.Secondary),
   );
@@ -248,27 +249,27 @@ export function createControlComponents(guildId, client) {
   const controlRow3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('music_favorite')
-      .setEmoji(emojiService.getEmoji(guildId, 'favorite', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'favorite', guild))
       .setLabel('Save')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_effects')
-      .setEmoji(emojiService.getEmoji(guildId, 'effects', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'effects', guild))
       .setLabel('Effects')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_filter')
-      .setEmoji(emojiService.getEmoji(guildId, 'filter', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'filter', guild))
       .setLabel('Filter')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_move')
-      .setEmoji(emojiService.getEmoji(guildId, 'move', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'move', guild))
       .setLabel('Move')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_misc')
-      .setEmoji(emojiService.getEmoji(guildId, 'misc', guild, client))
+      .setEmoji(emojiService.getDisplayEmoji(guildId, 'misc', guild))
       .setLabel('More')
       .setStyle(ButtonStyle.Secondary),
   );
