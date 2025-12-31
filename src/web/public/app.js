@@ -176,6 +176,11 @@ class MusicDashboard {
             await this.loadPlaylists();
             await this.loadHistory();
             await this.loadEmojis();
+            await this.loadSettings();
+            await this.loadFilters();
+            await this.loadPlaylists();
+            await this.loadHistory();
+            await this.loadEmojis();
             
             this.setConnected(true);
             this.showToast('Connected to server', 'success');
@@ -300,7 +305,7 @@ class MusicDashboard {
         const filterGroups = document.querySelectorAll('.filter-group');
 
         filterGroups.forEach(group => {
-            const title = group.querySelector('h3').textContent.toLowerCase();
+            const title = group.querySelector('h3').textContent.toLowerCase().trim();
             const buttonContainer = group.querySelector('.filter-buttons');
 
             if (!buttonContainer) return;
@@ -308,14 +313,16 @@ class MusicDashboard {
             buttonContainer.innerHTML = '';
 
             let filterList = [];
-            if (title.includes('bass')) {
+            if (title === 'bass') {
                 filterList = filters.bass || [];
-            } else if (title.includes('genre')) {
+            } else if (title === 'effects') {
+                filterList = filters.special ? filters.special.slice(0, 4) : []; // nightcore, vaporwave, metal, oldschool
+            } else if (title === 'genre') {
                 filterList = filters.genres || [];
-            } else if (title.includes('effects') || title.includes('special')) {
-                filterList = filters.special || [];
-            } else if (title.includes('enhancement')) {
-                filterList = filters.bass || []; // fallback
+            } else if (title === 'enhancement') {
+                filterList = filters.special ? filters.special.slice(4) : []; // boost, flat, soft, warm
+            } else if (title === 'special') {
+                filterList = filters.special ? [filters.special[0]] : []; // gaming
             }
 
             filterList.forEach(filter => {
