@@ -627,11 +627,18 @@ export class WebServer {
       }
     });
 
-    this.broadcastToGuild(guildId, { type: 'state_update', data: this.getPlayerState(pm, guildId) });
+    // Serve dashboard with auto-connect support
+    this.app.get('/', (req, res) => {
+      res.sendFile(join(__dirname, 'public', 'index.html'));
+    });
+    
+    // Auto-connect route (for Discord button links)
+    this.app.get('/connect', (req, res) => {
+      res.sendFile(join(__dirname, 'public', 'index.html'));
+    });
   }
 
   async applyFilters(player, filters) {
-    const { PlayerManager } = await import('#managers/PlayerManager');
     const { config } = await import('#config/config');
     const filterConfig = config.filters || {};
     
@@ -645,17 +652,6 @@ export class WebServer {
     
     await player.setFilters(allFilters);
   }
-
-  // Serve dashboard with auto-connect support
-  this.app.get('/', (req, res) => {
-    res.sendFile(join(__dirname, 'public', 'index.html'));
-  });
-  
-  // Auto-connect route (for Discord button links)
-  this.app.get('/connect', (req, res) => {
-    res.sendFile(join(__dirname, 'public', 'index.html'));
-  });
-}
 
   getPlayerState(pm, guildId) {
     const currentTrack = pm.currentTrack;
