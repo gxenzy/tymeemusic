@@ -57,7 +57,7 @@ export const config = {
     sslCert: process.env.WEB_SSL_CERT || null,
     sslKey: process.env.WEB_SSL_KEY || null,
     apiKey: process.env.WEB_API_KEY || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ',
-    host: 'localhost', // Always use localhost for dashboard URLs
+    host: process.env.WEB_HOST || 'localhost',
   },
   
   // Bot presence/status configuration
