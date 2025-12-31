@@ -1,5 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 import { PlayerManager } from '#managers/PlayerManager';
+import { emojiService } from '#services/EmojiService';
 
 export class DiscordPlayerEmbed {
   // pm: PlayerManager, guild: Guild object (optional), currentPosition: ms (optional), client: discord client (optional)
@@ -15,8 +16,9 @@ export class DiscordPlayerEmbed {
     const peachColor = 0xFFCBA4;
     const darkPeach = 0xE8A87C;
     
-    // Get server emojis with fallbacks (prefer guild, then bot client emojis)
-    const emojis = this.getEmojis(guild, client);
+    // Get guild ID for emoji service
+    const guildId = guild?.id || pm.player?.guildId || 'global';
+    const emojis = emojiService.getAllEmojis(guildId, guild, client);
     
     const embed = new EmbedBuilder()
       .setColor(peachColor)
@@ -96,7 +98,8 @@ export class DiscordPlayerEmbed {
       
       // Footer with source and modern styling
       const source = track.info?.sourceName || 'Unknown';
-      const sourceEmoji = this.getSourceEmoji(source, guild);
+      const sourceEmoji = emojiService.getEmoji(guildId, source.toLowerCase(), guild, client) || 
+                         emojiService.getEmoji(guildId, 'music', guild, client);
       embed.setFooter({ 
         text: `${sourceEmoji} ${source.toUpperCase()} • TymeeMusic`,
         iconURL: guild?.iconURL() || undefined
@@ -106,105 +109,6 @@ export class DiscordPlayerEmbed {
     }
     
     return embed;
-  }
-  
-  static getEmojis(guild, client = null) {
-    if (!guild && !client) {
-      return {
-        music: '🎵',
-        artist: '🎤',
-        status: '📊',
-        paused: '⏸️',
-        playing: '▶️',
-        volume: '🔊',
-        loop: '🔁',
-        off: '❌',
-        track: '🔂',
-        queue: '📋',
-        voice: '🔈',
-        idle: '💤'
-      };
-    }
-
-    // Try to find server emojis, fallback to client (bot) emojis, then to unicode defaults
-    const emojiNames = {
-      music: ['music', 'nowplaying', 'np', '🎵'],
-      artist: ['artist', 'microphone', 'singer', '🎤'],
-      status: ['status', 'stats', '📊'],
-      paused: ['pause', 'paused', '⏸️'],
-      playing: ['play', 'playing', 'resume', '▶️'],
-      volume: ['volume', 'vol', '🔊'],
-      loop: ['loop', 'repeat', '🔁'],
-      off: ['off', 'disabled', '❌'],
-      track: ['track', 'song', '🔂'],
-      queue: ['queue', 'list', 'playlist', '📋'],
-      voice: ['voice', 'channel', 'speaker', '🔈'],
-      idle: ['idle', 'sleep', '💤']
-    };
-
-    const emojis = {};
-    for (const [key, names] of Object.entries(emojiNames)) {
-      let found = null;
-      if (guild) {
-        found = guild.emojis.cache.find(e => 
-          names.some(name => e.name.toLowerCase().includes(name.toLowerCase()) || e.name === name)
-        );
-      }
-      if (!found && client) {
-        found = client.emojis.cache.find(e =>
-          names.some(name => e.name.toLowerCase().includes(name.toLowerCase()) || e.name === name)
-        );
-      }
-      emojis[key] = found ? `<:${found.name}:${found.id}>` : names[names.length - 1];
-    }
-
-    return emojis;
-  }
-  
-  static getSourceEmoji(source, guild, client = null) {
-    if (!guild && !client) {
-      const sourceEmojis = {
-        youtube: '📺',
-        spotify: '🎵',
-        soundcloud: '☁️',
-        deezer: '🎧',
-        apple: '🍎',
-        twitch: '📺',
-        default: '🎵'
-      };
-      return sourceEmojis[source?.toLowerCase()] || sourceEmojis.default;
-    }
-
-    // Try to find server emoji for source
-    let emoji = null;
-    if (guild) {
-      emoji = guild.emojis.cache.find(e => 
-        e.name.toLowerCase().includes(source?.toLowerCase()) ||
-        (['youtube', 'yt'].includes(e.name.toLowerCase()) && source?.toLowerCase().includes('youtube')) ||
-        (['spotify', 'sp'].includes(e.name.toLowerCase()) && source?.toLowerCase().includes('spotify'))
-      );
-    }
-
-    if (!emoji && client) {
-      emoji = client.emojis.cache.find(e =>
-        e.name.toLowerCase().includes(source?.toLowerCase()) ||
-        (['youtube', 'yt'].includes(e.name.toLowerCase()) && source?.toLowerCase().includes('youtube')) ||
-        (['spotify', 'sp'].includes(e.name.toLowerCase()) && source?.toLowerCase().includes('spotify'))
-      );
-    }
-
-    if (emoji) return `<:${emoji.name}:${emoji.id}>`;
-
-    const sourceEmojis = {
-      youtube: '📺',
-      spotify: '🎵',
-      soundcloud: '☁️',
-      deezer: '🎧',
-      apple: '🍎',
-      twitch: '📺',
-      default: '🎵'
-    };
-    return sourceEmojis[source?.toLowerCase()] || sourceEmojis.default;
   }
   
   static createProgressBar(progress, length = 20) {

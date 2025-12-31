@@ -2,6 +2,7 @@ import { Guild } from "#db/Guild";
 import { User } from "#db/User";
 import { Playlists } from "#db/Playlists"
 import { Premium } from "#db/Premium";
+import { Emoji } from "#db/Emoji";
 import { logger } from "#utils/logger";
 
 export class DatabaseManager {
@@ -15,6 +16,7 @@ export class DatabaseManager {
       this.user = new User();
       this.premium = new Premium();
       this.playlists = new Playlists();
+      this.emoji = new Emoji();
       logger.success(
         "DatabaseManager",
         "All databases initialized successfully",
@@ -31,6 +33,7 @@ export class DatabaseManager {
       this.user.close();
       this.premium.close();
       this.playlists.close();
+      this.emoji.close();
       logger.info("DatabaseManager", "All database connections closed");
     } catch (error) {
       logger.error(

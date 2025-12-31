@@ -6,6 +6,7 @@ import { EventUtils } from "#utils/EventUtils";
 import { PlayerManager } from "#managers/PlayerManager";
 import { DiscordPlayerEmbed } from "#utils/DiscordPlayerEmbed";
 import { db } from "#database/DatabaseManager";
+import { emojiService } from "#services/EmojiService";
 import MusicCard from "#structures/classes/MusicCard";
 
 export default {
@@ -148,15 +149,6 @@ export function createControlComponents(guildId, client) {
   const playerObj = client.music?.getPlayer(guildId);
   const pm = playerObj ? new PlayerManager(playerObj) : null;
 
-  const resolveEmoji = (names, fallback) => {
-    if (!guild) return fallback;
-    const emoji = guild.emojis.cache.find(e => names.some(n => e.name.toLowerCase().includes(n.toLowerCase())));
-    if (emoji) return { id: emoji.id, name: emoji.name };
-    const botEmoji = client.emojis?.cache?.find(e => names.some(n => e.name.toLowerCase().includes(n.toLowerCase())));
-    if (botEmoji) return { id: botEmoji.id, name: botEmoji.name };
-    return fallback;
-  };
-
   const similarMenu = new StringSelectMenuBuilder()
     .setCustomId('music_similar_select')
     .setPlaceholder('Similar songs selection menu')
@@ -188,7 +180,10 @@ export function createControlComponents(guildId, client) {
     .setStyle(ButtonStyle.Link)
     .setURL(dashboardUrl);
 
-  const playEmoji = pm?.isPaused ? resolveEmoji(['play', 'resume'], '▶️') : resolveEmoji(['pause', 'paused'], '⏸️');
+  const playEmoji = emojiService.getEmoji(guildId, pm?.isPaused ? 'play' : 'pause', guild, client);
+  const playEmojiDisplay = pm?.isPaused ? 
+    emojiService.getEmoji(guildId, 'play', guild, client) : 
+    emojiService.getEmoji(guildId, 'pause', guild, client);
   const playLabel = pm?.isPaused ? 'Play' : 'Pause';
   const repeatActive = pm && pm.repeatMode && pm.repeatMode !== 'off';
   const repeatStyle = repeatActive ? ButtonStyle.Danger : ButtonStyle.Secondary;
@@ -196,27 +191,27 @@ export function createControlComponents(guildId, client) {
   const controlRow1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('music_stop')
-      .setEmoji(resolveEmoji(['stop', 'stop_button'], '⏹️'))
+      .setEmoji(emojiService.getEmoji(guildId, 'stop', guild, client))
       .setLabel('Stop')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId('music_previous')
-      .setEmoji(resolveEmoji(['previous', 'prev', 'back'], '⏮️'))
+      .setEmoji(emojiService.getEmoji(guildId, 'previous', guild, client))
       .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_pause')
-      .setEmoji(playEmoji)
+      .setEmoji(playEmojiDisplay)
       .setLabel(playLabel)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('music_skip')
-      .setEmoji(resolveEmoji(['next'], '⏭️'))
+      .setEmoji(emojiService.getEmoji(guildId, 'next', guild, client))
       .setLabel('Next')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_repeat')
-      .setEmoji(resolveEmoji(['repeat', 'loop'], '🔁'))
+      .setEmoji(emojiService.getEmoji(guildId, 'loop', guild, client))
       .setLabel('Repeat')
       .setStyle(repeatStyle),
   );
@@ -224,27 +219,27 @@ export function createControlComponents(guildId, client) {
   const controlRow2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('music_volume_down')
-      .setEmoji(resolveEmoji(['volume', 'vol', 'down'], '🔉'))
+      .setEmoji(emojiService.getEmoji(guildId, 'volume', guild, client))
       .setLabel('- Vol')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_seek_back')
-      .setEmoji(resolveEmoji(['rewind', 'seekback'], '⏪'))
+      .setEmoji(emojiService.getEmoji(guildId, 'seek_back', guild, client))
       .setLabel('-10s')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_shuffle')
-      .setEmoji(resolveEmoji(['shuffle', 'random'], '🔀'))
+      .setEmoji(emojiService.getEmoji(guildId, 'shuffle', guild, client))
       .setLabel('Shuffle')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_seek_forward')
-      .setEmoji(resolveEmoji(['forward', 'seekforward'], '⏩'))
+      .setEmoji(emojiService.getEmoji(guildId, 'seek_forward', guild, client))
       .setLabel('+10s')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_volume_up')
-      .setEmoji(resolveEmoji(['volume', 'vol', 'up'], '🔊'))
+      .setEmoji(emojiService.getEmoji(guildId, 'volume', guild, client))
       .setLabel('+ Vol')
       .setStyle(ButtonStyle.Secondary),
   );
@@ -252,27 +247,27 @@ export function createControlComponents(guildId, client) {
   const controlRow3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('music_favorite')
-      .setEmoji(resolveEmoji(['heart', 'love', 'fav'], '❤️'))
+      .setEmoji(emojiService.getEmoji(guildId, 'favorite', guild, client))
       .setLabel('Save')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_effects')
-      .setEmoji(resolveEmoji(['equalizer', 'eq', 'fx'], '🎛️'))
+      .setEmoji(emojiService.getEmoji(guildId, 'effects', guild, client))
       .setLabel('Effects')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_filter')
-      .setEmoji(resolveEmoji(['filter', 'funnel'], '🔧'))
+      .setEmoji(emojiService.getEmoji(guildId, 'filter', guild, client))
       .setLabel('Filter')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_move')
-      .setEmoji(resolveEmoji(['move', 'swap'], '🔀'))
+      .setEmoji(emojiService.getEmoji(guildId, 'move', guild, client))
       .setLabel('Move')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music_misc')
-      .setEmoji(resolveEmoji(['info', 'dot'], '🔘'))
+      .setEmoji(emojiService.getEmoji(guildId, 'misc', guild, client))
       .setLabel('More')
       .setStyle(ButtonStyle.Secondary),
   );
