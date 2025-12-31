@@ -92,6 +92,13 @@ class MusicDashboard {
         
         document.getElementById('saveSettingsBtn').addEventListener('click', () => this.saveSettings());
         document.getElementById('syncEmojiBtn').addEventListener('click', () => this.syncEmojis());
+        document.getElementById('closeEmojiModal').addEventListener('click', () => this.closeEmojiModal());
+        document.getElementById('cancelEmojiBtn').addEventListener('click', () => this.closeEmojiModal());
+        document.getElementById('saveEmojiBtn').addEventListener('click', () => this.saveEmoji());
+        document.getElementById('deleteEmojiBtn').addEventListener('click', () => this.deleteEmoji());
+        document.getElementById('emojiEditModal').addEventListener('click', (e) => {
+            if (e.target.id === 'emojiEditModal') this.closeEmojiModal();
+        });
     }
 
     async loadGuilds() {
@@ -498,20 +505,77 @@ class MusicDashboard {
                 const grid = document.getElementById('emojiGrid');
                 
                 if (Object.keys(emojis).length === 0) {
-                    grid.innerHTML = '<div class="empty-message">No custom emojis set. Click "Sync Server Emojis" to auto-map.</div>';
+                    grid.innerHTML = '<div class="empty-message">No custom emojis set. Click an emoji key to set a custom emoji.</div>';
                     return;
                 }
                 
                 grid.innerHTML = Object.entries(emojis).map(([key, emoji]) => `
-                    <div class="emoji-item" data-key="${key}">
-                        <div class="emoji-preview">${emoji}</div>
+                    <div class="emoji-item" data-key="${key}" data-emoji="${emoji}">
+                        <span class="emoji-preview">${emoji}</span>
                         <div class="emoji-key">${key}</div>
-                        <div class="emoji-name">Custom</div>
+                        <div class="emoji-name">${emoji}</div>
                     </div>
                 `).join('');
+                
+                grid.querySelectorAll('.emoji-item').forEach(item => {
+                    item.addEventListener('click', () => this.openEmojiModal(item.dataset.key, item.dataset.emoji));
+                });
             }
         } catch (error) {
             console.error('Error loading emojis:', error);
+        }
+    }
+    
+    openEmojiModal(key, currentEmoji) {
+        this.currentEmojiKey = key;
+        document.getElementById('emojiEditPreview').textContent = currentEmoji || '🎵';
+        document.getElementById('emojiEditCurrent').textContent = `Current: ${key}`;
+        document.getElementById('emojiEditInput').value = '';
+        document.getElementById('emojiEditModal').classList.add('active');
+    }
+    
+    closeEmojiModal() {
+        document.getElementById('emojiEditModal').classList.remove('active');
+        this.currentEmojiKey = null;
+    }
+    
+    async saveEmoji() {
+        const emojiValue = document.getElementById('emojiEditInput').value.trim();
+        
+        try {
+            if (emojiValue) {
+                await this.apiCall('POST', '/api/emoji/add', { 
+                    guildId: this.guildId, 
+                    key: this.currentEmojiKey, 
+                    emoji: emojiValue 
+                });
+            } else {
+                await this.apiCall('POST', '/api/emoji/remove', { 
+                    guildId: this.guildId, 
+                    key: this.currentEmojiKey 
+                });
+            }
+            
+            this.closeEmojiModal();
+            await this.loadEmojis();
+            this.showToast('Emoji updated', 'success');
+        } catch (error) {
+            this.showToast('Failed to update emoji', 'error');
+        }
+    }
+    
+    async deleteEmoji() {
+        try {
+            await this.apiCall('POST', '/api/emoji/remove', { 
+                guildId: this.guildId, 
+                key: this.currentEmojiKey 
+            });
+            
+            this.closeEmojiModal();
+            await this.loadEmojis();
+            this.showToast('Emoji reset to default', 'success');
+        } catch (error) {
+            this.showToast('Failed to reset emoji', 'error');
         }
     }
 

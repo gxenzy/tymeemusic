@@ -987,6 +987,7 @@ body {
     text-align: center;
     cursor: pointer;
     transition: var(--transition);
+    border: 1px solid transparent;
 }
 
 .emoji-item:hover {
@@ -997,18 +998,137 @@ body {
 .emoji-preview {
     font-size: 40px;
     margin-bottom: 8px;
+    display: block;
 }
 
 .emoji-key {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-gray);
     margin-bottom: 4px;
+    text-transform: capitalize;
 }
 
 .emoji-name {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
-    font-family: monospace;
+    word-break: break-all;
+}
+
+/* Emoji Edit Modal */
+.emoji-edit-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.emoji-edit-modal.active {
+    display: flex;
+}
+
+.emoji-edit-content {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--border);
+}
+
+.emoji-edit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.emoji-edit-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.emoji-edit-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.emoji-edit-preview {
+    font-size: 48px;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.emoji-edit-current {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.emoji-edit-input-group {
+    margin-bottom: 16px;
+}
+
+.emoji-edit-input-group label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-gray);
+    margin-bottom: 8px;
+}
+
+.emoji-edit-input {
+    width: 100%;
+    padding: 12px;
+    background: var(--bg-darker);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-white);
+    font-size: 14px;
+}
+
+.emoji-edit-input:focus {
+    outline: none;
+    border-color: var(--peach);
+}
+
+.emoji-edit-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.emoji-edit-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.emoji-edit-btn.cancel {
+    background: var(--bg-darker);
+    border: 1px solid var(--border);
+    color: var(--text-white);
+}
+
+.emoji-edit-btn.save {
+    background: linear-gradient(135deg, var(--peach), var(--pink));
+    border: none;
+    color: var(--bg-dark);
+}
+
+.emoji-edit-btn.delete {
+    background: rgba(248, 113, 113, 0.2);
+    border: 1px solid var(--error);
+    color: var(--error);
 }
 
 /* Toast Notifications */

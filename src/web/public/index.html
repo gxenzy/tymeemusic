@@ -317,6 +317,27 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
     
+    <!-- Emoji Edit Modal -->
+    <div class="emoji-edit-modal" id="emojiEditModal">
+        <div class="emoji-edit-content">
+            <div class="emoji-edit-header">
+                <h3>Edit Emoji</h3>
+                <button class="emoji-edit-close" id="closeEmojiModal">&times;</button>
+            </div>
+            <div class="emoji-edit-preview" id="emojiEditPreview">🎵</div>
+            <div class="emoji-edit-current" id="emojiEditCurrent">Current: music</div>
+            <div class="emoji-edit-input-group">
+                <label>Custom Emoji (paste emoji or <:name:id>)</label>
+                <input type="text" id="emojiEditInput" class="emoji-edit-input" placeholder="🎵 or <:mymusic:123456789>">
+            </div>
+            <div class="emoji-edit-actions">
+                <button class="emoji-edit-btn delete" id="deleteEmojiBtn">Reset</button>
+                <button class="emoji-edit-btn cancel" id="cancelEmojiBtn">Cancel</button>
+                <button class="emoji-edit-btn save" id="saveEmojiBtn">Save</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="app.js"></script>
 </body>
 </html>

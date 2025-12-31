@@ -642,6 +642,43 @@ export class WebServer {
       }
     });
 
+    this.app.post('/api/emoji/add', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId, key, emoji } = req.body;
+        
+        if (!guildId || !key || !emoji) {
+          return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
+        const parsed = this.parseEmoji(emoji);
+        if (!parsed) {
+          return res.status(400).json({ error: 'Invalid emoji format' });
+        }
+        
+        db.emoji.setEmoji(guildId, key, parsed.id, parsed.name);
+        res.json({ success: true, message: 'Emoji added' });
+      } catch (error) {
+        logger.error('WebServer', 'Error adding emoji:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/emoji/remove', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId, key } = req.body;
+        
+        if (!guildId || !key) {
+          return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
+        db.emoji.removeEmoji(guildId, key);
+        res.json({ success: true, message: 'Emoji removed' });
+      } catch (error) {
+        logger.error('WebServer', 'Error removing emoji:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     // Serve dashboard with auto-connect support
     this.app.get('/', (req, res) => {
       res.sendFile(join(__dirname, 'public', 'index.html'));
@@ -651,6 +688,15 @@ export class WebServer {
     this.app.get('/connect', (req, res) => {
       res.sendFile(join(__dirname, 'public', 'index.html'));
     });
+  }
+
+  parseEmoji(emojiStr) {
+    if (!emojiStr) return null;
+    const match = emojiStr.match(/^<a?:(.+):(\d+)>$/);
+    if (match) {
+      return { name: match[1], id: match[2], animated: emojiStr.startsWith("<a:") };
+    }
+    return null;
   }
 
   getPlayerState(pm, guildId) {

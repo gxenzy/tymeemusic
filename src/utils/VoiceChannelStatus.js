@@ -37,7 +37,8 @@ export class VoiceChannelStatus {
    * @returns {string} - Emoji string
    */
   static getEmoji(key, guild = null, client = null) {
-    return emojiService.getEmoji('global', key, guild, client);
+    const guildId = guild?.id || 'global';
+    return emojiService.getEmoji(guildId, key, guild, client);
   }
 
   /**
