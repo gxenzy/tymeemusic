@@ -21,7 +21,8 @@
     "#handlers/*": "./src/structures/handlers/*.js",
     "#classes/*": "./src/structures/classes/*.js",
     "#db/*": "./src/database/repo/*.js",
-    "#web/*": "./src/web/*.js"
+    "#web/*": "./src/web/*.js",
+    "#services/*": "./src/services/*.js"
   },
   "keywords": [
     "discord",
