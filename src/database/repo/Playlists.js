@@ -18,6 +18,7 @@ export class Playlists extends Database {
 			CREATE TABLE IF NOT EXISTS playlists (
 				id TEXT PRIMARY KEY,
 				user_id TEXT NOT NULL,
+				guild_id TEXT DEFAULT NULL,
 				name TEXT NOT NULL,
 				description TEXT DEFAULT NULL,
 				tracks TEXT DEFAULT '[]',
@@ -33,6 +34,10 @@ export class Playlists extends Database {
 		`);
 
 		this.exec(`
+			CREATE INDEX IF NOT EXISTS idx_playlists_guild_id ON playlists(guild_id)
+		`);
+
+		this.exec(`
 			CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name)
 		`);
 
@@ -43,7 +48,7 @@ export class Playlists extends Database {
 		return 'pl_' + Math.random().toString(36).substr(2, 16) + Date.now().toString(36);
 	}
 
-	createPlaylist(userId, name, description = null) {
+	createPlaylist(userId, name, description = null, guildId = null) {
 		if (!name || name.length > PLAYLIST_NAME_MAX_LENGTH) {
 			throw new Error('Invalid playlist name');
 		}
@@ -67,9 +72,9 @@ export class Playlists extends Database {
 		const playlistId = this.generatePlaylistId();
 
 		this.exec(`
-			INSERT INTO playlists (id, user_id, name, description, tracks, total_duration, track_count)
-			VALUES (?, ?, ?, ?, '[]', 0, 0)
-		`, [playlistId, userId, name, description]);
+			INSERT INTO playlists (id, user_id, guild_id, name, description, tracks, total_duration, track_count)
+			VALUES (?, ?, ?, ?, ?, '[]', 0, 0)
+		`, [playlistId, userId, guildId, name, description]);
 
 		return this.getPlaylist(playlistId);
 	}
@@ -98,6 +103,20 @@ export class Playlists extends Database {
 			playlist.tracks = JSON.parse(playlist.tracks || '[]');
 		} catch (e) {
 			logger.error('PlaylistsDB', `Failed to parse tracks for playlist ${playlistId}`, e);
+			playlist.tracks = [];
+		}
+
+		return playlist;
+	}
+
+	getPlaylistByName(name) {
+		const playlist = this.get('SELECT * FROM playlists WHERE name = ?', [name]);
+		if (!playlist) return null;
+
+		try {
+			playlist.tracks = JSON.parse(playlist.tracks || '[]');
+		} catch (e) {
+			logger.error('PlaylistsDB', `Failed to parse tracks for playlist ${playlist.id}`, e);
 			playlist.tracks = [];
 		}
 
@@ -283,6 +302,41 @@ export class Playlists extends Database {
 		`, [userId]);
 
 		return result || { total_playlists: 0, total_tracks: 0, total_duration: 0 };
+	}
+
+	getGuildPlaylists(guildId) {
+		const playlists = this.all(`
+			SELECT * FROM playlists 
+			WHERE guild_id = ? 
+			ORDER BY created_at DESC
+		`, [guildId]);
+
+		return playlists.map(playlist => {
+			try {
+				playlist.tracks = JSON.parse(playlist.tracks || '[]');
+			} catch (e) {
+				logger.error('PlaylistsDB', `Failed to parse tracks for playlist ${playlist.id}`, e);
+				playlist.tracks = [];
+			}
+			return playlist;
+		});
+	}
+
+	getAllPlaylists() {
+		const playlists = this.all(`
+			SELECT * FROM playlists 
+			ORDER BY created_at DESC
+		`);
+
+		return playlists.map(playlist => {
+			try {
+				playlist.tracks = JSON.parse(playlist.tracks || '[]');
+			} catch (e) {
+				logger.error('PlaylistsDB', `Failed to parse tracks for playlist ${playlist.id}`, e);
+				playlist.tracks = [];
+			}
+			return playlist;
+		});
 	}
 
 	cleanupPlaylists(userId) {

@@ -90,18 +90,58 @@ export class WebServer {
       res.json({ status: 'ok', timestamp: Date.now() });
     });
 
-    // Get all active players (guilds with music playing)
+    // Get all active players (guilds with music playing) OR all guilds the bot is in
     this.app.get('/api/players', this.authenticate.bind(this), async (req, res) => {
       try {
         const players = [];
-        const { PlayerManager } = await import('#managers/PlayerManager');
+        const includeInactive = req.query.includeInactive === 'true';
         
+        // Get all guilds the bot is in
+        const allGuilds = [];
+        for (const [guildId, guild] of this.client.guilds.cache) {
+          allGuilds.push({
+            guildId: guild.id,
+            guildName: guild.name,
+          });
+        }
+        
+        // If no guilds, return empty
+        if (allGuilds.length === 0) {
+          return res.json({ players: [] });
+        }
+        
+        // Get active players from lavalink
+        const activePlayers = new Map();
         if (this.client.music?.lavalink) {
-          const allPlayers = this.client.music.lavalink.players;
+          for (const [guildId, player] of this.client.music.lavalink.players) {
+            activePlayers.set(guildId, player);
+          }
+        }
+        
+        // Build player state for each guild
+        for (const guildInfo of allGuilds) {
+          const guildId = guildInfo.guildId;
+          const player = activePlayers.get(guildId);
           
-          for (const [guildId, player] of allPlayers) {
+          if (player) {
+            const { PlayerManager } = await import('#managers/PlayerManager');
             const pm = new PlayerManager(player);
-            players.push(this.getPlayerState(pm, guildId));
+            players.push(this.getPlayerState(pm, guildId, guildInfo.guildName));
+          } else if (includeInactive) {
+            // Include guilds without active players
+            players.push({
+              guildId,
+              guildName: guildInfo.guildName,
+              isPlaying: false,
+              isPaused: false,
+              isConnected: false,
+              volume: 100,
+              repeatMode: 'off',
+              position: 0,
+              currentTrack: null,
+              queueSize: 0,
+              voiceChannel: null,
+            });
           }
         }
         
@@ -368,18 +408,13 @@ export class WebServer {
       }
     });
 
-    // History endpoint
+    // History endpoint - returns guild-level history
     this.app.get('/api/player/:guildId/history', this.authenticate.bind(this), async (req, res) => {
       try {
         const { guildId } = req.params;
-        const userId = req.query.userId;
         
-        if (userId) {
-          const history = db.user.getTrackHistory(userId);
-          res.json({ history: history || [] });
-        } else {
-          res.json({ history: [] });
-        }
+        const history = db.guild.getHistory(guildId) || [];
+        res.json({ history });
       } catch (error) {
         logger.error('WebServer', 'Error getting history:', error);
         res.status(500).json({ error: error.message });
@@ -390,6 +425,7 @@ export class WebServer {
     this.app.delete('/api/player/:guildId/history', this.authenticate.bind(this), async (req, res) => {
       try {
         const { guildId } = req.params;
+        db.guild.clearHistory(guildId);
         res.json({ success: true, message: 'History cleared' });
       } catch (error) {
         logger.error('WebServer', 'Error clearing history:', error);
@@ -436,28 +472,57 @@ export class WebServer {
           return res.status(404).json({ error: 'No player found' });
         }
         
-        const { config: filterConfig } = await import('#config/config');
+        const { filters: filterConfig } = await import('#config/filters.js');
         const allFilters = {};
         
         if (filters && filters.length > 0) {
           for (const filter of filters) {
-            if (filterConfig.filters && filterConfig.filters[filter]) {
-              Object.assign(allFilters, filterConfig.filters[filter]);
+            if (filterConfig[filter]) {
+              Object.assign(allFilters, filterConfig[filter]);
             }
           }
         }
         
-        if (player.filters) {
-          await player.filters.setFilters(allFilters);
-        } else if (player.setFilters) {
-          await player.setFilters(allFilters);
-        } else {
-          return res.status(400).json({ error: 'Filter API not available' });
+        try {
+          if (player.filters) {
+            await player.filters.setFilters(allFilters);
+          } else if (player.setFilters) {
+            await player.setFilters(allFilters);
+          } else if (player.equalizer) {
+            for (let i = 0; i < 14; i++) {
+              const band = allFilters.find(b => b.band === i);
+              await player.equalizer.setBand(i, band ? band.gain : 0);
+            }
+          } else {
+            return res.status(400).json({ error: 'Filter API not available on this player' });
+          }
+          
+          res.json({ success: true, message: 'Filter applied' });
+        } catch (filterError) {
+          logger.error('WebServer', 'Filter application error:', filterError);
+          res.status(500).json({ error: `Failed to apply filter: ${filterError.message}` });
         }
-        
-        res.json({ success: true, message: 'Filter applied' });
       } catch (error) {
         logger.error('WebServer', 'Error applying filter:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Get available filters
+    this.app.get('/api/filters', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { filters: filterConfig } = await import('#config/filters.js');
+        
+        res.json({
+          genres: filterConfig.getGenreFilters(),
+          bass: filterConfig.getBassFilters(),
+          vocal: filterConfig.getVocalFilters(),
+          treble: filterConfig.getTrebleFilters(),
+          special: filterConfig.getSpecialFilters(),
+          all: filterConfig.getNames()
+        });
+      } catch (error) {
+        logger.error('WebServer', 'Error getting filters:', error);
         res.status(500).json({ error: error.message });
       }
     });
@@ -492,18 +557,27 @@ export class WebServer {
       }
     });
 
-    // Playlists endpoints
+    // Playlists endpoints - get all playlists for dashboard
     this.app.get('/api/playlists', this.authenticate.bind(this), async (req, res) => {
       try {
-        const userId = req.query.userId;
-        if (!userId) {
-          return res.status(400).json({ error: 'User ID required' });
+        const guildId = req.query.guildId;
+        let playlists;
+
+        if (guildId) {
+          // Get guild-specific playlists
+          playlists = db.playlists.getGuildPlaylists(guildId);
+        } else {
+          // Get all playlists (for dashboard)
+          playlists = db.playlists.getAllPlaylists();
         }
-        
-        const playlists = db.playlists.getUserPlaylists(userId) || [];
+
         res.json(playlists.map(p => ({
+          id: p.id,
           name: p.name,
-          trackCount: p.tracks?.length || 0
+          description: p.description,
+          trackCount: p.tracks?.length || p.track_count || 0,
+          totalDuration: p.total_duration || 0,
+          createdAt: p.created_at,
         })));
       } catch (error) {
         logger.error('WebServer', 'Error getting playlists:', error);
@@ -513,12 +587,14 @@ export class WebServer {
 
     this.app.post('/api/playlist/create', this.authenticate.bind(this), async (req, res) => {
       try {
-        const { name, guildId, userId } = req.body;
+        const { name, guildId, userId, description } = req.body;
         if (!name) {
           return res.status(400).json({ error: 'Name required' });
         }
         
-        db.playlists.createPlaylist(userId, name);
+        // Use userId if provided, otherwise use guildId or 'dashboard'
+        const ownerId = userId || guildId || 'dashboard';
+        db.playlists.createPlaylist(ownerId, name, description, guildId);
         res.json({ success: true, message: 'Playlist created' });
       } catch (error) {
         logger.error('WebServer', 'Error creating playlist:', error);
@@ -533,7 +609,7 @@ export class WebServer {
           return res.status(400).json({ error: 'Name required' });
         }
         
-        const playlist = db.playlists.getPlaylist(name);
+        const playlist = db.playlists.getPlaylistByName(name);
         if (!playlist) {
           return res.status(404).json({ error: 'Playlist not found' });
         }
@@ -548,6 +624,55 @@ export class WebServer {
         res.json({ success: true, message: 'Playlist loaded' });
       } catch (error) {
         logger.error('WebServer', 'Error loading playlist:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Delete playlist endpoint
+    this.app.delete('/api/playlist/:playlistId', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { playlistId } = req.params;
+        const { userId } = req.query;
+        
+        if (!userId) {
+          return res.status(400).json({ error: 'User ID required' });
+        }
+        
+        const playlist = db.playlists.getPlaylist(playlistId);
+        if (!playlist) {
+          return res.status(404).json({ error: 'Playlist not found' });
+        }
+        
+        if (playlist.user_id !== userId) {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        db.playlists.deletePlaylist(playlistId, userId);
+        res.json({ success: true, message: 'Playlist deleted' });
+      } catch (error) {
+        logger.error('WebServer', 'Error deleting playlist:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Update playlist endpoint
+    this.app.put('/api/playlist/:playlistId', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { playlistId } = req.params;
+        const { userId, name, description } = req.body;
+        
+        if (!userId) {
+          return res.status(400).json({ error: 'User ID required' });
+        }
+        
+        const updates = {};
+        if (name) updates.name = name;
+        if (description !== undefined) updates.description = description;
+        
+        const playlist = db.playlists.updatePlaylist(playlistId, userId, updates);
+        res.json({ success: true, playlist });
+      } catch (error) {
+        logger.error('WebServer', 'Error updating playlist:', error);
         res.status(500).json({ error: error.message });
       }
     });
@@ -702,19 +827,28 @@ export class WebServer {
     return null;
   }
 
-  getPlayerState(pm, guildId) {
-    const currentTrack = pm.currentTrack;
+  getPlayerState(pm, guildId, guildName = null) {
+    const currentTrack = pm?.currentTrack;
     const guild = this.client.guilds.cache.get(guildId);
+    
+    // Get voice channel info if player exists
+    let voiceChannel = null;
+    if (pm?.voiceChannelId) {
+      voiceChannel = {
+        id: pm.voiceChannelId,
+        name: guild?.channels.cache.get(pm.voiceChannelId)?.name || 'Unknown',
+      };
+    }
     
     return {
       guildId,
-      guildName: guild?.name || 'Unknown Guild',
-      isPlaying: pm.isPlaying,
-      isPaused: pm.isPaused,
-      isConnected: pm.isConnected,
-      volume: pm.volume,
-      repeatMode: pm.repeatMode,
-      position: pm.position,
+      guildName: guildName || guild?.name || 'Unknown Guild',
+      isPlaying: pm?.isPlaying || false,
+      isPaused: pm?.isPaused || false,
+      isConnected: pm?.isConnected || false,
+      volume: pm?.volume || 100,
+      repeatMode: pm?.repeatMode || 'off',
+      position: pm?.position || 0,
       currentTrack: currentTrack ? {
         title: currentTrack.info?.title || 'Unknown',
         author: currentTrack.info?.author || 'Unknown',
@@ -724,11 +858,8 @@ export class WebServer {
         isStream: currentTrack.info?.isStream || false,
         isSeekable: currentTrack.info?.isSeekable !== false && !currentTrack.info?.isStream,
       } : null,
-      queueSize: pm.queueSize,
-      voiceChannel: pm.voiceChannelId ? {
-        id: pm.voiceChannelId,
-        name: guild?.channels.cache.get(pm.voiceChannelId)?.name || 'Unknown',
-      } : null,
+      queueSize: pm?.queueSize || 0,
+      voiceChannel,
     };
   }
 

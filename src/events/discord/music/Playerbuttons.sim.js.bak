@@ -1,0 +1,81 @@
+export default {
+  name: 'interactionCreate',
+  once: false,
+  async execute(interaction, client) {
+    // Minimal handler for tests
+    const player = client.music.getPlayer(interaction.guild.id);
+    if (!player) {
+      await interaction.reply({ content: '❌ No music player found.', ephemeral: true });
+      return;
+    }
+
+    // Wrap raw player in PlayerManager
+    const { PlayerManager } = await import('#managers/PlayerManager');
+    const pm = new PlayerManager(player);
+    const id = interaction.customId;
+
+    if (id === 'music_shuffle') {
+      if (pm.queueSize <= 1) {
+        await interaction.reply({ content: '❌ Not enough tracks in queue to shuffle.', ephemeral: true });
+      } else {
+        await pm.shuffleQueue();
+        await interaction.reply({ content: `🔀 Shuffled ${pm.queueSize} tracks.`, ephemeral: true });
+      }
+      return;
+    }
+
+    if (id === 'music_move') {
+      const queue = pm.player.queue?.tracks || [];
+      if (!queue.length) return interaction.reply({ content: '❌ Queue is empty, nothing to move.', ephemeral: true });
+      const options = queue.slice(0, 24).map((t, i) => ({ label: `${i + 1}. ${t.info?.title || 'Unknown'}`, value: `move_idx_${i}` }));
+      await interaction.reply({ content: 'Select a track', components: [], ephemeral: true });
+      return;
+    }
+
+    if (id === 'music_move_select') {
+      const val = interaction.values[0];
+      const match = /^move_idx_(\d+)$/.exec(val);
+      if (!match) return interaction.reply({ content: '❌ Invalid selection.', ephemeral: true });
+      const idx = parseInt(match[1], 10);
+      try {
+        await pm.moveTrack(idx, 0);
+        await interaction.reply({ content: `✅ Moved track ${idx + 1} to the top of the queue.`, ephemeral: true });
+      } catch (err) {
+        await interaction.reply({ content: '❌ Failed to move that track.', ephemeral: true });
+      }
+      return;
+    }
+
+    if (id === 'music_filter') {
+      // open filter menu
+      await interaction.reply({ content: 'Choose filter', components: [], ephemeral: true });
+      return;
+    }
+
+    if (id === 'music_filters_select') {
+      const sel = interaction.values[0];
+      if (sel === 'reset') {
+        await pm.player.set('eq', null);
+        await interaction.reply({ content: '✅ Audio filters reset.', ephemeral: true });
+      } else {
+        await pm.player.set('eq', sel);
+        await interaction.reply({ content: `✅ Applied filter **${sel}**.`, ephemeral: true });
+      }
+      return;
+    }
+
+    if (id === 'music_effects') {
+      await interaction.reply({ content: 'Choose effect', components: [], ephemeral: true });
+      return;
+    }
+
+    if (id === 'music_effects_select') {
+      const eff = interaction.values[0];
+      await pm.player.set('effect', eff);
+      await interaction.reply({ content: `✅ Applied effect **${eff}**.`, ephemeral: true });
+      return;
+    }
+
+    await interaction.reply({ content: '❌ Unknown command in sim handler.', ephemeral: true });
+  }
+};

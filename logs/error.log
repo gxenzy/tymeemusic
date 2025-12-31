@@ -233,3 +233,1389 @@ Stack trace: Error: listen EADDRINUSE: address already in use :::3000
     at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:198:16)
 [2025-12-29T13:28:17.073Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
 [2025-12-29T13:28:18.672Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-29T22:13:51.792Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:13:51.991Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:14:16.319Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:14:16.492Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-29T22:14:40.804Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:14:40.983Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:15:05.303Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:15:05.532Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-29T22:15:29.846Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:15:30.062Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-29T22:15:54.361Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:15:54.549Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:15:57.577Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: Error: Unable to connect after 5 attempts.
+    at LavalinkNode.executeReconnect (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:1909:21)
+    at Timeout._onTimeout (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:1896:12)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-12-29T22:15:57.807Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+[2025-12-29T22:16:32.011Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:16:32.226Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:90
+    at Array.map (<anonymous>)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:61)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:16:56.554Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:16:56.731Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:17:21.068Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:17:21.245Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-29T22:17:45.584Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:17:45.760Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+[2025-12-29T22:18:10.088Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:18:10.267Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-29T22:18:34.588Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:18:34.750Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:90
+    at Array.map (<anonymous>)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:61)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:18:37.758Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: Error: Unable to connect after 5 attempts.
+    at LavalinkNode.executeReconnect (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:1909:21)
+    at Timeout._onTimeout (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:1896:12)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-12-29T22:18:37.898Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+[2025-12-29T22:23:40.234Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:23:40.686Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:90
+    at Array.map (<anonymous>)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:61)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:23:46.582Z] [ERROR] [MusicManager] Error creating player for guild 1386498859471077426: No available Node was found, please add a LavalinkNode to the Manager via Manager.NodeManager#createNode
+[2025-12-29T22:23:46.584Z] [ERROR] [MusicManager] Full error stack: Error: No available Node was found, please add a LavalinkNode to the Manager via Manager.NodeManager#createNode
+    at new Player (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:4039:27)
+    at LavalinkManager.createPlayer (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:4940:23)
+    at MusicManager.createPlayer (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/managers/MusicManager.js:213:42)
+    at PlayCommand.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/commands/music/playback/Play.js:200:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/guild/Prefixcmd.js?t=1767046996455:461:7)
+[2025-12-29T22:23:46.587Z] [ERROR] [PlayCommand] Error in prefix command: PlayerManager requires a valid player instance.
+Stack trace: Error: PlayerManager requires a valid player instance.
+    at new PlayerManager (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/managers/PlayerManager.js:16:13)
+    at PlayCommand.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/commands/music/playback/Play.js:206:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/guild/Prefixcmd.js?t=1767046996455:461:7)
+[2025-12-29T22:24:05.005Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:24:05.180Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:24:29.498Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:24:29.736Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:90
+    at Array.map (<anonymous>)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:61)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:24:54.038Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:24:54.232Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:25:18.549Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:25:18.791Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:25:43.124Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-29T22:25:43.438Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:90
+    at Array.map (<anonymous>)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:46:61)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-29T22:25:46.448Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: Error: Unable to connect after 5 attempts.
+    at LavalinkNode.executeReconnect (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:1909:21)
+    at Timeout._onTimeout (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:1896:12)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[2025-12-29T22:25:46.597Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+[2025-12-29T22:27:41.927Z] [ERROR] [MusicManager] Error creating player for guild 1386498859471077426: No available Node was found, please add a LavalinkNode to the Manager via Manager.NodeManager#createNode
+[2025-12-29T22:27:41.929Z] [ERROR] [MusicManager] Full error stack: Error: No available Node was found, please add a LavalinkNode to the Manager via Manager.NodeManager#createNode
+    at new Player (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:4039:27)
+    at LavalinkManager.createPlayer (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/lavalink-client/dist/index.mjs:4940:23)
+    at MusicManager.createPlayer (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/managers/MusicManager.js:213:42)
+    at PlayCommand.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/commands/music/playback/Play.js:200:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/guild/Prefixcmd.js?t=1767047244168:461:7)
+[2025-12-29T22:27:41.932Z] [ERROR] [PlayCommand] Error in prefix command: PlayerManager requires a valid player instance.
+Stack trace: Error: PlayerManager requires a valid player instance.
+    at new PlayerManager (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/managers/PlayerManager.js:16:13)
+    at PlayCommand.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/commands/music/playback/Play.js:206:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/guild/Prefixcmd.js?t=1767047244168:461:7)
+[2025-12-29T22:27:47.900Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: Error: connect ETIMEDOUT 74.220.52.0:2333
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1634:16)
+[2025-12-29T22:27:48.096Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:21:17)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+[2025-12-30T22:02:24.162Z] [ERROR] [Tymee] ❄️ Failed to initialize bot cluster:
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:02:24.165Z] [ERROR] [Main] Failed to initialize Discord bot
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:02:24.187Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-30T22:02:27.180Z] [ERROR] [Tymee] ❄️ Failed to initialize bot cluster:
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:02:27.182Z] [ERROR] [Main] Failed to initialize Discord bot
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:02:27.209Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-30T22:02:30.609Z] [ERROR] [Tymee] ❄️ Failed to initialize bot cluster:
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:02:30.611Z] [ERROR] [Main] Failed to initialize Discord bot
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:02:30.631Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-30T22:02:39.703Z] [ERROR] [Tymee] ❄️ Failed to initialize bot cluster:
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:02:39.705Z] [ERROR] [Main] Failed to initialize Discord bot
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:02:39.726Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-30T22:03:39.709Z] [ERROR] [Tymee] ❄️ Failed to initialize bot cluster:
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:03:39.711Z] [ERROR] [Main] Failed to initialize Discord bot
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:03:39.738Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-30T22:03:42.604Z] [ERROR] [Tymee] ❄️ Failed to initialize bot cluster:
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:03:42.606Z] [ERROR] [Main] Failed to initialize Discord bot
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:03:42.629Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-30T22:03:45.537Z] [ERROR] [Tymee] ❄️ Failed to initialize bot cluster:
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:03:45.539Z] [ERROR] [Main] Failed to initialize Discord bot
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:03:45.562Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-30T22:03:54.418Z] [ERROR] [Tymee] ❄️ Failed to initialize bot cluster:
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:03:54.420Z] [ERROR] [Main] Failed to initialize Discord bot
+Stack trace: Error: Used disallowed intents
+    at WebSocketShard.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1151:18)
+    at connection.onclose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:688:17)
+    at callListener (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:290:14)
+    at WebSocket.onClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:272:10)
+    at TLSSocket.socketOnClose (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\ws\lib\websocket.js:1341:15)
+    at TLSSocket.emit (node:events:530:35)
+    at node:net:351:12
+    at TCP.done (node:_tls_wrap:650:7)
+[2025-12-30T22:03:54.439Z] [ERROR] [ClusterManager] Cluster 0 ==> Died with exit code [object Object]. Respawning...
+[2025-12-30T22:30:56.456Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\player\trackStart.js
+Stack trace: SyntaxError: Unexpected identifier 'backgroundApplied'
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+[2025-12-30T22:30:56.567Z] [ERROR] [CommandHandler] Failed to load command file: modern-player.js
+Stack trace: SyntaxError: Unexpected identifier 'backgroundApplied'
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+[2025-12-30T22:30:56.605Z] [ERROR] [CommandHandler] Failed to load command file: np.js
+Stack trace: SyntaxError: Unexpected identifier 'backgroundApplied'
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+[2025-12-30T23:09:14.283Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\player\trackStart.js
+Stack trace: file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/utils/ModernDiscordPlayer.js:1
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, StringSelectMenuBuilder, SelectMenuComponentOptionData, MessageFlags } from 'discord.js';
+                                                                                                                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: Named export 'SelectMenuComponentOptionData' not found. The requested module 'discord.js' is a CommonJS module, which may not support all module.exports as named exports.
+CommonJS modules can always be imported via the default export, for example using:
+
+import pkg from 'discord.js';
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, StringSelectMenuBuilder, SelectMenuComponentOptionData, MessageFlags } = pkg;
+
+    at ModuleJob._instantiate (node:internal/modules/esm/module_job:180:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:263:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async EventLoader.loadEventFile (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/EventLoader.js:138:19)
+    at async EventLoader.recursiveLoadEvents (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/EventLoader.js:124:6)
+    at async EventLoader.loadEventsByType (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/EventLoader.js:95:7)
+    at async EventLoader.loadAllEvents (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/EventLoader.js:21:4)
+    at async Tymee.init (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/classes/Yukihana.js:81:4)
+    at async main (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/index.js:8:3)
+[2025-12-30T23:09:14.722Z] [ERROR] [CommandHandler] Failed to load command file: np.js
+Stack trace: file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/utils/ModernDiscordPlayer.js:1
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, StringSelectMenuBuilder, SelectMenuComponentOptionData, MessageFlags } from 'discord.js';
+                                                                                                                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: Named export 'SelectMenuComponentOptionData' not found. The requested module 'discord.js' is a CommonJS module, which may not support all module.exports as named exports.
+CommonJS modules can always be imported via the default export, for example using:
+
+import pkg from 'discord.js';
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, StringSelectMenuBuilder, SelectMenuComponentOptionData, MessageFlags } = pkg;
+
+    at ModuleJob._instantiate (node:internal/modules/esm/module_job:180:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:263:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async CommandHandler._loadCommandFile (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/CommandHandler.js:82:26)
+    at async file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/CommandHandler.js:65:6
+    at async Promise.all (index 3)
+    at async CommandHandler._recursivelyLoadCommands (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/CommandHandler.js:69:4)
+    at async file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/CommandHandler.js:55:6
+    at async Promise.all (index 0)
+    at async CommandHandler._recursivelyLoadCommands (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/CommandHandler.js:69:4)
+[2025-12-30T23:11:12.541Z] [ERROR] [TrackStart] Error creating modern player:
+Stack trace: Error: Expected the value to be a string or number
+    at _NativeEnumValidator.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@sapphire\shapeshift\dist\cjs\index.cjs:2788:9)
+    at _NativeEnumValidator.parse (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@sapphire\shapeshift\dist\cjs\index.cjs:972:90)
+    at SeparatorBuilder.setSpacing (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\builders\dist\index.js:2011:42)
+    at ModernDiscordPlayer.createModernPlayer (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/utils/ModernDiscordPlayer.js:28:30)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/player/trackStart.js?t=1767136236059:58:53)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[2025-12-30T23:13:47.894Z] [ERROR] [TrackStart] Error creating modern player:
+Stack trace: Error: Expected the value to be a string or number
+    at _NativeEnumValidator.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@sapphire\shapeshift\dist\cjs\index.cjs:2788:9)
+    at _NativeEnumValidator.parse (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@sapphire\shapeshift\dist\cjs\index.cjs:972:90)
+    at SeparatorBuilder.setSpacing (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\builders\dist\index.js:2011:42)
+    at ModernDiscordPlayer.createModernPlayer (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/utils/ModernDiscordPlayer.js:28:30)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/player/trackStart.js?t=1767136236059:58:53)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[2025-12-30T23:16:29.770Z] [ERROR] [TrackStart] Error creating modern player:
+Stack trace: Error: Expected the value to be a string or number
+    at _NativeEnumValidator.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@sapphire\shapeshift\dist\cjs\index.cjs:2788:9)
+    at _NativeEnumValidator.parse (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@sapphire\shapeshift\dist\cjs\index.cjs:972:90)
+    at SeparatorBuilder.setSpacing (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\builders\dist\index.js:2011:42)
+    at ModernDiscordPlayer.createModernPlayer (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/utils/ModernDiscordPlayer.js:28:30)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/player/trackStart.js?t=1767136576442:58:53)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[2025-12-31T00:14:44.805Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.js
+Stack trace: SyntaxError: Unexpected token 'catch'
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+[2025-12-31T00:28:04.926Z] [ERROR] [Playerbuttons] Error moving track:
+Stack trace: TypeError: Cannot read properties of undefined (reading 'player')
+    at Object.moveTrack (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/tests/player_interactions.test.js:60:53)
+    at handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:305:18)
+    at TestContext.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/tests/player_interactions.test.js:121:9)
+    at async Test.run (node:internal/test_runner/test:980:9)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+[2025-12-31T00:28:05.237Z] [ERROR] [Playerbuttons] Error fetching similar songs:
+Stack trace: Error: Last.fm API error: Track not found
+    at Module.fetchRecommendations (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/player/queueEnd.js:309:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:233:35)
+    at async test.timeout (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/tests/player_interactions.test.js:135:3)
+    at async Test.run (node:internal/test_runner/test:980:9)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+[2025-12-31T00:28:25.465Z] [ERROR] [Playerbuttons] Error fetching similar songs:
+Stack trace: Error: Last.fm API error: Track not found
+    at Module.fetchRecommendations (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/player/queueEnd.js:309:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:233:35)
+    at async test.timeout (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/tests/player_interactions.test.js:136:3)
+    at async Test.run (node:internal/test_runner/test:980:9)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+[2025-12-31T00:29:51.581Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.js
+Stack trace: SyntaxError: Unexpected token 'catch'
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+[2025-12-31T00:35:16.773Z] [ERROR] [Playerbuttons] Error fetching similar songs:
+Stack trace: Error: Last.fm API error: Track not found
+    at Module.fetchRecommendations (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/player/queueEnd.js:309:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:233:35)
+    at async test.timeout (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/tests/player_interactions.test.js:136:3)
+    at async Test.run (node:internal/test_runner/test:980:9)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+[2025-12-31T00:36:40.174Z] [ERROR] [Playerbuttons] Error fetching similar songs:
+Stack trace: Error: Last.fm API error: Track not found
+    at Module.fetchRecommendations (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/player/queueEnd.js:309:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:233:35)
+    at async test.timeout (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/tests/player_interactions.test.js:151:3)
+    at async Test.run (node:internal/test_runner/test:980:9)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+[2025-12-31T00:40:30.888Z] [ERROR] [Playerbuttons] Error adding to favorites:
+Stack trace: Error: Track already exists in playlist
+    at Playlists.addTrackToPlaylist (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/database/repo/Playlists.js:187:10)
+    at handleButtonInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:110:24)
+    at TestContext.<anonymous> (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/tests/player_interactions.test.js:120:9)
+    at Test.runInAsyncScope (node:async_hooks:211:14)
+    at Test.run (node:internal/test_runner/test:979:25)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+[2025-12-31T00:40:31.293Z] [ERROR] [Playerbuttons] Error fetching similar songs:
+Stack trace: Error: Last.fm API error: Track not found
+    at Module.fetchRecommendations (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/player/queueEnd.js:309:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:233:35)
+    at async test.timeout (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/tests/player_interactions.test.js:151:3)
+    at async Test.run (node:internal/test_runner/test:980:9)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+[2025-12-31T00:43:32.147Z] [ERROR] [EventUtils] Failed to send player message:
+Stack trace: DiscordAPIError[50035]: Invalid Form Body
+components[BASE_TYPE_MAX_LENGTH]: Must be 5 or fewer in length.
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async SequentialHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1122:23)
+    at async SequentialHandler.queueRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:953:14)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async VoiceChannel.send (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\TextBasedChannel.js:195:15)
+    at async EventUtils.sendPlayerMessage (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/utils/EventUtils.js:14:11)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/player/trackStart.js?t=1767141725480:62:21)
+[2025-12-31T00:46:45.500Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.followUp (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:275:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:45:25)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:00.316Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:09.323Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.followUp (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:275:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:63:25)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:15.355Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:21:45)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:20.126Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:21.259Z] [ERROR] [Playerbuttons] Error adding to favorites:
+Stack trace: TypeError: Cannot read properties of undefined (reading 'info')
+    at Module.handleButtonInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:109:40)
+    at file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:82:58
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:82:4)
+[2025-12-31T00:47:25.353Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:30.550Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:34.319Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:38.434Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: TypeError: pm.shuffleQueue is not a function
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:13:18)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+    at WebSocketShard.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+[2025-12-31T00:47:38.819Z] [ERROR] [Playerbuttons] Error handling button interaction:
+Stack trace: TypeError: pm.shuffleQueue is not a function
+    at Module.handleButtonInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:48:20)
+    at file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:82:58
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:82:4)
+[2025-12-31T00:47:43.679Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:47.879Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:50.929Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:52.685Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:47:54.519Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:48:01.311Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:48:10.316Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [InteractionNotReplied]: The reply to this interaction has not been sent or deferred.
+    at ButtonInteraction.editReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:246:48)
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:75:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+[2025-12-31T00:49:06.447Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: TypeError: Cannot read properties of undefined (reading 'set')
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:70:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+    at WebSocketShard.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+[2025-12-31T00:49:06.912Z] [ERROR] [Playerbuttons] Error toggling effect:
+Stack trace: TypeError: Cannot read properties of undefined (reading 'filter')
+    at Module.handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:330:32)
+    at file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:84:58
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:84:4)
+[2025-12-31T00:49:15.761Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: TypeError: Cannot read properties of undefined (reading 'set')
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:70:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+    at WebSocketShard.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+[2025-12-31T00:49:16.316Z] [ERROR] [Playerbuttons] Error toggling effect:
+Stack trace: TypeError: Cannot read properties of undefined (reading 'filter')
+    at Module.handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:330:32)
+    at file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:84:58
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:84:4)
+[2025-12-31T00:49:31.690Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: TypeError: Cannot read properties of undefined (reading 'set')
+    at Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767141978043:70:23)
+    at Tymee.listener (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/structures/handlers/event-handlers/discord.js:13:12)
+    at Tymee.emit (node:events:530:35)
+    at InteractionCreateAction.handle (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\actions\InteractionCreate.js:101:12)
+    at module.exports [as INTERACTION_CREATE] (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\handlers\INTERACTION_CREATE.js:4:36)
+    at WebSocketManager.handlePacket (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:352:31)
+    at WebSocketManager.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\websocket\WebSocketManager.js:236:12)
+    at WebSocketManager.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+    at WebSocketShard.<anonymous> (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@discordjs\ws\dist\index.js:1190:51)
+    at WebSocketShard.emit (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\@vladfrangu\async_event_emitter\dist\index.cjs:2504:31)
+[2025-12-31T00:49:32.166Z] [ERROR] [Playerbuttons] Error toggling effect:
+Stack trace: TypeError: Cannot read properties of undefined (reading 'filter')
+    at Module.handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:323:32)
+    at file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:84:58
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767141978034:84:4)
+[2025-12-31T00:50:48.875Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:50:54.294Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:50:57.419Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:06.954Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:07.412Z] [ERROR] [Playerbuttons] Error applying filter:
+Stack trace: TypeError: Cannot read properties of undefined (reading 'filterManager')
+    at Module.handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:291:25)
+    at file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142219246:84:58
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142219246:84:4)
+[2025-12-31T00:51:12.114Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:18.672Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:19.183Z] [ERROR] [Playerbuttons] Error toggling effect:
+Stack trace: TypeError: Cannot read properties of undefined (reading 'filter')
+    at Module.handleSelectMenuInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:336:32)
+    at file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142219246:84:58
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142219246:84:4)
+[2025-12-31T00:51:23.869Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:26.037Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:29.177Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:34.271Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:34.702Z] [ERROR] [Playerbuttons] Error handling button interaction:
+Stack trace: TypeError: pm.shuffleQueue is not a function
+    at Module.handleButtonInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:48:20)
+    at file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142219246:82:58
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142219246:82:4)
+[2025-12-31T00:51:40.298Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:46.370Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:51:48.310Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\managers\PlayerManager.js.js' imported from C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\discord\music\Playerbuttons.sim.js
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:577:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:576:21)
+[2025-12-31T00:54:09.140Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767142435066:79:5)
+[2025-12-31T00:54:12.056Z] [ERROR] [InteractionCreate] Error handling music control interaction:
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.deferReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:122:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142435056:81:3)
+[2025-12-31T00:54:12.427Z] [ERROR] [InteractionCreate] Error sending error response:
+Stack trace: DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142435056:97:6)
+[2025-12-31T00:54:14.574Z] [ERROR] [InteractionCreate] Error handling music control interaction:
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.deferReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:122:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142435056:81:3)
+[2025-12-31T00:54:14.846Z] [ERROR] [InteractionCreate] Error sending error response:
+Stack trace: DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142435056:97:6)
+[2025-12-31T00:54:18.157Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767142435066:68:7)
+[2025-12-31T00:54:24.321Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async StringSelectMenuInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767142435066:75:7)
+[2025-12-31T00:54:36.840Z] [ERROR] [InteractionCreate] Error handling music control interaction:
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async StringSelectMenuInteraction.deferReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:122:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142435056:81:3)
+[2025-12-31T00:54:37.202Z] [ERROR] [InteractionCreate] Error sending error response:
+Stack trace: DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async StringSelectMenuInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142435056:97:6)
+[2025-12-31T00:54:40.779Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767142435066:79:5)
+[2025-12-31T00:54:44.902Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767142435066:79:5)
+[2025-12-31T00:54:48.854Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767142435066:79:5)
+[2025-12-31T00:54:54.394Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767142435066:19:9)
+[2025-12-31T00:54:59.416Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767142435066:79:5)
+[2025-12-31T00:55:03.090Z] [ERROR] [Process] Unhandled Rejection
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.sim.js?t=1767142435066:79:5)
+[2025-12-31T00:55:05.399Z] [ERROR] [InteractionCreate] Error handling music control interaction:
+Stack trace: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.deferReply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:122:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142435056:81:3)
+[2025-12-31T00:55:05.798Z] [ERROR] [InteractionCreate] Error sending error response:
+Stack trace: DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:721:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:825:23)
+    at async _REST.request (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/node_modules/@discordjs/rest/dist/index.mjs:1266:22)
+    at async ButtonInteraction.reply (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\structures\interfaces\InteractionResponses.js:193:22)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142435056:97:6)
+[2025-12-31T00:58:25.218Z] [ERROR] [Playerbuttons] Error adding to favorites:
+Stack trace: Error: Track already exists in playlist
+    at Playlists.addTrackToPlaylist (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/database/repo/Playlists.js:187:10)
+    at Module.handleButtonInteraction (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/PlayerbuttonsHandler.js:116:24)
+    at file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142595853:84:58
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.execute (file:///C:/Users/renzy/Downloads/CODE/music%20bot/tymeemusic/src/events/discord/music/Playerbuttons.js?t=1767142595853:84:4)
+[2025-12-31T01:14:44.672Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\player\trackStart.js
+Stack trace: SyntaxError: Illegal return statement
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+[2025-12-31T01:16:34.517Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\player\trackStart.js
+Stack trace: SyntaxError: Unexpected token '}'
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+[2025-12-31T01:27:31.821Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\player\trackStart.js
+Stack trace: SyntaxError: Illegal return statement
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+[2025-12-31T01:35:31.524Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\player\trackStart.js
+Stack trace: SyntaxError: Illegal return statement
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+[2025-12-31T01:47:58.937Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\player\trackStart.js
+Stack trace: SyntaxError: Illegal return statement
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+[2025-12-31T01:51:36.832Z] [ERROR] [LavalinkNode] ❌ Lavalink Node #main-node errored:
+Stack trace: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1712:7)
+[2025-12-31T01:51:37.043Z] [ERROR] [LavalinkNode] Error in node error event handler:
+Stack trace: RangeError: Maximum call stack size exceeded
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:52:58)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\BaseClient.js:107:12)
+    at Tymee.toJSON (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\client\Client.js:503:18)
+    at flatten (C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\node_modules\discord.js\src\util\Util.js:50:48)
+[2025-12-31T02:05:34.544Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\player\trackStart.js
+Stack trace: SyntaxError: Identifier 'startPlayerUpdateInterval' has already been declared
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+[2025-12-31T02:07:23.360Z] [ERROR] [EventLoader] Failed to load event: C:\Users\renzy\Downloads\CODE\music bot\tymeemusic\src\events\player\trackStart.js
+Stack trace: SyntaxError: Identifier 'startPlayerUpdateInterval' has already been declared
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)

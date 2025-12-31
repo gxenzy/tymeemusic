@@ -21,14 +21,15 @@ export class Guild extends Database {
         stay_247_voice_channel TEXT DEFAULT NULL,
         stay_247_text_channel TEXT DEFAULT NULL,
         music_card_settings TEXT DEFAULT NULL,
+        history TEXT DEFAULT '[]',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Check if music_card_settings column exists before adding it
     const columns = this.all("PRAGMA table_info(guilds)");
     const hasMusicCardSettings = columns.some(col => col.name === 'music_card_settings');
+    const hasHistory = columns.some(col => col.name === 'history');
 
     if (!hasMusicCardSettings) {
       try {
@@ -37,6 +38,15 @@ export class Guild extends Database {
         logger.error('GuildDB', 'Error adding music_card_settings column:', error);
       }
     }
+
+    if (!hasHistory) {
+      try {
+        this.exec(`ALTER TABLE guilds ADD COLUMN history TEXT DEFAULT '[]'`);
+      } catch (error) {
+        logger.error('GuildDB', 'Error adding history column:', error);
+      }
+    }
+  }
   }
 
 
@@ -256,6 +266,64 @@ export class Guild extends Database {
     return this.exec(
       "UPDATE guilds SET music_card_settings = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       [settingsJson, guildId]
+    );
+  }
+
+  // Guild-level history methods for dashboard
+  getHistory(guildId) {
+    const guild = this.getGuild(guildId);
+    if (!guild || !guild.history) return [];
+    try {
+      return JSON.parse(guild.history);
+    } catch (error) {
+      logger.warn('GuildDB', `Invalid history for guild ${guildId}:`, error);
+      return [];
+    }
+  }
+
+  addToHistory(guildId, trackInfo) {
+    this.ensureGuild(guildId);
+    
+    if (!trackInfo || !trackInfo.identifier) return;
+    
+    let history = this.getHistory(guildId);
+    
+    const historyEntry = {
+      identifier: trackInfo.identifier,
+      title: trackInfo.title || 'Unknown Track',
+      author: trackInfo.author || 'Unknown',
+      uri: trackInfo.uri || null,
+      duration: trackInfo.duration || null,
+      sourceName: trackInfo.sourceName || null,
+      artworkUrl: trackInfo.artworkUrl || null,
+      playedAt: Date.now(),
+      requestedBy: trackInfo.requester?.id || trackInfo.requesterId || null,
+    };
+    
+    history = history.filter(t => t && t.identifier !== historyEntry.identifier);
+    history.unshift(historyEntry);
+    history = history.slice(0, 50);
+    
+    this.exec(
+      "UPDATE guilds SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [JSON.stringify(history), guildId]
+    );
+  }
+
+  clearHistory(guildId) {
+    this.ensureGuild(guildId);
+    return this.exec(
+      "UPDATE guilds SET history = '[]', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [guildId]
+    );
+  }
+
+  setHistory(guildId, history) {
+    this.ensureGuild(guildId);
+    const limitedHistory = history.slice(0, 50);
+    return this.exec(
+      "UPDATE guilds SET history = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [JSON.stringify(limitedHistory), guildId]
     );
   }
 }

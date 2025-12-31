@@ -83,9 +83,106 @@ export const DEFAULT_EMOJIS = {
   dz: "🎧"
 };
 
+export const EMOJI_CATEGORIES = {
+  unicode: {
+    name: "Unicode Emojis",
+    emojis: {
+      music: ["🎵", "🎶", "🎼"],
+      play: ["▶️", "►", "👟"],
+      pause: ["⏸️", "⏸"],
+      stop: ["⏹️", "⏹"],
+      previous: ["⏮️", "⏪", "◀️"],
+      next: ["⏭️", "⏩", "▶️"],
+      shuffle: ["🔀", "🔄️", "🔃"],
+      loop: ["🔁", "🔂", "🔄️"],
+      volume: ["🔊", "🔉", "🔈", "🔅", "🔆"],
+      favorite: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝"],
+      effects: ["🎛️", "🎚️", "🎹", "🎸", "🎻", "🥁", "🪘"],
+      filter: ["🔧", "🔨", "🛠️", "⚙️", "⚙️", "🔩"],
+      move: ["🔀", "🔁", "🔃", "🔄️"],
+      misc: ["🔘", "⚪", "⚫", "🔵", "🔴", "🟢", "🟡", "🟠", "🟣", "🔷", "🔶"],
+      artist: ["🎤", "🎧", "🎷", "🎺", "🪗", "🎸", "🎹"],
+      status: ["📊", "📈", "📉", "📋", "📌", "📍"],
+      off: ["❌", "⛔", "🚫", "🛑", "🔴"],
+      track: ["🔂", "🔃", "🔄️", "▶️"],
+      queue: ["📋", "📝", "📄", "📑", "🗂️"],
+      voice: ["🔈", "🔉", "🔊", "📢", "📣", "🗣️"],
+      idle: ["💤", "😴", "💤", "🌙", "🛌"],
+      check: ["✅", "✔️", "☑️", "🟢", "⚪"],
+      info: ["ℹ️", "📌", "📍", "🔖", "🏷️"],
+      cross: ["❌", "✖️", "➖", "⛔", "🚫"],
+      add: ["➕", "➕️", "✚", "💢"],
+      reset: ["🔄️", "🔃", "🔁", "🔙", "🔚"],
+      folder: ["📁", "📂", "🗂️", "🗃️"],
+      openfolder: ["📂", "📁", "🗂️"],
+      right: ["▶️", "►", "⏩", "➡️"],
+      left: ["◀️", "◀", "⏪", "⬅️"],
+      loading: ["⏳", "⏰", "⌛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚", "🕛", "🔄️", "🔃"]
+    }
+  },
+  symbols: {
+    name: "Symbols",
+    emojis: {
+      music: ["♪", "♫", "♬", "♩", "🎼"],
+      play: ["▶", "►", "▷"],
+      pause: ["⏸", "⏸︎"],
+      stop: ["⏹", "⏹︎"],
+      previous: ["⏮", "⏪", "◀"],
+      next: ["⏭", "⏩", "▶"],
+      shuffle: ["🔀", "🔁"],
+      loop: ["🔁", "🔂", "🔁"],
+      volume: ["🔈", "🔉", "🔊", "🔉"],
+      favorite: ["♡", "♥", "❤"],
+      effects: ["♫", "♬"],
+      filter: ["⚙", "⚙︎", "⚙️"],
+      move: ["⇄", "⇅", "⇆"],
+      misc: ["●", "○", "◎", "◇", "◆"],
+      artist: ["♫", "♬"],
+      status: ["📶", "📡"],
+      off: ["○", "⚫"],
+      track: ["▶", "▷"],
+      queue: ["≡", "☰"],
+      voice: ["📶", "📳"],
+      idle: ["○", "⚪"],
+      check: ["✓", "✔", "☑"],
+      info: ["i", "ℹ"],
+      cross: ["×", "✕", "✖"],
+      add: ["+", "➕"],
+      reset: ["↻", "↺"],
+      folder: ["⊞", "⊟"],
+      openfolder: ["⊟", "⊞"],
+      right: ["→", "⇒", "➔"],
+      left: ["←", "⇐", "➜"]
+    }
+  },
+  kaomoji: {
+    name: "Kaomoji",
+    emojis: {
+      music: ["(♪)"],
+      play: ["(▶️)"],
+      pause: ["(⏸️)"],
+      favorite: ["(❤️)", "(^_^)", "(◕◡◕)"],
+      loading: ["(⌛)", "(...)", "(⊙_⊙)"],
+      idle: ["(=_=)", "(-_-)", "(⊙_⊙)"],
+      check: ["(✔️)", "(^▽^)"],
+      info: ["(•_•)"]
+    }
+  }
+};
+
+export const SOURCE_EMOJI = {
+  spotify: "🎵",
+  youtube: "📺",
+  apple: "🍎",
+  soundcloud: "🔊",
+  deezer: "🎧",
+  soundcloud: "☁️"
+};
+
 export class EmojiService {
   constructor() {
     this.cache = new Map();
+    this.guildEmojiCache = new Map();
   }
 
   getEmoji(guildId, key, guild = null, client = null) {
@@ -94,6 +191,10 @@ export class EmojiService {
     }
     
     const cacheKey = `${guildId}:${key}`;
+    
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey);
+    }
     
     let emojiStr = null;
     let source = 'default';
@@ -129,8 +230,55 @@ export class EmojiService {
 
     this.cache.set(cacheKey, emojiStr);
     
-    logger.debug('EmojiService', `Got emoji for ${key}: ${emojiStr} (source: ${source})`);
+    if (logger && logger.debug) {
+      logger.debug('EmojiService', `Got emoji for ${key}: ${emojiStr} (source: ${source})`);
+    }
     
+    return emojiStr;
+  }
+
+  getEmojiWithFallback(guildId, key, guild = null, client = null, fallbackIndex = 0) {
+    if (!guildId || guildId === 'global') {
+      guildId = 'default';
+    }
+    
+    const cacheKey = `${guildId}:${key}:${fallbackIndex}`;
+    
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey);
+    }
+    
+    let emojiStr = null;
+
+    const dbEmoji = db.emoji.getEmoji(guildId, key);
+    if (dbEmoji) {
+      emojiStr = this.formatCustomEmoji(dbEmoji.emoji_name, dbEmoji.emoji_id);
+    }
+
+    if (!emojiStr && guild) {
+      const serverEmoji = this.findServerEmoji(guild, key);
+      if (serverEmoji) {
+        emojiStr = this.formatCustomEmoji(serverEmoji.name, serverEmoji.id);
+        db.emoji.setEmoji(guildId, key, serverEmoji.id, serverEmoji.name);
+      }
+    }
+
+    if (!emojiStr && client) {
+      const botEmoji = this.findBotEmoji(client, key);
+      if (botEmoji) {
+        emojiStr = this.formatCustomEmoji(botEmoji.name, botEmoji.id);
+        db.emoji.setEmoji(guildId, key, botEmoji.id, botEmoji.name);
+      }
+    }
+
+    if (!emojiStr) {
+      const fallbacks = EMOJI_CATEGORIES.unicode.emojis[key] || 
+                        EMOJI_CATEGORIES.symbols.emojis[key] || 
+                        [DEFAULT_EMOJIS[key]];
+      emojiStr = fallbacks[fallbackIndex % fallbacks.length] || DEFAULT_EMOJIS[key] || "❓";
+    }
+
+    this.cache.set(cacheKey, emojiStr);
     return emojiStr;
   }
 
@@ -138,22 +286,37 @@ export class EmojiService {
     const emojiStr = this.getEmoji(guildId, key, guild, client);
     const match = emojiStr.match(/^<a?:(.+):(\d+)>$/);
     if (match) {
-      return { name: match[1], id: match[2], str: emojiStr };
+      return { name: match[1], id: match[2], str: emojiStr, type: 'custom' };
     }
-    return { name: key, id: null, str: emojiStr };
+    return { name: key, id: null, str: emojiStr, type: 'unicode' };
   }
 
   formatCustomEmoji(name, id) {
     return `<:${name}:${id}>`;
   }
 
+  formatAnimatedEmoji(name, id) {
+    return `<a:${name}:${id}>`;
+  }
+
   parseEmoji(emojiStr) {
     if (!emojiStr) return null;
-    const match = emojiStr.match(/^<a?:(.+):(\d+)>$/);
-    if (match) {
-      return { name: match[1], id: match[2], animated: emojiStr.startsWith("<a:") };
+    
+    const animatedMatch = emojiStr.match(/^<a:(.+):(\d+)>$/);
+    if (animatedMatch) {
+      return { name: animatedMatch[1], id: animatedMatch[2], animated: true };
     }
+    
+    const staticMatch = emojiStr.match(/^<:(.+):(\d+)>$/);
+    if (staticMatch) {
+      return { name: staticMatch[1], id: staticMatch[2], animated: false };
+    }
+    
     return null;
+  }
+
+  isValidEmoji(emojiStr) {
+    return this.parseEmoji(emojiStr) !== null;
   }
 
   findServerEmoji(guild, key) {
@@ -169,12 +332,16 @@ export class EmojiService {
         e.name.toLowerCase().includes(name.toLowerCase())
       );
       if (emoji) {
-        logger.debug('EmojiService', `Found server emoji for ${key}: ${emoji.name} (${emoji.id})`);
+        if (logger && logger.debug) {
+          logger.debug('EmojiService', `Found server emoji for ${key}: ${emoji.name} (${emoji.id})`);
+        }
         return emoji;
       }
     }
     
-    logger.debug('EmojiService', `No server emoji found for ${key}`);
+    if (logger && logger.debug) {
+      logger.debug('EmojiService', `No server emoji found for ${key}`);
+    }
     return null;
   }
 
@@ -249,12 +416,14 @@ export class EmojiService {
     
     const parsed = this.parseEmoji(emojiStr);
     if (!parsed) {
-      throw new Error("Invalid emoji format. Use custom emoji format <:name:id>");
+      throw new Error("Invalid emoji format. Use custom emoji format <:name:id> or <a:name:id> for animated");
     }
 
     db.emoji.setEmoji(guildId, key, parsed.id, parsed.name);
     this.clearCache(guildId);
-    logger.info('EmojiService', `Set emoji for ${key}: ${emojiStr}`);
+    if (logger && logger.info) {
+      logger.info('EmojiService', `Set emoji for ${key}: ${emojiStr}`);
+    }
     return parsed;
   }
 
@@ -265,7 +434,9 @@ export class EmojiService {
     
     db.emoji.removeEmoji(guildId, key);
     this.clearCache(guildId);
-    logger.info('EmojiService', `Removed emoji for ${key}`);
+    if (logger && logger.info) {
+      logger.info('EmojiService', `Removed emoji for ${key}`);
+    }
   }
 
   syncEmojis(guildId, guild) {
@@ -291,7 +462,9 @@ export class EmojiService {
     }
 
     this.clearCache(guildId);
-    logger.info('EmojiService', `Synced ${synced} emojis, ${found} already set`);
+    if (logger && logger.info) {
+      logger.info('EmojiService', `Synced ${synced} emojis, ${found} already set`);
+    }
     return synced;
   }
 
@@ -302,7 +475,9 @@ export class EmojiService {
     
     db.emoji.clearAllEmojis(guildId);
     this.clearCache(guildId);
-    logger.info('EmojiService', `Reset all emojis for guild ${guildId}`);
+    if (logger && logger.info) {
+      logger.info('EmojiService', `Reset all emojis for guild ${guildId}`);
+    }
   }
 
   getAllEmojis(guildId, guild = null, client = null) {
@@ -332,7 +507,8 @@ export class EmojiService {
       list.push({
         key: row.emoji_key,
         emoji: this.formatCustomEmoji(row.emoji_name, row.emoji_id),
-        name: row.emoji_name
+        name: row.emoji_name,
+        id: row.emoji_id
       });
     }
 
@@ -355,13 +531,40 @@ export class EmojiService {
             key,
             suggested: this.formatCustomEmoji(serverEmoji.name, serverEmoji.id),
             name: serverEmoji.name,
-            default: DEFAULT_EMOJIS[key]
+            default: DEFAULT_EMOJIS[key],
+            alternatives: this.getEmojiAlternatives(key)
+          });
+        } else {
+          missing.push({
+            key,
+            suggested: null,
+            name: null,
+            default: DEFAULT_EMOJIS[key],
+            alternatives: this.getEmojiAlternatives(key)
           });
         }
       }
     }
 
     return missing;
+  }
+
+  getEmojiAlternatives(key) {
+    const alternatives = [];
+    
+    if (EMOJI_CATEGORIES.unicode.emojis[key]) {
+      alternatives.push(...EMOJI_CATEGORIES.unicode.emojis[key]);
+    }
+    
+    if (EMOJI_CATEGORIES.symbols.emojis[key]) {
+      alternatives.push(...EMOJI_CATEGORIES.symbols.emojis[key]);
+    }
+    
+    if (EMOJI_CATEGORIES.kaomoji.emojis[key]) {
+      alternatives.push(...EMOJI_CATEGORIES.kaomoji.emojis[key]);
+    }
+    
+    return [...new Set(alternatives)];
   }
 
   clearCache(guildId) {
@@ -378,6 +581,55 @@ export class EmojiService {
 
   clearAllCache() {
     this.cache.clear();
+  }
+
+  getSourceEmoji(sourceName, guildId = null, guild = null) {
+    const sourceKey = sourceName?.toLowerCase();
+    
+    const sourceMapping = {
+      'spotify': 'sp',
+      'youtube': 'yt',
+      'youtube music': 'yt',
+      'apple music': 'am',
+      'apple': 'am',
+      'soundcloud': 'sc',
+      'deezer': 'dz',
+      'music': 'music'
+    };
+    
+    const emojiKey = sourceMapping[sourceKey] || sourceKey || 'music';
+    return this.getEmoji(guildId, emojiKey, guild);
+  }
+
+  getVoiceStatusEmoji(track, guildId, guild) {
+    if (!track || !track.info) {
+      return this.getEmoji(guildId, 'music', guild);
+    }
+    
+    const uri = track.info.uri?.toLowerCase() || '';
+    const sourceName = track.info.sourceName?.toLowerCase() || '';
+    
+    if (uri.includes('spotify.com') || sourceName.includes('spotify')) {
+      return this.getEmojiWithFallback(guildId, 'sp', guild, null, 0);
+    } else if (uri.includes('youtube.com') || uri.includes('youtu.be') || sourceName.includes('youtube')) {
+      return this.getEmojiWithFallback(guildId, 'yt', guild, null, 0);
+    } else if (uri.includes('soundcloud.com') || sourceName.includes('soundcloud')) {
+      return this.getEmojiWithFallback(guildId, 'sc', guild, null, 0);
+    } else if (uri.includes('music.apple.com') || sourceName.includes('apple')) {
+      return this.getEmojiWithFallback(guildId, 'am', guild, null, 0);
+    } else if (uri.includes('deezer.com') || sourceName.includes('deezer')) {
+      return this.getEmojiWithFallback(guildId, 'dz', guild, null, 0);
+    }
+    
+    return this.getEmoji(guildId, 'music', guild);
+  }
+
+  getEmojiCategories() {
+    return {
+      unicode: EMOJI_CATEGORIES.unicode,
+      symbols: EMOJI_CATEGORIES.symbols,
+      kaomoji: EMOJI_CATEGORIES.kaomoji
+    };
   }
 }
 

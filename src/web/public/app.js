@@ -286,7 +286,7 @@ class MusicDashboard {
         if (!this.guildId) return;
         
         try {
-            const response = await fetch(`/api/playlists?apiKey=${this.apiKey}&userId=dashboard`);
+            const response = await fetch(`/api/playlists?apiKey=${this.apiKey}&guildId=${this.guildId}`);
             if (response.ok) {
                 this.playlists = await response.json();
                 this.updatePlaylistsUI();
