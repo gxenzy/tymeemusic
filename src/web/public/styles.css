@@ -1012,6 +1012,10 @@ body {
     font-size: 11px;
     color: var(--text-muted);
     word-break: break-all;
+    font-family: inherit;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Emoji Edit Modal */

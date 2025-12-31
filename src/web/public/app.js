@@ -171,6 +171,10 @@ class MusicDashboard {
             this.connectWebSocket();
             await this.loadPlayerState();
             await this.loadQueue();
+            await this.loadSettings();
+            await this.loadPlaylists();
+            await this.loadHistory();
+            await this.loadEmojis();
             
             this.setConnected(true);
             this.showToast('Connected to server', 'success');
@@ -258,6 +262,139 @@ class MusicDashboard {
         } catch (error) {
             console.error('Error loading queue:', error);
         }
+    }
+
+    async loadSettings() {
+        if (!this.guildId) return;
+        
+        try {
+            const response = await fetch(`/api/guild/${this.guildId}/settings?apiKey=${this.apiKey}`);
+            if (response.ok) {
+                const settings = await response.json();
+                document.getElementById('settingPrefix').value = settings.prefixes?.[0] || '!';
+                document.getElementById('settingVolume').value = settings.default_volume || 100;
+                document.getElementById('settingVolumeValue').textContent = (settings.default_volume || 100) + '%';
+                document.getElementById('setting247').checked = settings.stay_247 || false;
+                document.getElementById('settingAutoDisconnect').checked = settings.auto_disconnect !== false;
+            }
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    }
+
+    async loadPlaylists() {
+        if (!this.guildId) return;
+        
+        try {
+            const response = await fetch(`/api/playlists?apiKey=${this.apiKey}&userId=dashboard`);
+            if (response.ok) {
+                this.playlists = await response.json();
+                this.updatePlaylistsUI();
+            }
+        } catch (error) {
+            console.error('Error loading playlists:', error);
+        }
+    }
+
+    async loadHistory() {
+        if (!this.guildId) return;
+        
+        try {
+            const response = await fetch(`/api/player/${this.guildId}/history?apiKey=${this.apiKey}`);
+            if (response.ok) {
+                const data = await response.json();
+                this.history = data.history || [];
+                this.updateHistoryUI();
+            }
+        } catch (error) {
+            console.error('Error loading history:', error);
+        }
+    }
+
+    async loadEmojis() {
+        if (!this.guildId) return;
+        
+        try {
+            const response = await fetch(`/api/emoji?apiKey=${this.apiKey}&guildId=${this.guildId}`);
+            if (response.ok) {
+                const emojis = await response.json();
+                const grid = document.getElementById('emojiGrid');
+                
+                if (Object.keys(emojis).length === 0) {
+                    grid.innerHTML = '<div class="empty-message">No custom emojis set. Click an emoji key to set a custom emoji.</div>';
+                    return;
+                }
+                
+                grid.innerHTML = Object.entries(emojis).map(([key, emoji]) => `
+                    <div class="emoji-item" data-key="${key}" data-emoji="${emoji}">
+                        <span class="emoji-preview">${emoji}</span>
+                        <div class="emoji-key">${key}</div>
+                        <div class="emoji-name">${emoji}</div>
+                    </div>
+                `).join('');
+                
+                grid.querySelectorAll('.emoji-item').forEach(item => {
+                    item.addEventListener('click', () => this.openEmojiModal(item.dataset.key, item.dataset.emoji));
+                });
+            }
+        } catch (error) {
+            console.error('Error loading emojis:', error);
+        }
+    }
+
+    updatePlaylistsUI() {
+        const list = document.getElementById('playlistsList');
+        
+        if (this.playlists.length === 0) {
+            list.innerHTML = '<div class="empty-message">No playlists yet</div>';
+            return;
+        }
+        
+        list.innerHTML = this.playlists.map(playlist => `
+            <div class="playlist-item" data-name="${playlist.name}">
+                <span class="playlist-icon">📁</span>
+                <div class="playlist-info">
+                    <div class="playlist-name">${this.escapeHtml(playlist.name)}</div>
+                    <div class="playlist-count">${playlist.trackCount || 0} tracks</div>
+                </div>
+            </div>
+        `).join('');
+        
+        list.querySelectorAll('.playlist-item').forEach(item => {
+            item.addEventListener('click', () => this.loadPlaylist(item.dataset.name));
+        });
+    }
+
+    async loadPlaylist(name) {
+        if (!this.guildId) return;
+        
+        try {
+            await this.apiCall('POST', '/api/playlist/load', { name, guildId: this.guildId });
+            this.showToast(`Loading "${name}"`, 'success');
+            await this.loadQueue();
+        } catch (error) {
+            this.showToast('Failed to load playlist', 'error');
+        }
+    }
+
+    updateHistoryUI() {
+        const list = document.getElementById('historyList');
+        
+        if (this.history.length === 0) {
+            list.innerHTML = '<div class="empty-message">No history yet</div>';
+            return;
+        }
+        
+        list.innerHTML = this.history.slice(0, 50).map(track => `
+            <div class="history-item">
+                <img src="${track.artworkUrl || ''}" alt="${track.title}" class="history-item-artwork" onerror="this.style.display='none'">
+                <div class="history-item-info">
+                    <div class="history-item-title">${this.escapeHtml(track.title || 'Unknown')}</div>
+                    <div class="history-item-artist">${this.escapeHtml(track.author || 'Unknown Artist')}</div>
+                </div>
+                <div class="history-item-duration">${this.formatTime(track.duration || 0)}</div>
+            </div>
+        `).join('');
     }
 
     updateUI() {
@@ -455,8 +592,9 @@ class MusicDashboard {
         try {
             await this.apiCall('POST', '/api/playlist/create', { name, userId: 'dashboard' });
             this.showToast('Playlist created', 'success');
+            await this.loadPlaylists();
         } catch (error) {
-            this.showToast('Failed to create playlist', 'error');
+            this.showToast('Failed to create playlist: ' + error.message, 'error');
         }
     }
 
