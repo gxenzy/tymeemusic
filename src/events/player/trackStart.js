@@ -167,7 +167,8 @@ export function createControlComponents(guildId, client) {
   const webPort = client.webServer?.port || 3000;
   const apiKey = client.webServer?.apiKey || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ';
   const defaultGuildId = '1386498859471077426';
-  const webHost = client.webServer?.host || 'localhost';
+  // Always use localhost for dashboard URLs to keep it local
+  const webHost = 'localhost';
   const dashboardUrl = `${protocol}://${webHost}:${webPort}?apiKey=${apiKey}&guildId=${guildId || defaultGuildId}`;
 
   const infoBtnLabel = pm ? `Queue: ${pm.queueSize} track${pm.queueSize !== 1 ? 's' : ''}` : 'Queue is empty, use /play to add songs.';
