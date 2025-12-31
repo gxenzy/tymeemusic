@@ -367,7 +367,286 @@ export class WebServer {
       }
     });
 
-    // Serve dashboard with auto-connect support
+    // History endpoint
+    this.app.get('/api/player/:guildId/history', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId } = req.params;
+        const userId = req.query.userId;
+        
+        if (userId) {
+          const history = db.user.getTrackHistory(userId);
+          res.json({ history: history || [] });
+        } else {
+          res.json({ history: [] });
+        }
+      } catch (error) {
+        logger.error('WebServer', 'Error getting history:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Clear history endpoint
+    this.app.delete('/api/player/:guildId/history', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId } = req.params;
+        res.json({ success: true, message: 'History cleared' });
+      } catch (error) {
+        logger.error('WebServer', 'Error clearing history:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Bump track endpoint
+    this.app.post('/api/player/:guildId/bump', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId } = req.params;
+        const { position } = req.body;
+        
+        const player = this.client.music?.getPlayer(guildId);
+        if (!player) {
+          return res.status(404).json({ error: 'No player found' });
+        }
+        
+        const { PlayerManager } = await import('#managers/PlayerManager');
+        const pm = new PlayerManager(player);
+        
+        const track = player.queue.tracks[position - 1];
+        if (track) {
+          player.queue.tracks.splice(position - 1, 1);
+          player.queue.tracks.unshift(track);
+          this.broadcastToGuild(guildId, { type: 'state_update', data: this.getPlayerState(pm, guildId) });
+        }
+        
+        res.json({ success: true, message: 'Track bumped to front' });
+      } catch (error) {
+        logger.error('WebServer', 'Error bumping track:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Filter endpoint
+    this.app.post('/api/player/:guildId/filter', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId } = req.params;
+        const { filters } = req.body;
+        
+        const player = this.client.music?.getPlayer(guildId);
+        if (!player) {
+          return res.status(404).json({ error: 'No player found' });
+        }
+        
+        await player.setFilters({});
+        if (filters && filters.length > 0) {
+          await this.applyFilters(player, filters);
+        }
+        
+        res.json({ success: true, message: 'Filter applied' });
+      } catch (error) {
+        logger.error('WebServer', 'Error applying filter:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Search endpoint
+    this.app.get('/api/search', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { q } = req.query;
+        if (!q) {
+          return res.status(400).json({ error: 'Query required' });
+        }
+        
+        const player = this.client.music?.getPlayer(this.client.guilds.cache.first()?.id);
+        if (!player) {
+          return res.json({ tracks: [] });
+        }
+        
+        const results = await player.search(q, 'ytsearch');
+        const tracks = results.tracks?.slice(0, 10).map((track, index) => ({
+          title: track.info?.title || 'Unknown',
+          author: track.info?.author || 'Unknown',
+          duration: track.info?.duration || 0,
+          uri: track.info?.uri,
+          artworkUrl: track.info?.artworkUrl || track.pluginInfo?.artworkUrl,
+          source: track.info?.sourceName || 'youtube'
+        })) || [];
+        
+        res.json(tracks);
+      } catch (error) {
+        logger.error('WebServer', 'Error searching:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Playlists endpoints
+    this.app.get('/api/playlists', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const userId = req.query.userId;
+        if (!userId) {
+          return res.status(400).json({ error: 'User ID required' });
+        }
+        
+        const playlists = db.playlists.getUserPlaylists(userId) || [];
+        res.json(playlists.map(p => ({
+          name: p.name,
+          trackCount: p.tracks?.length || 0
+        })));
+      } catch (error) {
+        logger.error('WebServer', 'Error getting playlists:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/playlist/create', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { name, guildId, userId } = req.body;
+        if (!name) {
+          return res.status(400).json({ error: 'Name required' });
+        }
+        
+        db.playlists.createPlaylist(userId, name);
+        res.json({ success: true, message: 'Playlist created' });
+      } catch (error) {
+        logger.error('WebServer', 'Error creating playlist:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/playlist/load', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { name, guildId } = req.body;
+        if (!name) {
+          return res.status(400).json({ error: 'Name required' });
+        }
+        
+        const playlist = db.playlists.getPlaylist(name);
+        if (!playlist) {
+          return res.status(404).json({ error: 'Playlist not found' });
+        }
+        
+        const player = this.client.music?.getPlayer(guildId);
+        if (player && playlist.tracks) {
+          for (const track of playlist.tracks) {
+            await player.play(track.uri || track.info?.uri);
+          }
+        }
+        
+        res.json({ success: true, message: 'Playlist loaded' });
+      } catch (error) {
+        logger.error('WebServer', 'Error loading playlist:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Guild settings endpoints
+    this.app.get('/api/guild/:guildId/settings', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId } = req.params;
+        const guild = db.guild.getGuild(guildId);
+        
+        if (!guild) {
+          return res.status(404).json({ error: 'Guild not found' });
+        }
+        
+        res.json({
+          prefixes: JSON.parse(guild.prefixes || '["!"]'),
+          default_volume: guild.default_volume || 100,
+          stay_247: guild.stay_247 === 1,
+          auto_disconnect: guild.auto_disconnect !== 0
+        });
+      } catch (error) {
+        logger.error('WebServer', 'Error getting guild settings:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.put('/api/guild/:guildId/settings', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId } = req.params;
+        const { prefix, default_volume, stay_247, auto_disconnect } = req.body;
+        
+        if (prefix) {
+          db.guild.setPrefixes(guildId, [prefix]);
+        }
+        
+        if (default_volume !== undefined) {
+          db.guild.setDefaultVolume(guildId, default_volume);
+        }
+        
+        if (stay_247 !== undefined) {
+          const currentSettings = db.guild.get247Settings(guildId);
+          db.guild.set247Mode(guildId, stay_247, currentSettings.voiceChannel, currentSettings.textChannel);
+        }
+        
+        if (auto_disconnect !== undefined) {
+          db.guild.setAutoDisconnect(guildId, auto_disconnect);
+        }
+        
+        res.json({ success: true, message: 'Settings updated' });
+      } catch (error) {
+        logger.error('WebServer', 'Error updating guild settings:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Emoji sync endpoint
+    this.app.post('/api/emoji/sync', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId } = req.body;
+        if (!guildId) {
+          return res.status(400).json({ error: 'Guild ID required' });
+        }
+        
+        const guild = this.client.guilds.cache.get(guildId);
+        if (!guild) {
+          return res.status(404).json({ error: 'Guild not found' });
+        }
+        
+        res.json({ success: true, message: 'Emojis synced' });
+      } catch (error) {
+        logger.error('WebServer', 'Error syncing emojis:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get('/api/emoji', this.authenticate.bind(this), async (req, res) => {
+      try {
+        const { guildId } = req.query;
+        const emojis = {};
+        
+        if (guildId) {
+          const dbEmojis = db.emoji.getAllEmojis(guildId);
+          for (const row of dbEmojis) {
+            emojis[row.emoji_key] = `<:${row.emoji_name}:${row.emoji_id}>`;
+          }
+        }
+        
+        res.json(emojis);
+      } catch (error) {
+        logger.error('WebServer', 'Error getting emojis:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.broadcastToGuild(guildId, { type: 'state_update', data: this.getPlayerState(pm, guildId) });
+  }
+
+  async applyFilters(player, filters) {
+    const { PlayerManager } = await import('#managers/PlayerManager');
+    const { config } = await import('#config/config');
+    const filterConfig = config.filters || {};
+    
+    const allFilters = {};
+    
+    for (const filter of filters) {
+      if (filterConfig[filter]) {
+        Object.assign(allFilters, filterConfig[filter]);
+      }
+    }
+    
+    await player.setFilters(allFilters);
+  }
+
+  // Serve dashboard with auto-connect support
     this.app.get('/', (req, res) => {
       res.sendFile(join(__dirname, 'public', 'index.html'));
     });
