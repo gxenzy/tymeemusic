@@ -36,7 +36,6 @@ export class DatabaseManager {
       logger.error("DatabaseManager", "Error closing databases", error);
     }
   }
-  }
 
   getPrefixes(guildId) {
     return this.guild.getPrefixes(guildId);
