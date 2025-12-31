@@ -4,6 +4,8 @@ import { Playlists } from "#db/Playlists"
 import { Premium } from "#db/Premium";
 import { Emoji } from "#db/Emoji";
 import { logger } from "#utils/logger";
+import { config } from "#config/config";
+import { unlinkSync, existsSync } from "fs";
 
 export class DatabaseManager {
   constructor() {
@@ -12,6 +14,12 @@ export class DatabaseManager {
 
   initDatabases() {
     try {
+      // Reset databases if requested
+      if (config.databaseReset) {
+        this.resetAllDatabases();
+        logger.warn("DatabaseManager", "All databases have been reset as requested");
+      }
+
       this.guild = new Guild();
       this.user = new User();
       this.premium = new Premium();
@@ -27,21 +35,42 @@ export class DatabaseManager {
     }
   }
 
+  resetAllDatabases() {
+    try {
+      // Close any existing connections first
+      this.closeAll();
+
+      // Delete database files
+      const dbPaths = Object.values(config.database);
+      for (const dbPath of dbPaths) {
+        try {
+          if (existsSync(dbPath)) {
+            unlinkSync(dbPath);
+            logger.info("DatabaseManager", `Deleted database: ${dbPath}`);
+          }
+        } catch (error) {
+          logger.warn("DatabaseManager", `Failed to delete ${dbPath}:`, error.message);
+        }
+      }
+
+      logger.success("DatabaseManager", "All databases reset successfully");
+    } catch (error) {
+      logger.error("DatabaseManager", "Error resetting databases", error);
+    }
+  }
+
   closeAll() {
     try {
-      this.guild.close();
-      this.user.close();
-      this.premium.close();
-      this.playlists.close();
-      this.emoji.close();
+      if (this.guild) this.guild.close();
+      if (this.user) this.user.close();
+      if (this.premium) this.premium.close();
+      if (this.playlists) this.playlists.close();
+      if (this.emoji) this.emoji.close();
       logger.info("DatabaseManager", "All database connections closed");
     } catch (error) {
-      logger.error(
-        "DatabaseManager",
-        "Failed to close database connections",
-        error,
-      );
+      logger.error("DatabaseManager", "Error closing databases", error);
     }
+  }
   }
 
   getPrefixes(guildId) {

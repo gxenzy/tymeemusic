@@ -31,18 +31,22 @@ export const config = {
   
   // Application environment (development/production)
   environment: process.env.NODE_ENV || 'development',
-  
+
   // Enable debug logging (auto-enabled in development mode)
   debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development',
+
+  // Database management options
+  databaseReset: process.env.DB_RESET === 'true', // Reset all databases on startup
   
   // Database file paths for different data types
   // Using .bread extension for Better-SQLite3 databases
+  // Can be overridden with environment variables for multi-instance setups
   database: {
-    guild: './database/data/guild.bread',
-    user: './database/data/user.bread',
-    premium: './database/data/premium.bread',
-    antiabuse: './database/data/antiabuse.bread',
-    playlists: './database/data/playlists.bread',
+    guild: process.env.DB_GUILD || './database/data/guild.bread',
+    user: process.env.DB_USER || './database/data/user.bread',
+    premium: process.env.DB_PREMIUM || './database/data/premium.bread',
+    antiabuse: process.env.DB_ANTIABUSE || './database/data/antiabuse.bread',
+    playlists: process.env.DB_PLAYLISTS || './database/data/playlists.bread',
   },
   
   // External links and resources
