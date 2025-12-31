@@ -33,9 +33,23 @@ export class Playlists extends Database {
 			CREATE INDEX IF NOT EXISTS idx_playlists_user_id ON playlists(user_id)
 		`);
 
-		this.exec(`
-			CREATE INDEX IF NOT EXISTS idx_playlists_guild_id ON playlists(guild_id)
-		`);
+		const columns = this.all("PRAGMA table_info(playlists)");
+		const hasGuildId = columns.some(col => col.name === 'guild_id');
+
+		if (hasGuildId) {
+			this.exec(`
+				CREATE INDEX IF NOT EXISTS idx_playlists_guild_id ON playlists(guild_id)
+			`);
+		} else {
+			try {
+				this.exec(`ALTER TABLE playlists ADD COLUMN guild_id TEXT DEFAULT NULL`);
+				this.exec(`
+					CREATE INDEX IF NOT EXISTS idx_playlists_guild_id ON playlists(guild_id)
+				`);
+			} catch (error) {
+				logger.error('PlaylistsDB', 'Error adding guild_id column:', error);
+			}
+		}
 
 		this.exec(`
 			CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name)
@@ -365,3 +379,5 @@ export class Playlists extends Database {
 		logger.info('PlaylistsDB', `Cleaned up playlists for user ${userId}`);
 	}
 }
+
+export default Playlists;
