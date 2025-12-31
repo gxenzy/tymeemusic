@@ -443,6 +443,7 @@ body {
 
 .volume-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
+    appearance: none;
     width: 14px;
     height: 14px;
     background: var(--peach);
@@ -845,6 +846,7 @@ body {
     background: var(--bg-darker);
     border-radius: 3px;
     -webkit-appearance: none;
+    appearance: none;
 }
 
 .setting-slider input[type="range"]::-webkit-slider-thumb {
