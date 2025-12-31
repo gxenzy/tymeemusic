@@ -616,7 +616,10 @@ export class WebServer {
           return res.status(404).json({ error: 'Guild not found' });
         }
         
-        res.json({ success: true, message: 'Emojis synced' });
+        const { emojiService } = await import('#services/EmojiService');
+        const synced = emojiService.syncEmojis(guildId, guild);
+        
+        res.json({ success: true, message: `Synced ${synced} emojis` });
       } catch (error) {
         logger.error('WebServer', 'Error syncing emojis:', error);
         res.status(500).json({ error: error.message });
