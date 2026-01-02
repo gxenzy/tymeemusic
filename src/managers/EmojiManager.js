@@ -14,7 +14,7 @@ class EmojiManager {
 
     buildDefaultEmojiMap() {
         const emojiMap = new Map();
-        
+
         for (const category of defaultEmojiConfig.categories) {
             for (const emoji of category.emojis) {
                 emojiMap.set(emoji.botName, {
@@ -27,19 +27,19 @@ class EmojiManager {
                 });
             }
         }
-        
+
         return emojiMap;
     }
 
     async initialize() {
         if (this.initialized) return;
-        
+
         console.log('Initializing Emoji Manager...');
-        
+
         for (const guild of this.bot.guilds.cache.values()) {
             await this.syncGuild(guild.id);
         }
-        
+
         this.initialized = true;
         console.log('Emoji Manager initialized');
     }
@@ -60,7 +60,7 @@ class EmojiManager {
             }
 
             const discordEmojis = new Map();
-            
+
             for (const emoji of guild.emojis.cache.values()) {
                 discordEmojis.set(emoji.name.toLowerCase(), {
                     emojiId: emoji.id,
@@ -101,7 +101,7 @@ class EmojiManager {
             await this.updateCache(guildId);
 
             console.log(`Emoji sync completed for guild ${guildId}`);
-            
+
         } catch (error) {
             console.error(`Error syncing emojis for guild ${guildId}:`, error);
         } finally {
@@ -111,17 +111,17 @@ class EmojiManager {
 
     findMatchingBotName(discordName) {
         const normalizedName = discordName.toLowerCase().replace(/[-_\s]/g, '');
-        
+
         for (const [botName, emojiData] of this.defaultEmojis) {
             const normalizedBotName = botName.toLowerCase().replace(/[-_]/g, '');
-            
+
             if (normalizedName === normalizedBotName ||
                 normalizedName.includes(normalizedBotName) ||
                 normalizedBotName.includes(normalizedName)) {
                 return botName;
             }
         }
-        
+
         return null;
     }
 
@@ -138,7 +138,7 @@ class EmojiManager {
         try {
             const emojis = this.db.getAllByGuild(guildId);
             const emojiMap = new Map();
-            
+
             for (const emoji of emojis) {
                 emojiMap.set(emoji.bot_name, {
                     id: emoji.emoji_id,
@@ -151,12 +151,32 @@ class EmojiManager {
                     botName: emoji.bot_name
                 });
             }
-            
+
             this.cache.set(guildId, emojiMap);
-            
+
         } catch (error) {
             console.error(`Error updating cache for guild ${guildId}:`, error);
         }
+    }
+
+    async getPlayerEmojis(guildId) {
+        return {
+            play: await this.resolveEmoji(guildId, 'play'),
+            pause: await this.resolveEmoji(guildId, 'pause'),
+            stop: await this.resolveEmoji(guildId, 'stop'),
+            skip: await this.resolveEmoji(guildId, 'skip'),
+            previous: await this.resolveEmoji(guildId, 'previous'),
+            shuffle: await this.resolveEmoji(guildId, 'shuffle'),
+            loop: await this.resolveEmoji(guildId, 'loop'),
+            volume_up: await this.resolveEmoji(guildId, 'volume_up'),
+            volume_down: await this.resolveEmoji(guildId, 'volume_down'),
+            // Progress bar emojis
+            pb_start: await this.resolveEmoji(guildId, 'pb_start'),
+            pb_filled: await this.resolveEmoji(guildId, 'pb_filled'),
+            pb_empty: await this.resolveEmoji(guildId, 'pb_empty'),
+            pb_head: await this.resolveEmoji(guildId, 'pb_head'),
+            pb_end: await this.resolveEmoji(guildId, 'pb_end'),
+        };
     }
 
     async getEmoji(guildId, botName) {
@@ -170,13 +190,13 @@ class EmojiManager {
         }
 
         const dbEmoji = this.db.getByGuildAndName(guildId, botName);
-        
+
         if (dbEmoji) {
             if (!guildCache) {
                 guildCache = new Map();
                 this.cache.set(guildId, guildCache);
             }
-            
+
             guildCache.set(botName, {
                 id: dbEmoji.emoji_id,
                 name: dbEmoji.discord_name,
@@ -187,7 +207,7 @@ class EmojiManager {
                 category: dbEmoji.category,
                 botName: dbEmoji.bot_name
             });
-            
+
             return guildCache.get(botName);
         }
 
@@ -197,7 +217,7 @@ class EmojiManager {
 
     async resolveEmoji(guildId, botName, format = 'mention') {
         const emoji = await this.getEmoji(guildId, botName);
-        
+
         if (!emoji) {
             return this.getDefaultEmoji(botName);
         }
@@ -211,7 +231,7 @@ class EmojiManager {
                 case 'url':
                     return emoji.url;
                 case 'object':
-                    return emoji;
+                    return { id: emoji.id, name: emoji.name, animated: emoji.animated };
                 case 'name':
                     return emoji.name;
                 case 'id':
@@ -219,6 +239,16 @@ class EmojiManager {
                 default:
                     return emoji.fallback || this.getDefaultEmoji(botName);
             }
+        }
+
+        return emoji.fallback || this.getDefaultEmoji(botName);
+    }
+
+    async resolveButtonEmoji(guildId, botName) {
+        const emoji = await this.getEmoji(guildId, botName);
+
+        if (emoji.id && emoji.available) {
+            return { id: emoji.id, name: emoji.name, animated: emoji.animated };
         }
 
         return emoji.fallback || this.getDefaultEmoji(botName);
@@ -239,7 +269,7 @@ class EmojiManager {
 
     async addEmoji(guildId, botName, emojiData) {
         const category = this.getCategoryForEmoji(botName);
-        
+
         this.db.upsertMapping(guildId, botName, {
             discordName: emojiData.discordName || botName,
             emojiId: emojiData.emojiId || null,
@@ -310,7 +340,7 @@ class EmojiManager {
     async getServerEmojis(guildId) {
         const guild = this.bot.guilds.cache.get(guildId);
         if (!guild) return [];
-        
+
         return guild.emojis.cache.map(emoji => ({
             id: emoji.id,
             name: emoji.name,
@@ -323,32 +353,32 @@ class EmojiManager {
     async autoSyncEmojis(guildId) {
         const guild = this.bot.guilds.cache.get(guildId);
         if (!guild) return { synced: 0, skipped: 0 };
-        
+
         const serverEmojis = guild.emojis.cache;
         const existingMappings = this.db.getAllByGuild(guildId);
         const existingMap = new Map(existingMappings.map(m => [m.bot_name.toLowerCase(), m]));
-        
+
         let synced = 0;
         let skipped = 0;
-        
+
         for (const [name, emoji] of serverEmojis) {
             const normalizedName = name.toLowerCase().replace(/[-_\s]/g, '');
-            
+
             // Check if already mapped
             if (existingMap.has(normalizedName)) {
                 skipped++;
                 continue;
             }
-            
+
             // Find matching bot name
             const matchingBotName = this.findMatchingBotName(name);
-            
+
             if (matchingBotName) {
                 // Check if this bot name is already mapped to another emoji
-                const alreadyMapped = existingMappings.some(m => 
+                const alreadyMapped = existingMappings.some(m =>
                     m.bot_name.toLowerCase() === matchingBotName.toLowerCase()
                 );
-                
+
                 if (!alreadyMapped) {
                     await this.addEmoji(guildId, matchingBotName, {
                         discordName: emoji.name,
@@ -375,26 +405,26 @@ class EmojiManager {
                 synced++;
             }
         }
-        
+
         return { synced, skipped };
     }
 
     async getAutoSyncPreview(guildId) {
         const guild = this.bot.guilds.cache.get(guildId);
         if (!guild) return [];
-        
+
         const serverEmojis = Array.from(guild.emojis.cache.values());
         const existingMappings = this.db.getAllByGuild(guildId);
         const existingMap = new Set(existingMappings.map(m => m.bot_name.toLowerCase()));
-        
+
         const preview = [];
-        
+
         for (const emoji of serverEmojis) {
             const normalizedName = emoji.name.toLowerCase().replace(/[-_\s]/g, '');
             const matchingBotName = this.findMatchingBotName(emoji.name);
-            const isMapped = existingMap.has(normalizedName) || 
-                             (matchingBotName && existingMap.has(matchingBotName.toLowerCase()));
-            
+            const isMapped = existingMap.has(normalizedName) ||
+                (matchingBotName && existingMap.has(matchingBotName.toLowerCase()));
+
             preview.push({
                 emojiId: emoji.id,
                 emojiName: emoji.name,
@@ -405,7 +435,7 @@ class EmojiManager {
                 category: matchingBotName ? this.getCategoryForEmoji(matchingBotName) : 'custom'
             });
         }
-        
+
         return preview;
     }
 
@@ -419,7 +449,7 @@ class EmojiManager {
 
     getDefaultEmojisByCategory() {
         const categorized = {};
-        
+
         for (const category of defaultEmojiConfig.categories) {
             categorized[category.name] = category.emojis.map(e => ({
                 botName: e.botName,
@@ -427,7 +457,7 @@ class EmojiManager {
                 description: e.description
             }));
         }
-        
+
         return categorized;
     }
 

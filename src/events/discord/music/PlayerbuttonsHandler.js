@@ -1,4 +1,4 @@
-import { StringSelectMenuBuilder, ActionRowBuilder } from 'discord.js';
+import { StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { config } from '#config/config';
 import filters from '#config/filters';
 import { logger } from '#utils/logger';
@@ -132,39 +132,180 @@ export async function handleButtonInteraction(interaction, pm, client) {
 
       case 'music_effects': {
         const options = [
-          { label: '8D', value: 'eightD', description: 'Enable 8D audio effect' },
-          { label: 'Nightcore', value: 'nightcore', description: 'Speed up and pitch up for nightcore' },
-          { label: 'Tremolo', value: 'tremolo', description: 'Enable tremolo plugin effect' },
-          { label: 'Vibrato', value: 'vibrato', description: 'Enable vibrato plugin effect' },
-          { label: 'Karaoke', value: 'karaoke', description: 'Apply vocal removal' },
-          { label: 'Clear Effects', value: 'clear', description: 'Remove all plugin effects' },
+          { label: '🎛️ Audio Effects', value: 'effects_menu', description: 'Bass, Treble, etc' },
+          { label: '⏱️ Speed Control', value: 'speed_menu', description: 'Faster or slower' },
+          { label: '🧹 Clear All', value: 'clear_filters', description: 'Reset all filters' },
         ];
-        const select = new StringSelectMenuBuilder().setCustomId('music_effects_select').setPlaceholder('Choose an effect to toggle').setOptions(options);
+        const select = new StringSelectMenuBuilder()
+          .setCustomId('music_filters_select')
+          .setPlaceholder('🎛️ Audio Tuning')
+          .setOptions([
+            { label: 'Low Bass', value: 'bass_low', description: 'Subtle bass boost', emoji: '🔈' },
+            { label: 'Bass Boost', value: 'bass_high', description: 'Extreme bass boost', emoji: '🔊' },
+            { label: 'Pop', value: 'pop', description: 'Pop preset', emoji: '🎵' },
+            { label: 'Rock', value: 'rock', description: 'Rock preset', emoji: '🎸' },
+            { label: '8D Audio', value: 'eightD', description: 'Rotating audio', emoji: '🔄' },
+            { label: 'Nightcore', value: 'nightcore', description: 'Fast and high pitch', emoji: '⚡' },
+            { label: 'Clear Filters', value: 'reset', description: 'Reset all filters', emoji: '🧹' }
+          ]);
         await interaction.followUp({ components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
-        response = '🎛️ Effects menu opened (ephemeral).';
+        response = '🎛️ Audio effects menu opened.';
         break;
       }
 
-      case 'music_filter': {
-        const names = filters.getNames().slice(0, 24);
-        const opts = names.map(name => ({ label: name, value: name, description: `Apply ${name} audio preset` }));
-        opts.unshift({ label: 'Reset filters', value: 'reset', description: 'Clear all audio filters' });
-        const select = new StringSelectMenuBuilder().setCustomId('music_filters_select').setPlaceholder('Choose an audio filter').setOptions(opts);
-        await interaction.followUp({ components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
-        response = '🎚️ Opened filter menu (ephemeral).';
-        break;
-      }
+      case 'music_lyrics': {
+        try {
+          if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
 
-      case 'music_move': {
-        const queue = pm.player?.queue?.tracks || [];
-        if (!queue || queue.length === 0) {
-          response = '❌ Queue is empty, nothing to move.';
-          break;
+          const lyricsResult = await pm.getCurrentLyrics();
+          if (!lyricsResult || (!lyricsResult.text && (!lyricsResult.lines || lyricsResult.lines.length === 0))) {
+            await interaction.editReply({ content: '❌ No lyrics found for this song.' });
+            return;
+          }
+
+          const hasSynced = lyricsResult.lines && lyricsResult.lines.length > 0;
+
+          if (hasSynced) {
+            // LIVE LYRICS MODE
+            let isActive = true;
+            let currentLineIndex = -1;
+
+            const getLiveEmbed = (pos) => {
+              const lines = lyricsResult.lines;
+              let index = lines.findLastIndex(l => l.timestamp <= pos);
+              if (index === -1) index = 0;
+
+              if (index === currentLineIndex) return null; // No change
+              currentLineIndex = index;
+
+              const currentLine = lines[index];
+              const upcoming = lines.slice(index + 1, index + 5);
+
+              let desc = `### 🎤 **${currentLine.line}**\n\n`;
+              upcoming.forEach(l => desc += `${l.line}\n`);
+
+              return new EmbedBuilder()
+                .setTitle(`🎶 Live Lyrics: ${lyricsResult.title}`)
+                .setAuthor({ name: lyricsResult.artist })
+                .setDescription(desc || '...')
+                .setColor(0x00FFA3)
+                .setThumbnail(lyricsResult.image || null)
+                .setFooter({ text: `Source: LRCLIB • Real-time Sync` });
+            };
+
+            const initialEmbed = getLiveEmbed(pm.position);
+            const msg = await interaction.editReply({ embeds: [initialEmbed] });
+
+            const interval = setInterval(async () => {
+              if (!isActive || !pm.isPlaying) {
+                clearInterval(interval);
+                return;
+              }
+              const embed = getLiveEmbed(pm.position);
+              if (embed) {
+                await interaction.editReply({ embeds: [embed] }).catch(() => { isActive = false; clearInterval(interval); });
+              }
+            }, 2000);
+
+            // Stop after 5 mins or if track changes
+            setTimeout(() => { isActive = false; clearInterval(interval); }, 300000);
+            return;
+          }
+
+          // STATIC PAGINATION MODE
+          const lyricsText = lyricsResult.text || lyricsResult.lines.map(l => l.line).join('\n');
+          const chunkSize = 2048;
+          const chunks = [];
+          for (let i = 0; i < lyricsText.length; i += chunkSize) {
+            chunks.push(lyricsText.substring(i, i + chunkSize));
+          }
+
+          if (chunks.length <= 1) {
+            const embed = new EmbedBuilder()
+              .setTitle(`📝 Lyrics: ${lyricsResult.title}`)
+              .setAuthor({ name: lyricsResult.artist })
+              .setDescription(chunks[0] || 'No lyrics available.')
+              .setColor(0x00FFA3)
+              .setThumbnail(lyricsResult.image || null)
+              .setFooter({ text: `Source: ${lyricsResult.sourceName} | Provider: ${lyricsResult.provider}` });
+            await interaction.editReply({ embeds: [embed] });
+            return;
+          }
+
+          let currentPage = 0;
+          const totalPages = chunks.length;
+
+          const getLyricEmbed = (page) => {
+            return new EmbedBuilder()
+              .setTitle(`📝 Lyrics: ${lyricsResult.title} (Page ${page + 1}/${totalPages})`)
+              .setAuthor({ name: lyricsResult.artist })
+              .setDescription(chunks[page])
+              .setColor(0x00FFA3)
+              .setThumbnail(lyricsResult.image || null)
+              .setFooter({ text: `Source: ${lyricsResult.sourceName} | Provider: ${lyricsResult.provider}` });
+          };
+
+          const getLyricButtons = (page) => {
+            return new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`lyrics_btn_prev_${interaction.id}`)
+                .setLabel('Previous')
+                .setEmoji('⬅️')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(page === 0),
+              new ButtonBuilder()
+                .setCustomId(`lyrics_btn_next_${interaction.id}`)
+                .setLabel('Next')
+                .setEmoji('➡️')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(page === totalPages - 1)
+            );
+          };
+
+          const initialMsg = await interaction.editReply({
+            embeds: [getLyricEmbed(currentPage)],
+            components: [getLyricButtons(currentPage)]
+          });
+
+          const collector = initialMsg.createMessageComponentCollector({
+            filter: i => i.user.id === interaction.user.id && i.customId.startsWith(`lyrics_btn_`),
+            time: 300000
+          });
+
+          collector.on('collect', async i => {
+            if (i.customId.includes('prev')) currentPage--;
+            else if (i.customId.includes('next')) currentPage++;
+
+            await i.update({
+              embeds: [getLyricEmbed(currentPage)],
+              components: [getLyricButtons(currentPage)]
+            });
+          });
+
+          return;
+        } catch (error) {
+          logger.error('Playerbuttons', 'Error fetching lyrics:', error);
+          await interaction.editReply({ content: '❌ Failed to fetch lyrics.' }).catch(() => { });
+          return;
         }
-        const options = queue.slice(0, 24).map((t, i) => ({ label: `${i + 1}. ${t.info?.title?.slice(0, 80) || 'Unknown'}`, value: `move_idx_${i}`, description: `${t.info?.author || 'Unknown'}`.slice(0, 100) }));
-        const select = new StringSelectMenuBuilder().setCustomId('music_move_select').setPlaceholder('Select a track to move to the top').setOptions(options);
-        await interaction.followUp({ components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
-        response = '🚚 Select a queued track to move (ephemeral).';
+      }
+
+      case 'music_misc': {
+        const moreMenu = new StringSelectMenuBuilder()
+          .setCustomId('music_more_menu')
+          .setPlaceholder('⚙️ More Options')
+          .addOptions([
+            { label: '📋 View Full Queue', value: 'view_queue', description: 'Show all tracks', emoji: '📜' },
+            { label: '📻 Radio Mode', value: 'toggle_autoplay', description: 'Autoplay similar songs', emoji: '🌀' },
+            { label: '📻 Start Station', value: 'radio_stations', description: 'Play themed radio', emoji: '📻' },
+            { label: '🔍 Find Similar', value: 'find_similar', description: 'Search for similar tracks', emoji: '🔍' },
+            { label: '⏰ Sleep Timer', value: 'sleep_timer', description: 'Set auto-stop timer', emoji: '💤' },
+            { label: '🔗 Share Queue', value: 'share_queue', description: 'Get dashboard link', emoji: '🔗' },
+            { label: '🧹 Clear Queue', value: 'clear_queue', description: 'Remove all songs', emoji: '🧹' },
+            { label: '📊 Track Stats', value: 'track_info', description: 'Show technical details', emoji: '📊' },
+          ]);
+        await interaction.followUp({ components: [new ActionRowBuilder().addComponents(moreMenu)], ephemeral: true });
+        response = '⚙️ More options menu opened.';
         break;
       }
 
@@ -184,7 +325,7 @@ export async function handleButtonInteraction(interaction, pm, client) {
     }, 500);
   } catch (err) {
     logger.error('Playerbuttons', 'Error handling button interaction:', err);
-    try { await interaction.editReply({ content: '❌ An error occurred while processing your button interaction.' }); } catch {}
+    try { await interaction.editReply({ content: '❌ An error occurred while processing your button interaction.' }); } catch { }
   }
 }
 
@@ -193,47 +334,60 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
   let response = '';
 
   try {
+    if (interaction.customId === 'music_sleep_timer_select') {
+      const value = selectedValue.replace('sleep_', '');
+      const minutes = parseInt(value, 10);
+
+      if (minutes === 0) {
+        pm.setSleepTimer(0);
+        return interaction.editReply({ content: '✅ **Sleep timer cancelled.**' });
+      }
+
+      const expireAt = pm.setSleepTimer(minutes, client);
+      const timeString = `<t:${Math.floor(expireAt / 1000)}:R>`;
+      response = `✅ **Sleep timer set!** The music will stop ${timeString}. 💤`;
+      await interaction.editReply({ content: response });
+
+      // Immediate embed update for sleep timer status
+      try {
+        const mod = await import('./Playerbuttons.js');
+        if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
+      } catch (e) { }
+
+      return;
+    }
+
     if (interaction.customId === 'music_similar_results') {
       const idx = parseInt((selectedValue || '').replace('similar_add_', ''), 10);
       const suggestions = pm.player?.get('similarSuggestions') || [];
       const suggestion = suggestions[idx];
 
       if (!suggestion) {
-        await interaction.editReply({ content: '❌ Invalid selection.' });
-        return;
+        return interaction.editReply({ content: '❌ Invalid selection.' });
       }
 
       try {
-        let added = false;
-        if (suggestion.trackInfo) {
-          await pm.addTracks(suggestion.trackInfo);
-          added = true;
+        const query = suggestion.trackInfo ? suggestion.trackInfo : `${suggestion.artist} ${suggestion.name}`;
+        const searchResult = await client.music.search(query, { requester: interaction.user });
+
+        if (searchResult && searchResult.tracks.length > 0) {
+          await pm.addTracks(searchResult.tracks[0]);
+          await interaction.editReply({ content: `✅ Added **${searchResult.tracks[0].info.title}** to the queue!` });
+
+          // Refresh embed
+          try {
+            const mod = await import('./Playerbuttons.js');
+            if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
+          } catch (e) { }
+
+          if (client.webServer) client.webServer.updatePlayerState(pm.guildId);
         } else {
-          const query = `${suggestion.artist} ${suggestion.name}`;
-          const searchResult = await client.music.search(query, { source: 'spsearch' });
-          if (searchResult?.tracks?.length > 0) {
-            await pm.addTracks(searchResult.tracks[0]);
-            added = true;
-          }
+          await interaction.editReply({ content: '❌ Could not find a playable version of that track.' });
         }
-
-        if (added) {
-          await interaction.editReply({ content: `✅ Added **${suggestion.name}** by **${suggestion.artist}** to the queue.` });
-        } else {
-          await interaction.editReply({ content: '❌ Could not find that track to add.' });
-        }
-
-        try {
-          const mod = await import('./Playerbuttons.js');
-          if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
-        } catch (e) {}
-
-        if (client.webServer) client.webServer.updatePlayerState(pm.guildId);
       } catch (err) {
         logger.error('Playerbuttons', 'Error adding similar track:', err);
-        await interaction.editReply({ content: '❌ Failed to add the selected track.' });
+        await interaction.editReply({ content: '❌ Error adding track.' });
       }
-
       return;
     }
 
@@ -289,7 +443,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
           try {
             const mod = await import('./Playerbuttons.js');
             if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
-          } catch (e) {}
+          } catch (e) { }
           if (client.webServer) client.webServer.updatePlayerState(pm.guildId);
         } catch (err) {
           logger.error('Playerbuttons', 'Error resetting filters:', err);
@@ -310,7 +464,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
         try {
           const mod = await import('./Playerbuttons.js');
           if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
-        } catch (e) {}
+        } catch (e) { }
         if (client.webServer) client.webServer.updatePlayerState(pm.guildId);
       } catch (err) {
         logger.error('Playerbuttons', 'Error applying filter:', err);
@@ -330,7 +484,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
         try {
           const mod = await import('./Playerbuttons.js');
           if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
-        } catch (e) {}
+        } catch (e) { }
         if (client.webServer) client.webServer.updatePlayerState(pm.guildId);
       } catch (err) {
         logger.error('Playerbuttons', 'Error moving track:', err);
@@ -368,12 +522,200 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
         try {
           const mod = await import('./Playerbuttons.js');
           if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
-        } catch (e) {}
+        } catch (e) { }
         if (client.webServer) client.webServer.updatePlayerState(pm.guildId);
       } catch (err) {
         logger.error('Playerbuttons', 'Error toggling effect:', err);
         await interaction.editReply({ content: '❌ Failed to toggle that effect.' });
       }
+      return;
+    }
+
+    if (interaction.customId === 'music_radio_select') {
+      const stationKey = selectedValue.replace('radio_', '');
+      const stations = {
+        lofi: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
+        rock: "https://www.youtube.com/watch?v=hTWKbfoikeg",
+        pop: "https://www.youtube.com/playlist?list=PLMC9KNkIncKvYin_USF1qoJQnIyMAfRxl",
+        edm: "https://www.youtube.com/watch?v=mAKsZ26SabQ",
+        jazz: "https://www.youtube.com/watch?v=f_mS3W3606M",
+        hiphop: "https://www.youtube.com/watch?v=MWN-P6_4-iY",
+        gaming: "https://www.youtube.com/watch?v=BTYAsjAVa3I",
+        kpop: "https://www.youtube.com/playlist?list=PL4fGSI1pDJn6jWqs706AuE3k58W_LToGO"
+      };
+
+      const url = stations[stationKey];
+      if (!url) return interaction.editReply({ content: '❌ Invalid station.' });
+
+      try {
+        const result = await client.music.search(url, { requester: interaction.user });
+        if (!result || !result.tracks.length) return interaction.editReply({ content: '❌ Could not load station.' });
+
+        await pm.addTracks(result.tracks);
+        if (!pm.isPlaying) await pm.play();
+
+        const title = stationKey.charAt(0).toUpperCase() + stationKey.slice(1);
+        await interaction.editReply({ content: `📻 **Radio Started:** ${title} station is now playing!` });
+
+        if (client.webServer) client.webServer.updatePlayerState(pm.guildId);
+      } catch (err) {
+        logger.error('Playerbuttons', 'Error starting radio:', err);
+        await interaction.editReply({ content: '❌ Error starting radio.' });
+      }
+      return;
+    }
+
+    if (interaction.customId === 'music_more_menu') {
+      const moreValue = selectedValue;
+      switch (moreValue) {
+        case 'view_queue':
+          {
+            const tracks = pm.player?.queue?.tracks || [];
+            const current = pm.currentTrack;
+            const embed = new EmbedBuilder()
+              .setTitle(`🎶 Current Queue`)
+              .setColor(0xFFCBA4)
+              .setThumbnail(current?.info?.artworkUrl || config.assets.defaultTrackArtwork);
+
+            let description = current ? `**Now Playing:** [${current.info.title}](${current.info.uri})\n\n` : '';
+
+            if (tracks.length === 0) {
+              description += '*Queue is empty.*';
+            } else {
+              description += `**Up Next (${tracks.length} tracks):**\n`;
+              description += tracks.slice(0, 10).map((t, i) => `**${i + 1}.** [${t.info.title.slice(0, 50)}](${t.info.uri})`).join('\n');
+              if (tracks.length > 10) description += `\n*...and ${tracks.length - 10} more tracks*`;
+            }
+
+            embed.setDescription(description);
+            await interaction.editReply({ content: null, embeds: [embed] });
+            return;
+          }
+        case 'toggle_autoplay':
+          {
+            const current = pm.player?.get('autoplayEnabled') || false;
+            const newVal = !current;
+            pm.player?.set('autoplayEnabled', newVal);
+            response = newVal ? '📻 **Radio Mode Enabled!** Similar songs will be added automatically.' : '📻 **Radio Mode Disabled.**';
+
+            // Immediate embed update for autoplay status
+            try {
+              const mod = await import('./Playerbuttons.js');
+              if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
+            } catch (e) { }
+          }
+          break;
+        case 'find_similar':
+          {
+            const current = pm.currentTrack;
+            if (!current) {
+              response = '❌ No track is currently playing.';
+              break;
+            }
+            await interaction.editReply({ content: '🔍 Searching for similar tracks...' });
+            const { fetchRecommendations } = await import('../../player/queueEnd.js');
+            try {
+              const recommendations = await fetchRecommendations(current, client);
+              if (!recommendations || recommendations.length === 0) {
+                await interaction.editReply({ content: '❌ No similar tracks found.' });
+                return;
+              }
+
+              pm.player.set('similarSuggestions', recommendations);
+
+              const options = recommendations.map((rec, i) => ({
+                label: `${rec.name.slice(0, 50)}`,
+                description: `by ${rec.artist.slice(0, 50)}`,
+                value: `similar_add_${i}`,
+                emoji: '🎵'
+              }));
+
+              const select = new StringSelectMenuBuilder()
+                .setCustomId('music_similar_results')
+                .setPlaceholder('Select a track to add to queue')
+                .setOptions(options);
+
+              await interaction.editReply({ content: '🔍 **Found similar tracks!** Select one to add:', components: [new ActionRowBuilder().addComponents(select)] });
+              return;
+            } catch (e) {
+              logger.error('Playerbuttons', 'Find similar error:', e);
+              await interaction.editReply({ content: '❌ Failed to find recommendations.' });
+              return;
+            }
+          }
+        case 'share_queue':
+          {
+            const host = config.web?.host || 'localhost';
+            const port = config.web?.port || 3000;
+            const protocol = config.web?.secure ? 'https' : 'http';
+            const url = `${protocol}://${host}${port === 80 || port === 443 ? '' : `:${port}`}/dashboard?guild=${pm.guildId}`;
+            response = `🔗 **Share your queue!**\nAnyone with this link can view the live queue: ${url}`;
+          }
+          break;
+        case 'export_queue':
+          response = '📦 Queue export logic coming soon!';
+          break;
+        case 'move_track':
+          {
+            const queue = pm.player?.queue?.tracks || [];
+            if (queue.length === 0) {
+              response = '❌ Queue is empty.';
+            } else {
+              const options = queue.slice(0, 24).map((t, i) => ({ label: `${i + 1}. ${t.info?.title?.slice(0, 80)}`, value: `move_idx_${i}` }));
+              const select = new StringSelectMenuBuilder().setCustomId('music_move_select').setPlaceholder('Select a track to move to top').setOptions(options);
+              await interaction.followUp({ components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
+              response = '🚚 Select a track to move.';
+            }
+          }
+          break;
+        case 'clear_queue':
+          await pm.player?.queue?.clear();
+          response = '🧹 Queue cleared.';
+          break;
+        case 'track_info':
+          {
+            const t = pm.currentTrack;
+            response = t ? `📊 **Track Details**\nTitle: ${t.info.title}\nArtist: ${t.info.author}\nSource: ${t.info.sourceName}\nDuration: ${pm.formatDuration(t.info.duration)}` : '❌ No track playing.';
+          }
+          break;
+        case 'radio_stations': {
+          const select = new StringSelectMenuBuilder()
+            .setCustomId("music_radio_select")
+            .setPlaceholder("📻 Select a radio station")
+            .addOptions([
+              { label: "Lofi / Chill", value: "radio_lofi", emoji: "☕" },
+              { label: "Rock Classic", value: "radio_rock", emoji: "🎸" },
+              { label: "Pop Hits", value: "radio_pop", emoji: "💃" },
+              { label: "EDM / Dance", value: "radio_edm", emoji: "🎧" },
+              { label: "Jazz / Study", value: "radio_jazz", emoji: "🎹" },
+              { label: "Hip Hop", value: "radio_hiphop", emoji: "🔥" },
+              { label: "Gaming / Phonk", value: "radio_gaming", emoji: "🎮" },
+              { label: "K-Pop", value: "radio_kpop", emoji: "🌈" }
+            ]);
+          await interaction.followUp({ components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
+          response = '📻 Select a radio station to start!';
+          break;
+        }
+        case 'sleep_timer': {
+          const sleepMenu = new StringSelectMenuBuilder()
+            .setCustomId('music_sleep_timer_select')
+            .setPlaceholder('⏰ Select Sleep Duration')
+            .addOptions([
+              { label: '1 Minute (Test)', value: 'sleep_1', emoji: '⏲️' },
+              { label: '5 Minutes', value: 'sleep_5', emoji: '⏲️' },
+              { label: '15 Minutes', value: 'sleep_15', emoji: '⏲️' },
+              { label: '30 Minutes', value: 'sleep_30', emoji: '⏲️' },
+              { label: '1 Hour', value: 'sleep_60', emoji: '⏲️' },
+              { label: 'Cancel Timer', value: 'sleep_0', emoji: '❌' },
+            ]);
+          await interaction.followUp({ components: [new ActionRowBuilder().addComponents(sleepMenu)], ephemeral: true });
+          response = '⏰ Select how long before the music stops.';
+          break;
+        }
+        default:
+          response = '❌ Unknown option.';
+      }
+      await interaction.editReply({ content: response });
       return;
     }
 
@@ -421,7 +763,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
     try {
       const mod = await import('./Playerbuttons.js');
       if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
-    } catch (e) {}
+    } catch (e) { }
 
     if (client.webServer) {
       client.webServer.updatePlayerState(pm.guildId);
@@ -431,7 +773,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
     logger.error('Playerbuttons', 'Error handling select menu interaction:', err);
     try {
       await interaction.editReply({ content: '❌ An error occurred while processing your selection.' });
-    } catch {}
+    } catch { }
   }
 }
 
@@ -446,7 +788,7 @@ export async function updatePlayerMessageEmbed(client, pm) {
     if (messageId && channelId) {
       const guild = client.guilds.cache.get(pm.guildId);
       const currentPosition = pm.player?.position ?? pm.position ?? 0;
-      const embed = DiscordPlayerEmbed.createPlayerEmbed(pm, guild, currentPosition, client);
+      const embed = await DiscordPlayerEmbed.createPlayerEmbedAsync(pm, guild, currentPosition, client);
 
       const channel = guild?.channels.cache.get(channelId);
       if (channel) {

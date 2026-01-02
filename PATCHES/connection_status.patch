@@ -1,0 +1,51 @@
+=== PATCH: Fix Connection Status Display ===
+
+File: src/web/public/app.js
+
+Find the updateConnectionStatus method (around line 4052) and REPLACE it with:
+
+```javascript
+  updateConnectionStatus(connected) {
+    if (!this.connectionStatus || !this.statusText) return;
+    
+    this.connectionStatus.classList.remove("hidden");
+    
+    // If socket is connected, show connected
+    if (connected) {
+      this.connectionStatus.classList.remove("error", "disconnected");
+      this.connectionStatus.classList.add("success", "connected");
+      this.statusText.textContent = "🟢 Connected";
+      return;
+    }
+    
+    // Check if player is actually active (even without socket)
+    const hasPlayerState = this.playerState && (
+      this.playerState.isPlaying || 
+      this.playerState.isPaused || 
+      this.playerState.currentTrack ||
+      this.playerState.isConnected ||
+      this.playerState.voiceChannel?.id
+    );
+    
+    const hasQueueTracks = Array.isArray(this.queue) && this.queue.length > 0;
+    
+    if (hasPlayerState || hasQueueTracks) {
+      this.connectionStatus.classList.remove("error", "disconnected");
+      this.connectionStatus.classList.add("success", "connected");
+      
+      if (this.playerState?.isPlaying && !this.playerState?.isPaused) {
+        this.statusText.textContent = "🟢 Playing";
+      } else if (this.playerState?.isPaused) {
+        this.statusText.textContent = "🟡 Paused";
+      } else {
+        this.statusText.textContent = "🟢 Connected";
+      }
+    } else {
+      this.connectionStatus.classList.remove("success", "connected");
+      this.connectionStatus.classList.add("error", "disconnected");
+      this.statusText.textContent = "🔴 Disconnected";
+    }
+  }
+```
+
+=== END PATCH ===

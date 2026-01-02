@@ -36,7 +36,7 @@ export class Guild extends Database {
     try {
       const columns = this.all("PRAGMA table_info(guilds)");
       const colNames = columns.map(c => c.name);
-      
+
       if (!colNames.includes('music_card_settings')) {
         this.exec(`ALTER TABLE guilds ADD COLUMN music_card_settings TEXT DEFAULT NULL`);
       }
@@ -70,7 +70,7 @@ export class Guild extends Database {
       if (!colNames.includes('premium_users')) {
         this.exec(`ALTER TABLE guilds ADD COLUMN premium_users TEXT DEFAULT '[]'`);
       }
-      
+
       // Migrate old dj_role to dj_roles array
       const guildsWithDjRole = this.all("SELECT id, dj_role FROM guilds WHERE dj_role IS NOT NULL AND dj_role != ''");
       for (const guild of guildsWithDjRole) {
@@ -85,73 +85,79 @@ export class Guild extends Database {
       logger.error('GuildDB', 'Migration error:', error);
     }
   }
-
+  getStorageId(guildId) {
+    if (!guildId) return null;
+    return config.clientId ? `${guildId}_${config.clientId}` : guildId;
+  }
 
   getGuild(guildId) {
-
     if (!guildId) return null;
-    return this.get("SELECT * FROM guilds WHERE id   =?", [guildId]);
+    const storageId = this.getStorageId(guildId);
+    return this.get("SELECT * FROM guilds WHERE id = ?", [storageId]);
   }
 
   ensureGuild(guildId) {
-
     if (!guildId) {
-      const errorMessage   =`[GuildDB] A valid guildId must be provided to ensureGuild. Received: ${guildId}`;
+      const errorMessage = `[GuildDB] A valid guildId must be provided to ensureGuild. Received: ${guildId}`;
       logger.error(errorMessage);
       throw new Error(errorMessage);
     }
 
-    let guild   =this.getGuild(guildId);
-    const defaultPrefix   =JSON.stringify([config.prefix]);
+    const storageId = this.getStorageId(guildId);
+    let guild = this.getGuild(guildId);
+    const defaultPrefix = JSON.stringify([config.prefix]);
 
     if (!guild) {
-
-      this.exec("INSERT INTO guilds (id, prefixes, default_volume, auto_disconnect, stay_247, stay_247_voice_channel, stay_247_text_channel) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [guildId, defaultPrefix, 100, 1, 0, null, null]);
+      this.exec(
+        "INSERT INTO guilds (id, prefixes, default_volume, auto_disconnect, stay_247, stay_247_voice_channel, stay_247_text_channel) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [storageId, defaultPrefix, 100, 1, 0, null, null],
+      );
       return this.getGuild(guildId);
     }
 
-
-    let needsUpdate   =false;
-    const updates   ={};
+    let needsUpdate = false;
+    const updates = {};
 
     if (!guild.prefixes) {
-      updates.prefixes   =defaultPrefix;
-      needsUpdate   =true;
+      updates.prefixes = defaultPrefix;
+      needsUpdate = true;
     }
 
-    if (guild.default_volume   ===null || guild.default_volume   ===undefined) {
-      updates.default_volume   =100;
-      needsUpdate   =true;
+    if (guild.default_volume === null || guild.default_volume === undefined) {
+      updates.default_volume = 100;
+      needsUpdate = true;
     }
 
-    if (guild.auto_disconnect   ===null || guild.auto_disconnect   ===undefined) {
-      updates.auto_disconnect   =1;
-      needsUpdate   =true;
+    if (guild.auto_disconnect === null || guild.auto_disconnect === undefined) {
+      updates.auto_disconnect = 1;
+      needsUpdate = true;
     }
 
-    if (guild.stay_247   ===null || guild.stay_247   ===undefined) {
-      updates.stay_247   =0;
-      needsUpdate   =true;
+    if (guild.stay_247 === null || guild.stay_247 === undefined) {
+      updates.stay_247 = 0;
+      needsUpdate = true;
     }
 
     if (needsUpdate) {
-      const keys   =Object.keys(updates);
-      const setClause   =keys.map(key   => `${key}   =?`).join(", ");
-      const values   =keys.map(key   => updates[key]);
-      values.push(guildId);
+      const keys = Object.keys(updates);
+      const setClause = keys.map((key) => `${key} = ?`).join(", ");
+      const values = keys.map((key) => updates[key]);
+      values.push(storageId);
 
-      this.exec(`UPDATE guilds SET ${setClause}, updated_at   =CURRENT_TIMESTAMP WHERE id   =?`, values);
-      guild   =this.getGuild(guildId);
+      this.exec(
+        `UPDATE guilds SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        values,
+      );
+      guild = this.getGuild(guildId);
     }
 
     return guild;
   }
 
   getPrefixes(guildId) {
-    const guild   =this.ensureGuild(guildId);
+    const guild = this.ensureGuild(guildId);
     try {
-      const prefixes   =JSON.parse(guild.prefixes);
+      const prefixes = JSON.parse(guild.prefixes);
       return Array.isArray(prefixes) && prefixes.length > 0 ? prefixes : [config.prefix];
     } catch (e) {
       return [config.prefix];
@@ -159,20 +165,22 @@ export class Guild extends Database {
   }
 
   setPrefixes(guildId, prefixes) {
+    const storageId = this.getStorageId(guildId);
     this.ensureGuild(guildId);
-    const prefixesJson   =JSON.stringify(prefixes);
+    const prefixesJson = JSON.stringify(prefixes);
     return this.exec(
-      "UPDATE guilds SET prefixes   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?",
-      [prefixesJson, guildId]
+      "UPDATE guilds SET prefixes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [prefixesJson, storageId]
     );
   }
 
   getDefaultVolume(guildId) {
-    const guild   =this.ensureGuild(guildId);
+    const guild = this.ensureGuild(guildId);
     return guild.default_volume || 100;
   }
 
   setDefaultVolume(guildId, volume) {
+    const storageId = this.getStorageId(guildId);
     this.ensureGuild(guildId);
 
     if (volume < 1 || volume > 100) {
@@ -180,8 +188,8 @@ export class Guild extends Database {
     }
 
     return this.exec(
-      "UPDATE guilds SET default_volume   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?",
-      [volume, guildId]
+      "UPDATE guilds SET default_volume = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [volume, storageId]
     );
   }
 
@@ -190,12 +198,13 @@ export class Guild extends Database {
   }
 
   updateSettings(guildId, settings) {
+    const storageId = this.getStorageId(guildId);
     this.ensureGuild(guildId);
     const allowedKeys = [
-      "prefixes", "default_volume", "auto_disconnect", 
+      "prefixes", "default_volume", "auto_disconnect",
       "stay_247", "stay_247_voice_channel", "stay_247_text_channel",
-      "dj_roles", "auto_play", "tier", "allowed_roles", 
-      "vip_roles", "premium_roles", "allowed_users", 
+      "dj_roles", "auto_play", "tier", "allowed_roles",
+      "vip_roles", "premium_roles", "allowed_users",
       "vip_users", "premium_users"
     ];
     const keys = Object.keys(settings).filter(key => allowedKeys.includes(key));
@@ -209,7 +218,7 @@ export class Guild extends Database {
       }
       return settings[key];
     });
-    values.push(guildId);
+    values.push(storageId);
 
     return this.exec(
       `UPDATE guilds SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
@@ -217,24 +226,26 @@ export class Guild extends Database {
     );
   }
 
-  blacklistGuild(guildId, reason   ="No reason provided") {
+  blacklistGuild(guildId, reason = "No reason provided") {
+    const storageId = this.getStorageId(guildId);
     this.ensureGuild(guildId);
     return this.exec(
-      "UPDATE guilds SET blacklisted   =1, blacklist_reason   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?",
-      [reason, guildId]
+      "UPDATE guilds SET blacklisted = 1, blacklist_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [reason, storageId]
     );
   }
 
   unblacklistGuild(guildId) {
+    const storageId = this.getStorageId(guildId);
     this.ensureGuild(guildId);
     return this.exec(
-      "UPDATE guilds SET blacklisted   =0, blacklist_reason   =NULL, updated_at   =CURRENT_TIMESTAMP WHERE id   =?",
-      [guildId]
+      "UPDATE guilds SET blacklisted = 0, blacklist_reason = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [storageId]
     );
   }
 
   isBlacklisted(guildId) {
-    const guild   =this.getGuild(guildId);
+    const guild = this.getGuild(guildId);
     if (!guild || !guild.blacklisted) return false;
 
     return {
@@ -248,57 +259,57 @@ export class Guild extends Database {
   }
 
   get247Settings(guildId) {
-    const guild   =this.ensureGuild(guildId);
+    const guild = this.ensureGuild(guildId);
     return {
-      enabled: guild.stay_247   ===1 || guild.stay_247   ===true,
+      enabled: guild.stay_247 === 1 || guild.stay_247 === true,
       voiceChannel: guild.stay_247_voice_channel,
       textChannel: guild.stay_247_text_channel,
-      autoDisconnect: guild.auto_disconnect   !==0 && guild.auto_disconnect   !==false
+      autoDisconnect: guild.auto_disconnect !== 0 && guild.auto_disconnect !== false
     };
   }
-  	set247Mode(guildId, enabled, voiceChannelId = null, textChannelId = null) {
-    	this.ensureGuild(guildId);
-    
-    	this.exec(
-      	"UPDATE guilds SET stay_247 = ?, stay_247_voice_channel = ?, stay_247_text_channel = ?, auto_disconnect = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      	[
-        		enabled ? 1 : 0,
-        		enabled ? voiceChannelId : null,
-        		enabled ? textChannelId : null,
-        		enabled ? 0 : 1,
-        		guildId
-      	]
-    	);
+  set247Mode(guildId, enabled, voiceChannelId = null, textChannelId = null) {
+    const storageId = this.getStorageId(guildId);
+    this.ensureGuild(guildId);
+    this.exec(
+      "UPDATE guilds SET stay_247 = ?, stay_247_voice_channel = ?, stay_247_text_channel = ?, auto_disconnect = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [
+        enabled ? 1 : 0,
+        enabled ? voiceChannelId : null,
+        enabled ? textChannelId : null,
+        enabled ? 0 : 1,
+        storageId,
+      ],
+    );
+    // If enabling 24/7 mode with a voice channel, trigger auto-connect
+    if (enabled && voiceChannelId) {
+      logger.info('GuildDB', `24/7 mode enabled for guild ${guildId}, voice channel: ${voiceChannelId}`);
+    }
 
-    	// If enabling 24/7 mode with a voice channel, trigger auto-connect
-    	if (enabled && voiceChannelId) {
-      	logger.info('GuildDB', `24/7 mode enabled for guild ${guildId}, voice channel: ${voiceChannelId}`);
-    	}
-    
-    	return { enabled, voiceChannelId, textChannelId };
-  	}
+    return { enabled, voiceChannelId, textChannelId };
+  }
 
   getAll247Guilds() {
     return this.all("SELECT * FROM guilds WHERE stay_247   =1 AND stay_247_voice_channel IS NOT NULL");
   }
 
   setAutoDisconnect(guildId, enabled) {
+    const storageId = this.getStorageId(guildId);
     this.ensureGuild(guildId);
     return this.exec(
-      "UPDATE guilds SET auto_disconnect   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?",
-      [enabled ? 1 : 0, guildId]
+      "UPDATE guilds SET auto_disconnect = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [enabled ? 1 : 0, storageId]
     );
   }
 
   getValid247Guilds() {
-    const guilds   =this.all(`
+    const guilds = this.all(`
       SELECT * FROM guilds
       WHERE stay_247   =1
       AND stay_247_voice_channel IS NOT NULL
       AND stay_247_voice_channel   !=''
     `);
 
-    return guilds.filter(guild   => {
+    return guilds.filter(guild => {
       return guild.stay_247_voice_channel && guild.stay_247_voice_channel.length > 0;
     });
   }
@@ -433,7 +444,7 @@ export class Guild extends Database {
     const vipUsers = JSON.stringify(Array.isArray(roles?.vipUsers) ? roles.vipUsers : []);
     const premiumRoles = JSON.stringify(Array.isArray(roles?.premium) ? roles.premium : []);
     const premiumUsers = JSON.stringify(Array.isArray(roles?.premiumUsers) ? roles.premiumUsers : []);
-    
+
     return this.exec(
       "UPDATE guilds SET allowed_roles = ?, allowed_users = ?, vip_roles = ?, vip_users = ?, premium_roles = ?, premium_users = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       [allowedRoles, allowedUsers, vipRoles, vipUsers, premiumRoles, premiumUsers, guildId]

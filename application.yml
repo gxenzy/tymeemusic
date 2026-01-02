@@ -1,11 +1,31 @@
+# YouTube plugin configuration (dev.lavalink.youtube:youtube-plugin)
+#
+# The youtube-plugin log indicates it expects `youtube.clients` (top-level). However, some builds/config bindings
+# also read from `plugins.youtube`. To maximize compatibility, we provide BOTH:
+# - top-level `youtube.*`
+# - `plugins.youtube.*`
+#
+# Keep this portable: put `youtube-cookies.txt` next to `Lavalink.jar` and use a relative path.
+youtube:
+  clients: "ANDROID_VR,WEB"
+  cookies:
+    path: "./youtube-cookies.txt"
+
 plugins:
+  youtube:
+    clients: "ANDROID_VR,WEB"
+    cookies:
+      path: "./youtube-cookies.txt"
+
   lavasrc:
     providers: # Custom providers for track loading. This is the default
-#      - "dzisrc:%ISRC%" # Deezer ISRC provider
-#      - "dzsearch:%QUERY%" # Deezer search provider
-      - "ytsearch:\"%ISRC%\"" # Will be ignored if track does not have an ISRC. See https://en.wikipedia.org/wiki/International_Standard_Recording_Code
+      #      - "dzisrc:%ISRC%" # Deezer ISRC provider
+      #      - "dzsearch:%QUERY%" # Deezer search provider
+      - 'ytsearch:"%ISRC%"' # Will be ignored if track does not have an ISRC. See https://en.wikipedia.org/wiki/International_Standard_Recording_Code
+      - 'ytmsearch:"%ISRC%"' # Fallback to YouTube Music if YouTube search finds no usable result
       - "ytsearch:%QUERY%" # Will be used if track has no ISRC or no track could be found for the ISRC
-#        you can add multiple other fallback sources here
+      - "ytmsearch:%QUERY%" # Final fallback to YouTube Music search
+    #        you can add multiple other fallback sources here
     sources:
       spotify: true # Enable Spotify source
       applemusic: false # Enable Apple Music source
@@ -52,16 +72,16 @@ plugins:
     deezer:
       masterDecryptionKey: "your master decryption key" # the master key used for decrypting the deezer tracks. (yes this is not here you need to get it from somewhere else)
       arl: "your deezer arl" # the arl cookie used for accessing the deezer api this is not optional anymore
-      formats: [ "FLAC", "MP3_320", "MP3_256", "MP3_128", "MP3_64", "AAC_64" ] # the formats you want to use for the deezer tracks. "FLAC", "MP3_320", "MP3_256" & "AAC_64" are only available for premium users and require a valid arl
+      formats: ["FLAC", "MP3_320", "MP3_256", "MP3_128", "MP3_64", "AAC_64"] # the formats you want to use for the deezer tracks. "FLAC", "MP3_320", "MP3_256" & "AAC_64" are only available for premium users and require a valid arl
     yandexmusic:
       accessToken: "your access token" # the token used for accessing the yandex music api. See https://github.com/topi314/LavaSrc#yandex-music
       playlistLoadLimit: 1 # The number of pages at 100 tracks each
       albumLoadLimit: 1 # The number of pages at 50 tracks each
       artistLoadLimit: 1 # The number of pages at 10 tracks each
-#      proxy: # If defined, YandexMusic HTTP requests will be proxied through here. YandexMusic uses region blocking
-#        url: "https://example.org" # The HTTP proxy to use
-#        username: "my-bot" # Optional username to authenticate with the proxy
-#        password: "youshallpass" # Optional password to authenticate with the proxy
+    #      proxy: # If defined, YandexMusic HTTP requests will be proxied through here. YandexMusic uses region blocking
+    #        url: "https://example.org" # The HTTP proxy to use
+    #        username: "my-bot" # Optional username to authenticate with the proxy
+    #        password: "youshallpass" # Optional password to authenticate with the proxy
     flowerytts:
       voice: "default voice" # (case-sensitive) get default voice here https://flowery.pw/docs/flowery/tts-voices-v-1-tts-voices-get
       translate: false # whether to translate the text to the native language of voice
@@ -69,29 +89,38 @@ plugins:
       speed: 1.0 # the speed parameter is a float between 0.5 and 10. The default is 1.0. (0.5 is half speed, 2.0 is double speed, etc.)
       audioFormat: "mp3" # supported formats are: mp3, ogg_opus, ogg_vorbis, aac, wav, and flac. Default format is mp3
     youtube:
-      countryCode: "PH" # the country code you want to use for searching lyrics via ISRC. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2
+      countryCode: "PH" # the country code you want to use for searching lyrics via ISRC. See https://en.wikipedia.org/wiki/International_Standard_Recording_Code
       language: "en" # the language code you want to use for searching & lyrics. See https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes
     vkmusic:
       userToken: "your user token" # This token is needed for authorization in the api. Guide: https://github.com/topi314/LavaSrc#vk-music
       playlistLoadLimit: 1 # The number of pages at 50 tracks each
       artistLoadLimit: 1 # The number of pages at 10 tracks each
       recommendationsLoadLimit: 10 # Number of tracks
-#      proxy: # If the server with the plugin is located outside of Russia, you must configure a proxy located in Russia to bypass regional restrictions.
-#        url: "https://example.org" # The HTTP proxy to use
-#        username: "my-bot" # Optional username to authenticate with the proxy
-#        password: "youshallpass" # Optional password to authenticate with the proxy
+    #      proxy: # If the server with the plugin is located outside of Russia, you must configure a proxy located in Russia to bypass regional restrictions.
+    #        url: "https://example.org" # The HTTP proxy to use
+    #        username: "my-bot" # Optional username to authenticate with the proxy
+    #        password: "youshallpass" # Optional password to authenticate with the proxy
     tidal:
       countryCode: "US" # the country code for accessing region-specific content on Tidal (ISO 3166-1 alpha-2).
       searchLimit: 6 # How many search results should be returned
       token: "your tidal token" # the token used for accessing the tidal api. See https://github.com/topi314/LavaSrc#tidal
     qobuz:
-      userOauthToken : "your user oauth token" # This token is needed for authorization in the api. Guide: https://github.com/topi314/LavaSrc#qobuz
-#      appId : optional (Only pass it when you are using an old userOauthToken)
-#      appSecret : optional (Only pass it when you are using an old userOauthToken)
+      userOauthToken: "your user oauth token" # This token is needed for authorization in the api. Guide: https://github.com/topi314/LavaSrc#qobuz
+    #      appId : optional (Only pass it when you are using an old userOauthToken)
+    #      appSecret : optional (Only pass it when you are using an old userOauthToken)
     ytdlp:
-      path: "yt-dlp" # the path to the yt-dlp executable.
+      # IMPORTANT:
+      # - On your local Windows machine, install yt-dlp and make sure it's on PATH, then keep this as "yt-dlp".
+      # - On hosting (Linux), also install yt-dlp and keep this as "yt-dlp", OR set it to an absolute path.
+      path: "yt-dlp" # the path to the yt-dlp executable (must be installed on the machine)
       searchLimit: 10 # How many search results should be returned
-      customLoadArgs: ["-q", "--no-warnings", "--flat-playlist", "--skip-download", "-J"] # Custom arguments to pass to yt-dlp
+      customLoadArgs: [
+          "-q",
+          "--no-warnings",
+          "--flat-playlist",
+          "--skip-download",
+          "-J",
+        ] # Custom arguments to pass to yt-dlp
       customPlaybackArgs: ["-q", "--no-warnings", "-f", "bestaudio", "-J"] # Custom arguments for yt-dlp
     jiosaavn:
       decryption: # The decryption configuration for the JioSaavn tracks
@@ -116,12 +145,12 @@ lavalink:
     - dependency: "com.github.topi314.lavasearch:lavasearch-plugin:1.0.0"
     - dependency: "com.github.topi314.lavalyrics:lavalyrics-plugin:1.1.0"
     - dependency: "com.dunctebot:skybot-lavalink-plugin:1.7.0"
-#    - dependency: "com.github.example:example-plugin:1.0.0" # required, the coordinates of your plugin
-#      repository: "https://maven.example.com/releases" # optional, defaults to the Lavalink releases repository by default
-#      snapshot: false # optional, defaults to false, used to tell Lavalink to use the snapshot repository instead of the release repository
+  #    - dependency: "com.github.example:example-plugin:1.0.0" # required, the coordinates of your plugin
+  #      repository: "https://maven.example.com/releases" # optional, defaults to the Lavalink releases repository by default
+  #      snapshot: false # optional, defaults to false, used to tell Lavalink to use the snapshot repository instead of the release repository
   pluginsDir: "./plugins" # optional, defaults to "./plugins"
-#  defaultPluginRepository: "https://maven.lavalink.dev/releases" # optional, defaults to the Lavalink release repository
-#  defaultPluginSnapshotRepository: "https://maven.lavalink.dev/snapshots" # optional, defaults to the Lavalink snapshot repository
+  #  defaultPluginRepository: "https://maven.lavalink.dev/releases" # optional, defaults to the Lavalink release repository
+  #  defaultPluginSnapshotRepository: "https://maven.lavalink.dev/snapshots" # optional, defaults to the Lavalink snapshot repository
   server:
     password: "MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ"
     sources:
@@ -157,15 +186,26 @@ lavalink:
     youtubeSearchEnabled: true
     soundcloudSearchEnabled: true
     gc-warnings: false
-#    ratelimit:
-#      ipBlocks: [ "1.0.0.0/8", "..." ] # list of ip blocks
-#      excludedIps: [ "...", "..." ] # ips which should be explicit excluded from usage by lavalink
-#      strategy: "RotateOnBan" # RotateOnBan | LoadBalance | NanoSwitch | RotatingNanoSwitch
-#      searchTriggersFail: true # Whether a search 429 should trigger marking the ip as failing
-#      retryLimit: -1 # -1 = use default lavaplayer value | 0 = infinity | >0 = retry will happen this numbers times
-    youtubeConfig: # Required for avoiding all age restrictions by YouTube, some restricted videos still can be played without.
-      email: "your-google-email@gmail.com" # Email of Google account
-      password: "your-google-password" # Password of Google account
+    #    ratelimit:
+    #      ipBlocks: [ "1.0.0.0/8", "..." ] # list of ip blocks
+    #      excludedIps: [ "...", "..." ] # ips which should be explicit excluded from usage by lavalink
+    #      strategy: "RotateOnBan" # RotateOnBan | LoadBalance | NanoSwitch | RotatingNanoSwitch
+    #      searchTriggersFail: true # Whether a search 429 should trigger marking the ip as failing
+    #      retryLimit: -1 # -1 = use default lavaplayer value | 0 = infinity | >0 = retry will happen this numbers times
+    # YouTube login-required / age-restricted fixes:
+    # Prefer cookies over username/password (more reliable; avoids MFA/Google login challenges).
+    #
+    # 1) Export YouTube cookies in Netscape format (e.g. via a browser extension).
+    # 2) Save it next to Lavalink, e.g. ./youtube-cookies.txt
+    # 3) Restart Lavalink.
+    #
+    # If you DO NOT provide cookies, some tracks will fail with:
+    #   "This video requires login."
+    youtubeConfig:
+      # Path to a Netscape-format cookies file for YouTube.
+      # Absolute path to avoid working-directory issues on Windows.
+      # IMPORTANT: double backslashes are used to keep YAML parsing safe.
+      cookiesFile: "C:\\Users\\renzy\\Downloads\\CODE\\music bot\\tymeemusic\\youtube-cookies.txt"
 #    httpConfig: # Useful for blocking bad-actors from ip-grabbing your music node and attacking it, this way only the http proxy will be attacked
 #      proxyHost: "localhost" # Hostname of the proxy, (ip or domain)
 #      proxyPort: 3128 # Proxy port, 3128 is the default for squidProxy
@@ -200,7 +240,6 @@ logging:
     includeQueryString: true
     includePayload: true
     maxPayloadLength: 10000
-
 
   logback:
     rollingpolicy:

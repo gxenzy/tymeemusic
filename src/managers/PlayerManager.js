@@ -58,7 +58,7 @@ export class PlayerManager {
       return false;
     }
 
-    
+
     await this.player.play({ clientTrack: previousTrack });
     await this.player.queue.utils.save();
     return true;
@@ -182,10 +182,10 @@ export class PlayerManager {
   get previousTracks() {
     return this.player.queue.previous;
   }
-  get isEmpty(){
-    if(this.queueSize === 0 && !this.currentTrack){
+  get isEmpty() {
+    if (this.queueSize === 0 && !this.currentTrack) {
       return true;
-    }else{
+    } else {
       return false;
     }
   }
@@ -210,7 +210,7 @@ export class PlayerManager {
   }
 
   async clearQueue() {
-   return await this.player.queue.tracks.splice(0, this.player.queue.tracks.length);
+    return await this.player.queue.tracks.splice(0, this.player.queue.tracks.length);
   }
 
   async forward(amount = 10000) {
@@ -463,5 +463,13 @@ export class PlayerManager {
       );
       return null;
     }
+  }
+
+  async getCurrentLyrics() {
+    return this.player.getCurrentLyrics();
+  }
+
+  setSleepTimer(minutes, client) {
+    return this.player.setSleepTimer(minutes, client);
   }
 }

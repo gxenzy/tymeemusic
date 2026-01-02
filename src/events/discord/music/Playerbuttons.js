@@ -34,57 +34,57 @@ export default {
 				'music_effects',
 				'music_filter',
 				'music_move',
-			'music_misc',
-			'music_queue_info',
-			'music_filters_select',
-			'music_move_select',
-			'music_effects_select',
-		];
+				'music_misc',
+				'music_queue_info',
+				'music_filters_select',
+				'music_move_select',
+				'music_effects_select',
+			];
 
-		if (!musicControlIds.includes(interaction.customId)) {
-			return;
-		}
+			if (!musicControlIds.includes(interaction.customId)) {
+				return;
+			}
 
-		if (!interaction.member?.voice?.channel) {
-			return interaction.reply({
-				content: '❌ You must be in a voice channel to use music controls.',
-				ephemeral: true,
-			});
-		}
+			if (!interaction.member?.voice?.channel) {
+				return interaction.reply({
+					content: '❌ You must be in a voice channel to use music controls.',
+					ephemeral: true,
+				});
+			}
 
-		const player = client.music?.getPlayer(interaction.guild.id);
-		if (!player) {
-			return interaction.reply({
-				content: '❌ No music player found for this server.',
-				ephemeral: true,
-			});
-		}
+			const player = client.music?.getPlayer(interaction.guild.id);
+			if (!player) {
+				return interaction.reply({
+					content: '❌ No music player found for this server.',
+					ephemeral: true,
+				});
+			}
 
-		const pm = new PlayerManager(player);
+			const pm = new PlayerManager(player);
 
-		// Ensure user is in same voice channel as the bot
-		const botVoiceChannelId = pm.voiceChannelId || pm.player?.voiceChannelId;
-		if (botVoiceChannelId && interaction.member.voice.channel && interaction.member.voice.channel.id !== botVoiceChannelId) {
-			return interaction.reply({
-				content: '❌ You must be in the same voice channel as the bot to use controls.',
-				ephemeral: true
-			});
-		}
+			// Ensure user is in same voice channel as the bot
+			const botVoiceChannelId = pm.voiceChannelId || pm.player?.voiceChannelId;
+			if (botVoiceChannelId && interaction.member.voice.channel && interaction.member.voice.channel.id !== botVoiceChannelId) {
+				return interaction.reply({
+					content: '❌ You must be in the same voice channel as the bot to use controls.',
+					ephemeral: true
+				});
+			}
 
-		if (['music_pause', 'music_skip', 'music_previous'].includes(interaction.customId) && !pm.hasCurrentTrack) {
-			return interaction.reply({
-				content: '❌ No track is currently playing.',
-				ephemeral: true
-			});
-		}
+			if (['music_pause', 'music_skip', 'music_previous'].includes(interaction.customId) && !pm.hasCurrentTrack) {
+				return interaction.reply({
+					content: '❌ No track is currently playing.',
+					ephemeral: true
+				});
+			}
 
-		await interaction.deferReply({ ephemeral: true });
+			await interaction.deferReply({ ephemeral: true });
 
-		if (interaction.isButton()) {
-			await import('./PlayerbuttonsHandler.js').then(m => m.handleButtonInteraction(interaction, pm, client));
-		} else if (interaction.isStringSelectMenu()) {
-			await import('./PlayerbuttonsHandler.js').then(m => m.handleSelectMenuInteraction(interaction, pm, client));
-		}
+			if (interaction.isButton()) {
+				await import('./PlayerbuttonsHandler.js').then(m => m.handleButtonInteraction(interaction, pm, client));
+			} else if (interaction.isStringSelectMenu()) {
+				await import('./PlayerbuttonsHandler.js').then(m => m.handleSelectMenuInteraction(interaction, pm, client));
+			}
 
 		} catch (error) {
 			logger.error('InteractionCreate', 'Error handling music control interaction:', error);
@@ -108,13 +108,13 @@ export async function updatePlayerMessageEmbed(client, pm) {
 		const player = pm.player;
 		const messageId = player.get('nowPlayingMessageId');
 		const channelId = player.get('nowPlayingChannelId');
-		
+
 		if (messageId && channelId) {
 			const guild = client.guilds.cache.get(pm.guildId);
 			// Get fresh position from player
 			const currentPosition = pm.player?.position ?? pm.position ?? 0;
-			const embed = DiscordPlayerEmbed.createPlayerEmbed(pm, guild, currentPosition, client);
-			
+			const embed = await DiscordPlayerEmbed.createPlayerEmbedAsync(pm, guild, currentPosition, client);
+
 			const channel = guild?.channels.cache.get(channelId);
 			if (channel) {
 				const message = await channel.messages.fetch(messageId).catch(() => null);

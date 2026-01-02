@@ -1,7 +1,163 @@
-import { LavalinkManager } from "lavalink-client";
+import { LavalinkManager, Player } from "lavalink-client";
+import axios from 'axios';
 import { logger } from "#utils/logger";
 import { config } from "#config/config";
 import { db } from "#database/DatabaseManager";
+
+// Inject helper methods into Lavalink Player prototype
+Player.prototype.getCurrentLyrics = async function () {
+  const track = this.queue.current;
+  if (!track) return null;
+
+  const cleanTitle = track.info.title.split(' (')[0].split(' - ')[0].trim();
+  const rawTitle = track.info.title.trim();
+  const artist = track.info.author?.split(' - ')[0]?.trim() || '';
+  const duration = Math.floor(track.info.duration / 1000);
+
+  const searchTerms = [
+    { t: cleanTitle, a: artist },
+    { t: rawTitle, a: artist }
+  ];
+
+  for (const { t, a } of searchTerms) {
+    try {
+      logger.debug(`[Player] Fetching lyrics from LRCLIB for: ${t} by ${a}`);
+      // Try LRCLIB first for synchronized lyrics
+      const lrcResponse = await axios.get(`https://lrclib.net/api/get`, {
+        params: {
+          artist_name: a,
+          track_name: t,
+          duration: duration
+        },
+        timeout: 3000
+      }).catch(() => null);
+
+      if (lrcResponse?.data) {
+        const data = lrcResponse.data;
+        const lyricsResult = {
+          title: data.trackName || t,
+          artist: data.artistName || a,
+          text: data.plainLyrics || data.syncedLyrics || '',
+          sourceName: 'LRCLIB',
+          provider: 'LRCLIB',
+          image: track.info.artworkUrl,
+          lines: []
+        };
+
+        if (data.syncedLyrics) {
+          // Parse LRC format: [mm:ss.xx] Line text
+          const lrcLines = data.syncedLyrics.split('\n');
+          lrcLines.forEach(line => {
+            const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
+            if (match) {
+              const minutes = parseInt(match[1], 10);
+              const seconds = parseFloat(match[2]);
+              const timestamp = (minutes * 60 + seconds) * 1000;
+              lyricsResult.lines.push({
+                timestamp: Math.floor(timestamp),
+                line: match[3].trim()
+              });
+            }
+          });
+          logger.debug(`[Player] Found ${lyricsResult.lines.length} synchronized lines`);
+        }
+
+        if (lyricsResult.text || lyricsResult.lines.length > 0) return lyricsResult;
+      }
+
+      // Fallback to Lyrist for static lyrics
+      logger.debug(`[Player] Falling back to Lyrist for: ${t}`);
+      const lyristResponse = await axios.get(`https://lyrist.vercel.app/api/${encodeURIComponent(t)}/${encodeURIComponent(a)}`, { timeout: 3000 }).catch(() => null);
+
+      if (lyristResponse?.data?.lyrics) {
+        return {
+          text: lyristResponse.data.lyrics,
+          title: lyristResponse.data.title || t,
+          artist: lyristResponse.data.artist || a,
+          sourceName: 'Lyrist',
+          provider: 'Lyrist API',
+          image: lyristResponse.data.image || track.info.artworkUrl,
+          lines: []
+        };
+      }
+    } catch (error) {
+      logger.error(`[Player] Lyrics fetch error for ${t}: ${error.message}`);
+    }
+  }
+  return null;
+};
+
+Player.prototype.translateLyrics = async function (text, targetLang = 'en') {
+  try {
+    if (!text) return null;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+    const response = await axios.get(url, { timeout: 5000 });
+
+    if (response.data && response.data[0]) {
+      // Google Translate returns an array of chunks
+      const translated = response.data[0].map(x => x[0]).join('');
+      return translated;
+    }
+    return null;
+  } catch (error) {
+    logger.error(`[Player] Lyrics translation error: ${error.message}`);
+    return null;
+  }
+};
+
+Player.prototype.setSleepTimer = function (minutes, client) {
+  if (this.sleepTimer) {
+    clearTimeout(this.sleepTimer);
+    this.sleepTimer = null;
+    this.sleepTimeoutAt = null;
+    this.set('sleepTimerEnd', null);
+  }
+
+  if (minutes <= 0) {
+    if (client && this.webServer) client.webServer.updatePlayerState(this.guildId);
+    return null;
+  }
+
+  const ms = minutes * 60000;
+  const expireAt = Date.now() + ms;
+  this.sleepTimeoutAt = expireAt;
+  this.set('sleepTimerEnd', expireAt);
+
+  this.sleepTimer = setTimeout(async () => {
+    try {
+      if (!this.connected) return;
+
+      logger.info(`[Player] Sleep timer expired for guild ${this.guildId}. Stopping playback.`);
+
+      const channelId = this.textChannelId;
+      await this.stopPlaying();
+
+      // Clear queue on sleep timer expire to be "fully" functional (stop everything)
+      if (this.queue) this.queue.clear();
+
+      if (channelId && client) {
+        const channel = client.channels.cache.get(channelId);
+        if (channel) {
+          channel.send({
+            content: `🔔 **Sleep timer expired!** The music has been stopped and queue cleared. Goodnight! 💤`,
+            flags: 4096 // Suppress notifications if possible, or just standard
+          }).catch(() => { });
+        }
+      }
+
+      this.sleepTimer = null;
+      this.sleepTimeoutAt = null;
+      this.set('sleepTimerEnd', null);
+
+      if (client && client.webServer) client.webServer.updatePlayerState(this.guildId);
+    } catch (error) {
+      logger.error(`[Player] Error in sleep timer: ${error.message}`);
+    }
+  }, ms);
+
+  if (client && client.webServer) client.webServer.updatePlayerState(this.guildId);
+  return expireAt;
+};
 
 export class MusicManager {
   constructor(client) {
@@ -47,7 +203,7 @@ export class MusicManager {
           minAutoPlayMs: 10_000,
           applyVolumeAsFilter: false,
           clientBasedPositionUpdateInterval: 50,
-          defaultSearchPlatform: "spsearch",
+          defaultSearchPlatform: "ytsearch",
           onDisconnect: {
             autoReconnect: true,
             destroyPlayer: false,
@@ -275,25 +431,23 @@ export class MusicManager {
       const finalSource = source || (isUrl ? undefined : "spsearch");
 
       const node = this.lavalink.nodeManager.leastUsedNodes("memory")[0];
-      
+
       if (!node) {
         logger.error("MusicManager", "No available Lavalink nodes found");
         return null;
       }
 
       logger.debug("MusicManager", `Searching with query: ${query.substring(0, 100)}, source: ${finalSource || 'auto-detect'}`);
-      
-      // For direct URLs without source, lavasrc plugin will auto-detect from URL
-      // Pass source only if defined, otherwise let lavasrc handle URL recognition
-      const searchParams = finalSource 
+
+      const searchParams = finalSource
         ? { query, source: finalSource }
         : { query };
-      
+
       const searchResult = await node.search(searchParams, requester);
 
-      if (!searchResult) {
-        logger.warn("MusicManager", `Search returned null for query: ${query.substring(0, 100)}`);
-        return null;
+      if (!searchResult || searchResult.loadType === "error") {
+        logger.warn("MusicManager", `Search failed or returned error for query: ${query.substring(0, 100)} (loadType: ${searchResult?.loadType})`);
+        return searchResult;
       }
 
       if (!searchResult.tracks?.length && searchResult.loadType !== "playlist") {

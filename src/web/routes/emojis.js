@@ -2,6 +2,20 @@ import { requireAuth, requireGuildPermission } from '../auth/oauth2.js';
 import EmojiMapping from '../../../database/repo/EmojiMapping.js';
 
 export default function setupEmojiRoutes(app) {
+    async function refreshPlayerEmbed(client, guildId) {
+        if (!client) return;
+        const player = client.music?.getPlayer(guildId);
+        if (player) {
+            try {
+                const { updatePlayerMessageEmbed } = await import('../../events/discord/music/Playerbuttons.js');
+                const { PlayerManager } = await import('../../../managers/PlayerManager.js');
+                await updatePlayerMessageEmbed(client, new PlayerManager(player));
+            } catch (e) {
+                console.error('Error refreshing player embed after emoji update:', e);
+            }
+        }
+    }
+
     app.get('/api/emojis/:guildId', requireAuth, requireGuildPermission, async (req, res) => {
         try {
             const emojis = EmojiMapping.getAllByGuild(req.params.guildId);
@@ -36,8 +50,15 @@ export default function setupEmojiRoutes(app) {
                 category
             });
 
-            if (req.app.get('bot')?.emojiManager) {
-                await req.app.get('bot').emojiManager.updateCache(guildId);
+            const client = req.app.get('bot');
+            if (client?.emojiManager) {
+                await client.emojiManager.updateCache(guildId);
+                // Broadcast WebSocket update
+                if (req.app.get('io')) {
+                    req.app.get('io').to(`guild_${guildId}`).emit('emoji:updated', { botName });
+                }
+                // Refresh Discord embed
+                await refreshPlayerEmbed(client, guildId);
             }
 
             const emoji = EmojiMapping.getByGuildAndName(guildId, botName);
@@ -54,8 +75,13 @@ export default function setupEmojiRoutes(app) {
         try {
             EmojiMapping.deleteByBotName(guildId, botName);
 
-            if (req.app.get('bot')?.emojiManager) {
-                await req.app.get('bot').emojiManager.updateCache(guildId);
+            const client = req.app.get('bot');
+            if (client?.emojiManager) {
+                await client.emojiManager.updateCache(guildId);
+                if (req.app.get('io')) {
+                    req.app.get('io').to(`guild_${guildId}`).emit('emoji:removed', { botName });
+                }
+                await refreshPlayerEmbed(client, guildId);
             }
 
             res.json({ success: true });
@@ -69,8 +95,13 @@ export default function setupEmojiRoutes(app) {
         const { guildId } = req.params;
 
         try {
-            if (req.app.get('bot')?.emojiManager) {
-                await req.app.get('bot').emojiManager.syncGuild(guildId);
+            const client = req.app.get('bot');
+            if (client?.emojiManager) {
+                await client.emojiManager.syncGuild(guildId);
+                if (req.app.get('io')) {
+                    req.app.get('io').to(`guild_${guildId}`).emit('emoji:synced');
+                }
+                await refreshPlayerEmbed(client, guildId);
             }
 
             res.json({ success: true, message: 'Emojis synced successfully' });
@@ -86,8 +117,13 @@ export default function setupEmojiRoutes(app) {
         try {
             EmojiMapping.resetGuildEmojis(guildId);
 
-            if (req.app.get('bot')?.emojiManager) {
-                req.app.get('bot').emojiManager.clearGuildCache(guildId);
+            const client = req.app.get('bot');
+            if (client?.emojiManager) {
+                client.emojiManager.clearGuildCache(guildId);
+                if (req.app.get('io')) {
+                    req.app.get('io').to(`guild_${guildId}`).emit('emoji:reset');
+                }
+                await refreshPlayerEmbed(client, guildId);
             }
 
             res.json({ success: true, message: 'Emojis reset to defaults' });
@@ -104,8 +140,13 @@ export default function setupEmojiRoutes(app) {
         try {
             EmojiMapping.setFallback(guildId, botName, fallback);
 
-            if (req.app.get('bot')?.emojiManager) {
-                await req.app.get('bot').emojiManager.updateCache(guildId);
+            const client = req.app.get('bot');
+            if (client?.emojiManager) {
+                await client.emojiManager.updateCache(guildId);
+                if (req.app.get('io')) {
+                    req.app.get('io').to(`guild_${guildId}`).emit('emoji:fallback_updated', { botName, fallback });
+                }
+                await refreshPlayerEmbed(client, guildId);
             }
 
             res.json({ success: true });

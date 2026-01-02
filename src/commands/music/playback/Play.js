@@ -207,7 +207,13 @@ class PlayCommand extends Command {
 
       // Set "Requested by" voice channel status with custom emoji support
       const emojiManager = client.emojiManager || null;
-      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, message.author.username, message.guild, emojiManager);
+      VoiceChannelStatus.setRequestedBy(
+        client,
+        voiceChannel.id,
+        message.author.username,
+        message.guild,
+        emojiManager,
+      );
 
       const result = await this._handlePlayRequest({
         client,
@@ -288,7 +294,7 @@ class PlayCommand extends Command {
         });
       }
 
-       await interaction.reply({
+      await interaction.reply({
         components: [this._createLoadingContainer(query)],
         flags: MessageFlags.IsComponentsV2,
         fetchReply: true,
@@ -306,7 +312,13 @@ class PlayCommand extends Command {
 
       // Set "Requested by" voice channel status with custom emoji support
       const emojiManager = client.emojiManager || null;
-      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, interaction.user.username, interaction.guild, emojiManager);
+      VoiceChannelStatus.setRequestedBy(
+        client,
+        voiceChannel.id,
+        interaction.user.username,
+        interaction.guild,
+        emojiManager,
+      );
 
       const result = await this._handlePlayRequest({
         client,
@@ -373,25 +385,145 @@ class PlayCommand extends Command {
         }
         // Otherwise, leave source undefined so lavasrc can handle the URL directly
       } else {
-        // For search queries, use manual source or default
-        options.source = this._normalizeSource(source);
+        // For search queries:
+        // - If the user explicitly provided a source, respect it.
+        // - Otherwise: try ytsearch first, then fall back to ytmsearch.
+        const normalized = source ? this._normalizeSource(source) : null;
+
+        // If user specified a source (e.g., sp/yt/sc), use it directly.
+        if (normalized) {
+          options.source = normalized;
+          const searchResult = await client.music.search(finalquery, options);
+
+          if (!searchResult) {
+            client.logger?.error(
+              "PlayCommand",
+              `Search returned null for query: ${query}`,
+            );
+            return {
+              success: false,
+              message:
+                `Failed to process your request. Please check if:\n` +
+                `• Lavalink server is running\n` +
+                `• Spotify credentials are configured (if using Spotify)\n` +
+                `• The URL/query is valid`,
+            };
+          }
+
+          if (!searchResult.tracks?.length) {
+            client.logger?.warn(
+              "PlayCommand",
+              `No tracks found for query: ${query}, loadType: ${searchResult.loadType}`,
+            );
+            return {
+              success: false,
+              message: `No results found for: ${query}`,
+            };
+          }
+
+          // Continue with existing flow below (playlist vs single track)
+          if (searchResult.loadType === "playlist") {
+            return this._handlePlaylist(
+              pm,
+              searchResult,
+              position,
+              guildId,
+              requester.id,
+            );
+          } else {
+            return this._handleSingleTrack(
+              pm,
+              searchResult.tracks[0],
+              position,
+              guildId,
+              requester.id,
+            );
+          }
+        }
+
+        // No source specified: ytsearch -> ytmsearch fallback
+        const sourcesToTry = ["ytsearch", "ytmsearch"];
+        let lastSearchResult = null;
+
+        for (const src of sourcesToTry) {
+          try {
+            const attemptOptions = { ...options, source: src };
+            const sr = await client.music.search(finalquery, attemptOptions);
+            lastSearchResult = sr;
+
+            if (sr?.tracks?.length) {
+              // Found something; continue with existing flow below (playlist vs single track)
+              if (sr.loadType === "playlist") {
+                return this._handlePlaylist(
+                  pm,
+                  sr,
+                  position,
+                  guildId,
+                  requester.id,
+                );
+              } else {
+                return this._handleSingleTrack(
+                  pm,
+                  sr.tracks[0],
+                  position,
+                  guildId,
+                  requester.id,
+                );
+              }
+            }
+          } catch (e) {
+            client.logger?.warn(
+              "PlayCommand",
+              `Search failed for query "${query}" using source "${src}": ${e?.message || e}`,
+            );
+          }
+        }
+
+        // If we got here, both attempts failed or returned no tracks
+        if (!lastSearchResult) {
+          client.logger?.error(
+            "PlayCommand",
+            `Search returned null for query: ${query}`,
+          );
+          return {
+            success: false,
+            message:
+              `Failed to process your request. Please check if:\n` +
+              `• Lavalink server is running\n` +
+              `• Spotify credentials are configured (if using Spotify)\n` +
+              `• The URL/query is valid`,
+          };
+        }
+
+        client.logger?.warn(
+          "PlayCommand",
+          `No tracks found for query: ${query}, last loadType: ${lastSearchResult.loadType}`,
+        );
+        return { success: false, message: `No results found for: ${query}` };
       }
 
       const searchResult = await client.music.search(finalquery, options);
 
       if (!searchResult) {
-        client.logger?.error("PlayCommand", `Search returned null for query: ${query}`);
-        return { 
-          success: false, 
-          message: `Failed to process your request. Please check if:\n` +
-                   `• Lavalink server is running\n` +
-                   `• Spotify credentials are configured (if using Spotify)\n` +
-                   `• The URL/query is valid`
+        client.logger?.error(
+          "PlayCommand",
+          `Search returned null for query: ${query}`,
+        );
+        return {
+          success: false,
+          message:
+            `Failed to process your request. Please check if:\n` +
+            `• Lavalink server is running\n` +
+            `• Spotify credentials are configured (if using Spotify)\n` +
+            `• The URL/query is valid`,
         };
       }
 
       if (!searchResult.tracks?.length) {
-        client.logger?.warn("PlayCommand", `No tracks found for query: ${query}, loadType: ${searchResult.loadType}`);
+        client.logger?.warn(
+          "PlayCommand",
+          `No tracks found for query: ${query}, loadType: ${searchResult.loadType}`,
+        );
         return { success: false, message: `No results found for: ${query}` };
       }
 
@@ -1336,33 +1468,39 @@ class PlayCommand extends Command {
       const urlObj = new URL(url.toLowerCase());
 
       // YouTube
-      if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
-        return 'ytsearch';
+      if (
+        urlObj.hostname.includes("youtube.com") ||
+        urlObj.hostname.includes("youtu.be")
+      ) {
+        return "ytsearch";
       }
 
       // Spotify
-      if (urlObj.hostname.includes('spotify.com')) {
-        return 'spsearch';
+      if (urlObj.hostname.includes("spotify.com")) {
+        return "spsearch";
       }
 
       // Apple Music
-      if (urlObj.hostname.includes('music.apple.com')) {
-        return 'amsearch';
+      if (urlObj.hostname.includes("music.apple.com")) {
+        return "amsearch";
       }
 
       // SoundCloud
-      if (urlObj.hostname.includes('soundcloud.com')) {
-        return 'scsearch';
+      if (urlObj.hostname.includes("soundcloud.com")) {
+        return "scsearch";
       }
 
       // Deezer
-      if (urlObj.hostname.includes('deezer.com')) {
-        return 'dzsearch';
+      if (urlObj.hostname.includes("deezer.com")) {
+        return "dzsearch";
       }
 
       // JioSaavn
-      if (urlObj.hostname.includes('jiosaavn.com') || urlObj.hostname.includes('saavn.com')) {
-        return 'jssearch';
+      if (
+        urlObj.hostname.includes("jiosaavn.com") ||
+        urlObj.hostname.includes("saavn.com")
+      ) {
+        return "jssearch";
       }
 
       // Default fallback
@@ -1398,8 +1536,7 @@ class PlayCommand extends Command {
     } catch {
       return false;
     }
-      }
-  
+  }
 
   _formatDuration(ms) {
     if (!ms || ms < 0) return "Live";
