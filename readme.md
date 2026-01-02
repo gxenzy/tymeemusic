@@ -28,10 +28,16 @@
 - **Now Playing Display:** Displays `:sp: | Song - Artist` when music starts playing
 - **Source Detection:** Automatically detects and shows source emoji (Spotify `:sp:`, YouTube `:yt:`, Apple Music `:am:`, SoundCloud `:sc:`, Deezer `:dz:`)
 
+### 🔒 Security & Permissions (v1.3)
+- **Robust Permission System:** Backend-enforced permissions for all player controls.
+- **Request/Approval Flow:** Users can request control from session owners in real-time.
+- **Secure Handling:** Strict validation prevents unauthorized access.
+
 ### 🎛️ Web Dashboard
 - **Browser Control:** Manage music playback from a web interface
 - **Real-time Updates:** See current track, queue, and player status
-- **Interactive Controls:** Play, pause, skip, and adjust volume from the web
+- **Interactive Controls:** Play, pause, skip, and adjust volume
+- **Keyboard Shortcuts:** Control playback with Space (Play/Pause), M (Mute), Arrows (Seek/Volume), S (Shuffle), R (Repeat)
 
 ---
 
