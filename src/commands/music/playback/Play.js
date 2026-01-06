@@ -142,7 +142,7 @@ class PlayCommand extends Command {
       logger.error("PlayCommand", "Autocomplete error:", error);
       try {
         await interaction.respond([]);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -247,7 +247,7 @@ class PlayCommand extends Command {
             components: [errorContainer],
             flags: MessageFlags.IsComponentsV2,
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     }
   }
@@ -355,7 +355,7 @@ class PlayCommand extends Command {
             ephemeral: true,
           });
         }
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -604,6 +604,11 @@ class PlayCommand extends Command {
     userId,
   ) {
     const tracks = searchResult.tracks;
+    // Provide fallback for undefined playlist info
+    const playlist = searchResult.playlist || {
+      name: searchResult.pluginInfo?.name || "Playlist",
+      url: searchResult.pluginInfo?.url || null
+    };
     const wasEmpty =
       playerManager.queue.tracks.length === 0 && !playerManager.isPlaying;
 
@@ -640,7 +645,7 @@ class PlayCommand extends Command {
         return {
           success: true,
           type: "playlist_playing_partial",
-          playlist: searchResult.playlist,
+          playlist: playlist,
           tracks: tracksToAdd,
           totalTracks: tracks.length,
           limitWarning,
@@ -650,7 +655,7 @@ class PlayCommand extends Command {
         return {
           success: true,
           type: "playlist_queued_partial",
-          playlist: searchResult.playlist,
+          playlist: playlist,
           tracks: tracksToAdd,
           totalTracks: tracks.length,
           limitWarning,
@@ -666,7 +671,7 @@ class PlayCommand extends Command {
       return {
         success: true,
         type: "playlist_playing",
-        playlist: searchResult.playlist,
+        playlist: playlist,
         tracks: tracks,
       };
     } else {
@@ -674,7 +679,7 @@ class PlayCommand extends Command {
       return {
         success: true,
         type: "playlist_queued",
-        playlist: searchResult.playlist,
+        playlist: playlist,
         tracks: tracks,
         premiumStatus,
       };
@@ -882,9 +887,11 @@ class PlayCommand extends Command {
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
       );
 
+      const playlistName = playlist?.name || playlist?.info?.name || "Unknown Playlist";
+
       const content =
         `**Playlist Information**\n\n` +
-        `├─ **${emoji.get("check")} Name:** ${playlist.name}\n` +
+        `├─ **${emoji.get("check")} Name:** ${playlistName}\n` +
         `├─ **${emoji.get("add")} Tracks Added:** ${trackCount}\n` +
         `├─ **${emoji.get("info")} Total Tracks:** ${totalTracks || trackCount}\n` +
         `└─ **${emoji.get("folder")} Status:** ${description}\n\n` +
@@ -1071,7 +1078,7 @@ class PlayCommand extends Command {
               content: "You must be in a voice channel to use this action.",
               ephemeral: true,
             })
-            .catch(() => {});
+            .catch(() => { });
           return;
         }
 
@@ -1082,7 +1089,7 @@ class PlayCommand extends Command {
               content: "No active music player found.",
               ephemeral: true,
             })
-            .catch(() => {});
+            .catch(() => { });
           return;
         }
 
@@ -1094,7 +1101,7 @@ class PlayCommand extends Command {
               content: "Track no longer exists in queue.",
               ephemeral: true,
             })
-            .catch(() => {});
+            .catch(() => { });
           return;
         }
 
@@ -1141,7 +1148,7 @@ class PlayCommand extends Command {
                 content: "Unknown action requested.",
                 ephemeral: true,
               })
-              .catch(() => {});
+              .catch(() => { });
             return;
         }
 

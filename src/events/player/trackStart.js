@@ -13,18 +13,32 @@ export default {
   name: "trackStart",
   once: false,
   async execute(player, track, payload, musicManager, client) {
+    // 🆔 EXECUTION SEQUENCE: Ensure only the latest track start event for this guild is processed
+    const trackExecutionId = Math.random().toString(36).substring(7);
+    player.set('latestTrackExecutionId', trackExecutionId);
+
+    // 🛑 HARD RESET: Kill all memory-resident heartbeats for this guild
+    EventUtils.clearHeartbeat(player.guildId);
+
     try {
       if (!track || !track.info) {
         logger.error('TrackStart', 'Invalid track data received:', track);
       }
 
       // Get guild and emoji manager for custom emoji support
-      const guild = player.guildId ? client.guilds.cache.get(player.guildId) : null;
+      const currentGuild = player.guildId ? client.guilds.cache.get(player.guildId) : null;
       const emojiManager = client.emojiManager || null;
 
       // Pass guild and emojiManager for custom emoji resolution
-      await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track, guild, emojiManager);
+      await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track, currentGuild, emojiManager);
 
+      // 📚 HISTORY TRACKING: Maintain a rolling history for Smart Discovery
+      const history = player.get('trackHistory') || [];
+      if (!history.find(t => t.info?.identifier === track.info?.identifier)) {
+        history.unshift(track);
+        if (history.length > 5) history.pop();
+        player.set('trackHistory', history);
+      }
       player.set('lastPlayedTrack', track);
 
       if (!player.get('sessionStartTime')) {
@@ -52,72 +66,141 @@ export default {
           if (db.stats) {
             db.stats.addTrackPlay(player.guildId, track.requester.id, track.info);
           }
+
+          // Log to playlist system history for "Recently Played" and "Top Tracks"
+          if (client.playlistManager) {
+            client.playlistManager.db.logPlay(track, track.requester.id, player.guildId);
+          }
         } catch (historyError) {
           logger.error('TrackStart', 'Error adding track to history:', historyError);
         }
       }
 
+      // 1. PERSISTENT MESSAGE PATTERN (Anti-Spam)
+      const oldMessageId = player.get('nowPlayingMessageId');
+      const oldChannelId = player.get('nowPlayingChannelId');
+
       let message;
+      let existingMessage = null;
+
+      if (oldMessageId && oldChannelId) {
+        try {
+          // AGGRESSIVE FETCH: Don't rely on cache as it causes duplicate embeds
+          const oldChannel = client.channels.cache.get(oldChannelId) || await client.channels.fetch(oldChannelId).catch(() => null);
+          if (oldChannel) {
+            existingMessage = await oldChannel.messages.fetch(oldMessageId).catch(() => null);
+          }
+        } catch (e) {
+          logger.debug('TrackStart', 'Failed to fetch existing message by ID');
+        }
+      }
+
+      // 🕵️ GHOST HUNTER: Scan channel pins or recent messages for any leftover player embeds to adopt
+      if (!existingMessage) {
+        try {
+          const voiceId = player.voiceChannelId;
+          const targetChannelId = voiceId || player.textChannelId;
+          const targetChannel = client.channels.cache.get(targetChannelId) || await client.channels.fetch(targetChannelId).catch(() => null);
+
+          if (targetChannel && targetChannel.isTextBased()) {
+            // Priority 1: Check Pinned Messages (the standard for our player)
+            const pins = await targetChannel.messages.fetchPinned().catch(() => []);
+            let ghostPin = pins.find(m => m.author.id === client.user.id && (m.embeds.length > 0 || m.attachments.size > 0));
+
+            // Priority 2: Check Recent Messages (scan deeper - 20 messages)
+            if (!ghostPin) {
+              const recent = await targetChannel.messages.fetch({ limit: 20 }).catch(() => []);
+              ghostPin = recent.find(m => m.author.id === client.user.id && (m.embeds.length > 0 || m.attachments.size > 0));
+            }
+
+            if (ghostPin) {
+              logger.debug('TrackStart', `Adopting ghost embed for session: ${ghostPin.id}`);
+              existingMessage = ghostPin;
+              player.set('nowPlayingMessageId', ghostPin.id);
+              player.set('nowPlayingChannelId', ghostPin.channel.id);
+            } else {
+              // 🧹 PRE-EMPTIVE CLEANUP: If we can't find one to adopt, sweep ANY leftovers before sending new
+              // This acts as a physical barrier against double-embeds
+              await EventUtils.forceCleanupPlayerUI(client, player, targetChannelId);
+            }
+          }
+        } catch (pinError) {
+          logger.debug('TrackStart', 'Error searching for ghost pins');
+        }
+      }
+
       const useEmbedPlayer = process.env.USE_EMBED_PLAYER !== 'false';
+      const pm = new PlayerManager(player);
+
+      let messageOptions = {};
 
       if (useEmbedPlayer) {
         try {
-          const pm = new PlayerManager(player);
-          const guild = client.guilds.cache.get(player.guildId);
-          const embed = await DiscordPlayerEmbed.createPlayerEmbedAsync(pm, guild, null, client);
+          // FIX: Pass the fresh 'track' from the event directly to avoid metadata mismatch
+          const embed = await DiscordPlayerEmbed.createPlayerEmbedAsync(pm, currentGuild, null, client, track);
           const components = await createControlComponents(player.guildId, client);
-
-          message = await EventUtils.sendPlayerMessage(client, player, {
-            embeds: [embed],
-            components,
-          });
-
-          startPlayerUpdateInterval(client, player);
+          messageOptions = { embeds: [embed], components, files: [], content: null };
         } catch (embedError) {
           logger.error('TrackStart', 'Error creating embed player:', embedError);
-          try {
-            const musicCard = new MusicCard();
-            const buffer = await musicCard.createMusicCard(track, player.position, player.guildId, { requester: track.requester, queueSize: player.queue?.length ?? player.queueSize ?? 0 });
-            const attachment = new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
-            const components = await createControlComponents(player.guildId, client);
-
-            message = await EventUtils.sendPlayerMessage(client, player, {
-              files: [attachment],
-              components,
-            });
-          } catch (cardError) {
-            logger.error('TrackStart', 'Error creating music card:', cardError);
-            const components = await createControlComponents(player.guildId, client);
-            message = await EventUtils.sendPlayerMessage(client, player, {
-              content: `🎵 **Now Playing**\n**${track.info.title}** by **${track.info.author}**`,
-              components,
-            });
-          }
-        }
-      } else {
-        try {
           const musicCard = new MusicCard();
           const buffer = await musicCard.createMusicCard(track, player.position, player.guildId, { requester: track.requester, queueSize: player.queue?.length ?? player.queueSize ?? 0 });
           const attachment = new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
           const components = await createControlComponents(player.guildId, client);
+          messageOptions = { files: [attachment], components, embeds: [], content: null };
+        }
+      } else {
+        const musicCard = new MusicCard();
+        const buffer = await musicCard.createMusicCard(track, player.position, player.guildId, { requester: track.requester, queueSize: player.queue?.length ?? player.queueSize ?? 0 });
+        const attachment = new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
+        const components = await createControlComponents(player.guildId, client);
+        messageOptions = { files: [attachment], components, embeds: [], content: null };
+      }
 
-          message = await EventUtils.sendPlayerMessage(client, player, {
-            files: [attachment],
-            components,
-          });
-        } catch (cardError) {
-          logger.error('TrackStart', 'Error creating music card:', cardError);
-          const components = await createControlComponents(player.guildId, client);
-          message = await EventUtils.sendPlayerMessage(client, player, {
-            content: `🎵 **Now Playing**\n**${track.info.title}** by **${track.info.author}**`,
-            components,
-          });
+      // 🔄 FORCE RESEND: Always delete old message and send a new one
+      // This ensures the player stays at the bottom of the chat as requested
+      if (existingMessage) {
+        try {
+          if (existingMessage.pinned) await existingMessage.unpin().catch(() => { });
+          await existingMessage.delete().catch(() => { });
+        } catch (cleanupError) {
+          // Ignore delete errors (msg might already be gone)
+        }
+        existingMessage = null;
+      }
+
+      if (!existingMessage) {
+        message = await EventUtils.sendPlayerMessage(client, player, messageOptions);
+
+        if (message?.id) {
+          // IMMEDIATELY SAVE to prevent race condition
+          player.set('nowPlayingMessageId', message.id);
+          player.set('nowPlayingChannelId', message.channel.id);
+
+          // Pin it and delete the system "pinned a message" notification
+          if (message.pinnable) {
+            await message.pin().catch(() => { });
+
+            // Aggressive cleanup of the "pinned a message" notification
+            setTimeout(async () => {
+              try {
+                const messages = await message.channel.messages.fetch({ limit: 10 });
+                const systemMsg = messages.find(m => (m.type === 6 || m.type === 21) && m.author.id === client.user.id);
+                if (systemMsg) await systemMsg.delete().catch(() => { });
+              } catch (e) { }
+            }, 1500);
+          }
         }
       }
 
+      // 🛡️ LATEST CHECK: If a newer track has already taken over, STOP here
+      if (player.get('latestTrackExecutionId') !== trackExecutionId) {
+        logger.debug('TrackStart', `Skipping metadata update - trackExecutionId mismatch for guild ${player.guildId}`);
+        return;
+      }
+
+      // Start the update interval only if a message was successfully sent/edited
       if (message?.id) {
-        player.set('nowPlayingMessageId', message.id);
-        player.set('nowPlayingChannelId', player.textChannelId);
+        startPlayerUpdateInterval(client, player);
       }
 
       logger.info('TrackStart', `Track started: "${track.info.title}" by ${track.info.author} in guild ${player.guildId}`);
@@ -127,22 +210,6 @@ export default {
       }
     } catch (error) {
       logger.error('TrackStart', 'Error in trackStart event:', error);
-      try {
-        const title = track?.info?.title || track?.title || 'Unknown Track';
-        const author = track?.info?.author || track?.author || 'Unknown Artist';
-        const components = await createControlComponents(player.guildId, client);
-        const message = await EventUtils.sendPlayerMessage(client, player, {
-          content: `🎵 **Now Playing**\n**${title}** by **${author}**`,
-          components,
-        });
-
-        if (message?.id) {
-          player.set('nowPlayingMessageId', message.id);
-          player.set('nowPlayingChannelId', player.textChannelId);
-        }
-      } catch (fallbackError) {
-        logger.error('TrackStart', 'Even fallback message failed:', fallbackError);
-      }
     }
   }
 };
@@ -269,42 +336,64 @@ export async function createControlComponents(guildId, client) {
 }
 
 function startPlayerUpdateInterval(client, player) {
-  const existingInterval = player.get('updateIntervalId');
-  if (existingInterval) {
-    clearInterval(existingInterval);
-  }
+  // 🎟️ HEARTBEAT TOKEN: Unique identifier for this specific interval session
+  const heartbeatToken = Math.random().toString(36).substring(7);
+  player.set('activeHeartbeatToken', heartbeatToken);
 
   const messageId = player.get('nowPlayingMessageId');
   const channelId = player.get('nowPlayingChannelId');
+  const trackId = player.queue?.current?.info?.identifier || player.queue?.current?.identifier;
 
-  if (!messageId || !channelId) return;
+  if (!messageId || !channelId || !trackId) return;
 
   let lastPosition = -1;
-  const POSITION_THRESHOLD = 1500; // 1.5s
+  const UPDATE_FREQ = 1500;
 
   const intervalId = setInterval(async () => {
     try {
-      if (player.queue?.current || player.playing) {
-        const currentPos = player.position || 0;
+      // 🛡️ HEARTBEAT TOKEN CHECK: If a newer heartbeat was issued (new track), kill this one.
+      if (player.get('activeHeartbeatToken') !== heartbeatToken) {
+        EventUtils.clearHeartbeat(player.guildId);
+        return;
+      }
 
-        if (!player.paused && Math.abs(currentPos - lastPosition) >= POSITION_THRESHOLD) {
-          await updatePlayerMessageEmbed(client, new PlayerManager(player));
-          lastPosition = currentPos;
-        } else if (player.paused && lastPosition !== -2) {
-          await updatePlayerMessageEmbed(client, new PlayerManager(player));
-          lastPosition = -2;
-        }
-      } else {
-        clearInterval(intervalId);
-        player.set('updateIntervalId', null);
+      // 🛡️ REUSE PROTECTION: If a different message is now active, die.
+      if (player.get('nowPlayingMessageId') !== messageId) {
+        EventUtils.clearHeartbeat(player.guildId);
+        return;
+      }
+
+      const currentTrackId = player.queue?.current?.info?.identifier || player.queue?.current?.identifier;
+      if (trackId !== currentTrackId) {
+        EventUtils.clearHeartbeat(player.guildId);
+        return;
+      }
+
+      const currentPos = player.position || 0;
+      const duration = player.queue?.current?.info?.duration || 0;
+
+      // SAFETY: Don't update if we've exceeded the track duration (prevents ghost playing)
+      if (duration > 0 && currentPos > duration + 5000) {
+        EventUtils.clearHeartbeat(player.guildId);
+        return;
+      }
+
+      // Optimization: Only update UI every 1.5s
+      const pm = new PlayerManager(player);
+      if (!player.paused && Math.abs(currentPos - lastPosition) >= UPDATE_FREQ) {
+        await updatePlayerMessageEmbed(client, pm);
+        lastPosition = currentPos;
+      } else if (player.paused && lastPosition !== -2) {
+        await updatePlayerMessageEmbed(client, pm);
+        lastPosition = -2;
       }
     } catch (error) {
       if (error.code === 10008 || error.code === 10003) {
-        clearInterval(intervalId);
-        player.set('updateIntervalId', null);
+        EventUtils.clearHeartbeat(player.guildId);
       }
     }
-  }, 1500);
+  }, UPDATE_FREQ);
 
-  player.set('updateIntervalId', intervalId);
+  // 📦 REGISTER: Store in physical memory map
+  EventUtils.registerHeartbeat(player.guildId, intervalId);
 }

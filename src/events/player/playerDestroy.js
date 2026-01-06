@@ -22,6 +22,10 @@ export default {
 				`🎵 Player destroyed for guild: ${player.guildId},reason : ${reason}`,
 			);
 
+			// 🧹 CLEANUP: Use the consolidated force cleanup protocol
+			EventUtils.clearHeartbeat(player.guildId);
+			await EventUtils.forceCleanupPlayerUI(player.manager?.client, player);
+
 			// Notify web dashboard that player is gone
 			if (player.manager?.client?.webServer) {
 				player.manager.client.webServer.updatePlayerState(player.guildId);

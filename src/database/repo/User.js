@@ -2,8 +2,8 @@ import { Database } from '#structures/classes/Database';
 import { config } from "#config/config";
 import { logger } from "#utils/logger";
 
-const HISTORY_LIMIT   =10;
-const USER_PREFIX_LIMIT   =3;
+const HISTORY_LIMIT = 100;
+const USER_PREFIX_LIMIT = 3;
 
 export class User extends Database {
   constructor() {
@@ -38,7 +38,7 @@ export class User extends Database {
   }
 
 
-  setNoPrefix(userId, enabled, expiryTimestamp   =null) {
+  setNoPrefix(userId, enabled, expiryTimestamp = null) {
     this.ensureUser(userId);
     return this.exec(
       'UPDATE users SET no_prefix   =?, no_prefix_expiry   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?',
@@ -47,7 +47,7 @@ export class User extends Database {
   }
 
   hasNoPrefix(userId) {
-    const user   =this.getUser(userId);
+    const user = this.getUser(userId);
     if (!user || !user.no_prefix) return false;
     if (!user.no_prefix_expiry) return true;
 
@@ -61,7 +61,7 @@ export class User extends Database {
 
 
   getUserPrefixes(userId) {
-    const user   =this.getUser(userId);
+    const user = this.getUser(userId);
     if (!user || !user.custom_prefixes) return [];
     try {
       return JSON.parse(user.custom_prefixes);
@@ -73,7 +73,7 @@ export class User extends Database {
 
   setUserPrefixes(userId, prefixes) {
     this.ensureUser(userId);
-    const limitedPrefixes   =prefixes.slice(0, USER_PREFIX_LIMIT);
+    const limitedPrefixes = prefixes.slice(0, USER_PREFIX_LIMIT);
     return this.exec(
       'UPDATE users SET custom_prefixes   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?',
       [JSON.stringify(limitedPrefixes), userId]
@@ -81,7 +81,7 @@ export class User extends Database {
   }
 
 
-  blacklistUser(userId, reason   ='No reason provided') {
+  blacklistUser(userId, reason = 'No reason provided') {
     this.ensureUser(userId);
     return this.exec(
       'UPDATE users SET blacklisted   =1, blacklist_reason   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?',
@@ -98,7 +98,7 @@ export class User extends Database {
   }
 
   isBlacklisted(userId) {
-    const user   =this.getUser(userId);
+    const user = this.getUser(userId);
     if (!user || !user.blacklisted) return false;
     return { blacklisted: true, reason: user.blacklist_reason || 'No reason provided' };
   }
@@ -109,17 +109,17 @@ export class User extends Database {
     logger.debug('UserDatabase', `User ID type: ${typeof userId}`);
     logger.debug('UserDatabase', `User ID length: ${userId?.length}`);
 
-    const user   =this.getUser(userId);
+    const user = this.getUser(userId);
     logger.debug('UserDatabase', `Existing user found: ${!!user}`);
 
     if (!user) {
       logger.debug('UserDatabase', 'Creating new user...');
       try {
-        const insertResult   =this.exec('INSERT INTO users (id) VALUES (?)', [userId]);
+        const insertResult = this.exec('INSERT INTO users (id) VALUES (?)', [userId]);
         logger.debug('UserDatabase', `Insert result: ${JSON.stringify(insertResult)}`);
         logger.debug('UserDatabase', `Insert changes: ${insertResult?.changes}`);
 
-        const newUser   =this.getUser(userId);
+        const newUser = this.getUser(userId);
         logger.debug('UserDatabase', `New user created: ${!!newUser}`);
         logger.debug('UserDatabase', `New user data: ${JSON.stringify(newUser)}`);
         logger.debug('UserDatabase', '  ===END ENSURE USER DEBUG   ===');
@@ -142,7 +142,7 @@ export class User extends Database {
     logger.debug('UserDatabase', `Track info: ${JSON.stringify(trackInfo)}`);
 
     try {
-      const ensureResult   =this.ensureUser(userId);
+      const ensureResult = this.ensureUser(userId);
       logger.debug('UserDatabase', `Ensure user result: ${!!ensureResult}`);
     } catch (e) {
       logger.error('UserDatabase', 'Error in ensureUser:', e);
@@ -154,22 +154,22 @@ export class User extends Database {
       return;
     }
 
-    let history   =[];
+    let history = [];
     try {
-      const user   =this.getUser(userId);
+      const user = this.getUser(userId);
       logger.debug('UserDatabase', `User after ensure: ${!!user}`);
       logger.debug('UserDatabase', `User history field: ${user?.history}`);
 
       if (user && user.history) {
-        history   =JSON.parse(user.history);
+        history = JSON.parse(user.history);
       }
       logger.debug('UserDatabase', `Parsed history length: ${history.length}`);
-    } catch(e) {
+    } catch (e) {
       logger.error("UserDB", `Could not parse history for user ${userId}:`, e);
-      history   =[];
+      history = [];
     }
 
-    const historyEntry   ={
+    const historyEntry = {
       identifier: trackInfo.identifier,
       title: trackInfo.title || 'Unknown Track',
       author: trackInfo.author || 'Unknown',
@@ -182,16 +182,16 @@ export class User extends Database {
 
     logger.debug('UserDatabase', `History entry to add: ${JSON.stringify(historyEntry)}`);
 
-    const beforeLength   =history.length;
-    history   =history.filter(t   => t && t.identifier   !==historyEntry.identifier);
+    const beforeLength = history.length;
+    history = history.filter(t => t && t.identifier !== historyEntry.identifier);
     history.unshift(historyEntry);
-    history   =history.slice(0, HISTORY_LIMIT);
+    history = history.slice(0, HISTORY_LIMIT);
 
     logger.debug('UserDatabase', `History length before: ${beforeLength}`);
     logger.debug('UserDatabase', `History length after: ${history.length}`);
 
     try {
-      const updateResult   =this.exec(
+      const updateResult = this.exec(
         'UPDATE users SET history   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?',
         [JSON.stringify(history), userId]
       );
@@ -199,12 +199,12 @@ export class User extends Database {
       logger.debug('UserDatabase', `Update result: ${JSON.stringify(updateResult)}`);
       logger.debug('UserDatabase', `Update changes: ${updateResult?.changes}`);
 
-      const verifyUser   =this.getUser(userId);
+      const verifyUser = this.getUser(userId);
       logger.debug('UserDatabase', `Verification - user exists: ${!!verifyUser}`);
       logger.debug('UserDatabase', `Verification - history field: ${verifyUser?.history?.substring(0, 100) + '...'}`);
 
       if (verifyUser?.history) {
-        const verifyHistory   =JSON.parse(verifyUser.history);
+        const verifyHistory = JSON.parse(verifyUser.history);
         logger.debug('UserDatabase', `Verification - parsed history length: ${verifyHistory.length}`);
         logger.debug('UserDatabase', `Verification - first track: ${verifyHistory[0]?.title}`);
       }
@@ -217,7 +217,7 @@ export class User extends Database {
   }
 
   getHistory(userId) {
-    const user   =this.getUser(userId);
+    const user = this.getUser(userId);
     if (!user || !user.history) return [];
     try {
       return JSON.parse(user.history);
@@ -229,15 +229,15 @@ export class User extends Database {
 
 
   cleanupHistory(userId) {
-    const user   =this.getUser(userId);
+    const user = this.getUser(userId);
     if (!user || !user.history) return;
 
     try {
-      let history   =JSON.parse(user.history);
+      let history = JSON.parse(user.history);
 
-      history   =history
-        .filter(track   => track && track.identifier)
-        .map(track   => ({
+      history = history
+        .filter(track => track && track.identifier)
+        .map(track => ({
           identifier: track.identifier,
           title: track.title || 'Unknown Track',
           author: track.author || 'Unknown',
@@ -260,14 +260,14 @@ export class User extends Database {
 
   setUserHistory(userId, history) {
     this.ensureUser(userId);
-    const limitedHistory   =history.slice(0, HISTORY_LIMIT);
+    const limitedHistory = history.slice(0, HISTORY_LIMIT);
     return this.exec(
       'UPDATE users SET history   =?, updated_at   =CURRENT_TIMESTAMP WHERE id   =?',
       [JSON.stringify(limitedHistory), userId]
     );
   }
 
-  linkSpotifyProfile(userId, profileUrl, displayName   =null) {
+  linkSpotifyProfile(userId, profileUrl, displayName = null) {
     this.ensureUser(userId);
     return this.exec(
       'UPDATE users SET spotify_profile_url   =?, spotify_display_name   =?, spotify_linked_at   =CURRENT_TIMESTAMP, updated_at   =CURRENT_TIMESTAMP WHERE id   =?',
@@ -276,7 +276,7 @@ export class User extends Database {
   }
 
   getSpotifyProfile(userId) {
-    const user   =this.getUser(userId);
+    const user = this.getUser(userId);
     if (!user || !user.spotify_profile_url) return null;
 
     return {

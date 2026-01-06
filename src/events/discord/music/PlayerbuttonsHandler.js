@@ -140,12 +140,15 @@ export async function handleButtonInteraction(interaction, pm, client) {
           .setCustomId('music_filters_select')
           .setPlaceholder('🎛️ Audio Tuning')
           .setOptions([
-            { label: 'Low Bass', value: 'bass_low', description: 'Subtle bass boost', emoji: '🔈' },
-            { label: 'Bass Boost', value: 'bass_high', description: 'Extreme bass boost', emoji: '🔊' },
+            { label: 'Bass Boost', value: 'bassboost', description: 'Bass boost', emoji: '🔊' },
+            { label: 'Super Bass', value: 'superbass', description: 'Strong bass', emoji: '💥' },
+            { label: 'Deep Bass', value: 'deepbass', description: 'Deep sub-bass', emoji: '🔉' },
+            { label: 'Nightcore', value: 'nightcore', description: 'Fast & High Pitch', emoji: '🐿️' },
+            { label: 'Vaporwave', value: 'vaporwave', description: 'Slow & Aesthetic', emoji: '📼' },
             { label: 'Pop', value: 'pop', description: 'Pop preset', emoji: '🎵' },
             { label: 'Rock', value: 'rock', description: 'Rock preset', emoji: '🎸' },
-            { label: '8D Audio', value: 'eightD', description: 'Rotating audio', emoji: '🔄' },
-            { label: 'Nightcore', value: 'nightcore', description: 'Fast and high pitch', emoji: '⚡' },
+            { label: 'Gamng', value: 'gaming', description: 'Gaming mix', emoji: '🎮' },
+            { label: 'Soft', value: 'soft', description: 'Soft & Mellow', emoji: '☁️' },
             { label: 'Clear Filters', value: 'reset', description: 'Reset all filters', emoji: '🧹' }
           ]);
         await interaction.followUp({ components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
@@ -313,19 +316,32 @@ export async function handleButtonInteraction(interaction, pm, client) {
         response = '❌ Unknown control.';
     }
 
+    const menuIds = ['music_effects', 'music_lyrics', 'music_misc', 'music_more_menu', 'music_filters_select', 'music_sleep_timer_select', 'music_similar_select', 'music_similar_results', 'music_move_select'];
+    const isMenu = menuIds.includes(customId);
+
+    // Update the ephemeral status message
     await interaction.editReply({ content: response });
-    // Defer embed update to existing implementation in Playerbuttons.js
+
+    // Auto-dismiss simple status messages after 5 seconds
+    if (!isMenu && response && !response.includes('❌')) {
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
+    }
+
+    // Refresh the main player embed for visual feedback
     setTimeout(async () => {
       try {
         const mod = await import('./Playerbuttons.js');
         if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) { }
     }, 500);
+
   } catch (err) {
     logger.error('Playerbuttons', 'Error handling button interaction:', err);
-    try { await interaction.editReply({ content: '❌ An error occurred while processing your button interaction.' }); } catch { }
+    try {
+      await interaction.editReply({ content: '❌ An error occurred while processing your button interaction.' });
+    } catch { }
   }
 }
 
@@ -433,12 +449,34 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
       const selected = selectedValue;
       if (selected === 'reset') {
         try {
-          // Try to use filterManager if available
-          if (pm.player.filterManager && typeof pm.player.filterManager.clearEQ === 'function') {
-            await pm.player.filterManager.clearEQ();
-          } else {
-            await pm.player.set('eq', null);
+          // Super Nuclear Reset: Wipe every piece of internal state
+          if (pm.player.filterManager) {
+            const fm = pm.player.filterManager;
+            const props = ['equalizer', 'timescale', 'karaoke', 'tremolo', 'vibrato', 'distortion', 'rotation', 'channelMix', 'lowPass'];
+            props.forEach(p => {
+              try {
+                if (p === 'equalizer') fm[p] = [];
+                else fm[p] = null;
+              } catch (e) { }
+            });
+            if (fm.data) fm.data = {};
+            // THIS IS THE KEY FIX: Clear the separate equalizerBands array!
+            if (fm.equalizerBands) fm.equalizerBands = [];
+
+            if (fm.setSpeed) await fm.setSpeed(1.0);
+            if (fm.setPitch) await fm.setPitch(1.0);
+            if (fm.setRate) await fm.setRate(1.0);
           }
+
+          // Send clear packet to Lavalink
+          if (typeof pm.player.setFilters === "function") {
+            await pm.player.setFilters({});
+          } else if (pm.player.filterManager) {
+            await pm.player.filterManager.resetFilters();
+          } else if (pm.player.filterManager && typeof pm.player.filterManager.clearEQ === 'function') {
+            await pm.player.filterManager.clearEQ();
+          }
+          pm.player.lastFilterName = null;
           await interaction.editReply({ content: '✅ Audio filters reset.' });
           try {
             const mod = await import('./Playerbuttons.js');
@@ -452,14 +490,50 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
         return;
       }
 
+      // Apply selected filter
       try {
-        const bands = filters.get(selected, null);
-        if (!bands) return interaction.editReply({ content: '❌ Unknown filter selected.' });
-        if (pm.player.filterManager && typeof pm.player.filterManager.setEQ === 'function') {
-          await pm.player.filterManager.setEQ(bands);
-        } else {
-          await pm.player.set('eq', bands);
+        const filterData = filters.get(selected, null);
+        if (!filterData) return interaction.editReply({ content: '❌ Unknown filter selected.' });
+
+        // Super Nuclear Reset before applying new filter
+        if (pm.player.filterManager) {
+          const fm = pm.player.filterManager;
+          const props = ['equalizer', 'timescale', 'karaoke', 'tremolo', 'vibrato', 'distortion', 'rotation', 'channelMix', 'lowPass'];
+          props.forEach(p => {
+            try {
+              if (p === 'equalizer') fm[p] = [];
+              else fm[p] = null;
+            } catch (e) { }
+          });
+          if (fm.data) fm.data = {};
+          // THIS IS THE KEY FIX: Clear the separate equalizerBands array!
+          if (fm.equalizerBands) fm.equalizerBands = [];
+
+          if (fm.setSpeed) await fm.setSpeed(1.0);
+          if (fm.setPitch) await fm.setPitch(1.0);
+          if (fm.setRate) await fm.setRate(1.0);
         }
+
+        if (typeof pm.player.setFilters === "function") {
+          await pm.player.setFilters({});
+        }
+
+        if (Array.isArray(filterData)) {
+          if (pm.player.filterManager.setEQ) await pm.player.filterManager.setEQ(filterData);
+        } else {
+          if (filterData.timescale) {
+            const { speed, pitch, rate } = filterData.timescale;
+            if (speed) await pm.player.filterManager.setSpeed(speed);
+            if (pitch) await pm.player.filterManager.setPitch(pitch);
+            if (rate) await pm.player.filterManager.setRate(rate);
+          }
+          if (filterData.eq) {
+            if (pm.player.filterManager.setEQ) await pm.player.filterManager.setEQ(filterData.eq);
+          }
+        }
+
+        pm.player.lastFilterName = selected;
+
         await interaction.editReply({ content: `✅ Applied filter **${selected}**.` });
         try {
           const mod = await import('./Playerbuttons.js');
@@ -759,6 +833,14 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
     }
 
     await interaction.editReply({ content: response });
+
+    // Auto-dismiss simple select menu responses after 5 seconds
+    const persistentMenus = ['music_filters_select', 'music_similar_results', 'music_move_select', 'music_more_menu'];
+    if (!persistentMenus.includes(interaction.customId) && response && !response.includes('❌')) {
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
+    }
 
     try {
       const mod = await import('./Playerbuttons.js');

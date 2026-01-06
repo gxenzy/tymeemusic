@@ -13,7 +13,9 @@ import jwt from "jsonwebtoken";
 import WebSocketManager from "./socket/WebSocketManager.js";
 import { logger } from "#utils/logger";
 import { config } from "#config/config";
+import { filters } from "#config/filters";
 import { DiscordPlayerEmbed } from "#utils/DiscordPlayerEmbed";
+import { EventUtils } from "#utils/EventUtils";
 // NOTE:
 // We previously ran BOTH a legacy raw `ws` server AND Socket.IO on the same HTTP server.
 // That can cause `server.handleUpgrade()` conflicts (engine.io also uses ws internally).
@@ -551,31 +553,42 @@ export class WebServer {
           });
         }
         const guilds = await response.json();
-        // Filter to only guilds where:
-        // 1. The bot is in the guild
-        // 2. User has MANAGE_SERVER permission
+        // Filter to guilds where user has MANAGE_GUILD or ADMINISTRATOR
         const botGuildIds = new Set(this.client.guilds.cache.map((g) => g.id));
-        const mutualGuilds = guilds.map((guild) => {
-          const hasBot = botGuildIds.has(guild.id);
-          if (!hasBot) return null;
 
+        const managedGuilds = guilds.filter((guild) => {
           const permissions = BigInt(guild.permissions);
           const ADMIN = BigInt(0x8);
           const MANAGE_GUILD = BigInt(0x20); // 32
-          const canManage = ((permissions & ADMIN) === ADMIN) || ((permissions & MANAGE_GUILD) === MANAGE_GUILD);
+          const isAdmin = ((permissions & ADMIN) === ADMIN) || ((permissions & MANAGE_GUILD) === MANAGE_GUILD);
+          const hasBot = botGuildIds.has(guild.id);
 
-          return { ...guild, canManage };
-        }).filter(g => g !== null);
+          // User requested: Allow access if bot is added, even if not admin.
+          // Admins can see guilds without bot (to invite).
+          // Non-admins can only see guilds WITH bot (to play).
+          return isAdmin || hasBot;
+        }).map((guild) => {
+          const permissions = BigInt(guild.permissions);
+          const ADMIN = BigInt(0x8);
+          const MANAGE_GUILD = BigInt(0x20);
+          const isAdmin = ((permissions & ADMIN) === ADMIN) || ((permissions & MANAGE_GUILD) === MANAGE_GUILD);
+
+          return {
+            ...guild,
+            hasBot: botGuildIds.has(guild.id),
+            isAdmin: isAdmin
+          };
+        });
 
         // === CACHE SAVE ===
-        data.guilds = mutualGuilds;
+        data.guilds = managedGuilds;
         data.guildsFetchedAt = Date.now();
         // ==================
 
         console.log(
-          `Found ${mutualGuilds.length} mutual guilds out of ${guilds.length} total`,
+          `Found ${managedGuilds.length} managed guilds for user.`,
         );
-        res.json(mutualGuilds);
+        res.json(managedGuilds);
       } catch (error) {
         const code = error?.cause?.code || error?.code || "unknown";
         console.error("Error fetching guilds:", error);
@@ -640,11 +653,125 @@ export class WebServer {
     }
     next();
   }
+
+  // Consolidating Spotify/Artwork logic into MusicManager...
+  // WebServer now delegates these to this.client.music
+
   setupRoutes() {
+    // Helper: Send feedback to voice channel text (Chat-in-Voice) if available, else fallback
+    // Feedback Rate Limiting
+    const feedbackCooldowns = new Map();
+
+    // Helper: Send feedback to voice channel text (Chat-in-Voice) if available, else fallback
+    const sendFeedback = async (client, player, message) => {
+      // 1. Anti-Spam Check
+      const now = Date.now();
+      const lastTime = feedbackCooldowns.get(player.guildId) || 0;
+      if (now - lastTime < 2000) return; // 2s Cooldown
+      feedbackCooldowns.set(player.guildId, now);
+
+      if (!player || !message) return;
+
+      // 2. Brute-force Channel Resolution
+      // Just try the channels in order. First one to succeed wins.
+      const candidates = [];
+      if (player.voiceChannelId) candidates.push({ id: player.voiceChannelId, type: 'voice' });
+      if (player.textChannelId) candidates.push({ id: player.textChannelId, type: 'text' });
+
+      let sent = false;
+      for (const candidate of candidates) {
+        if (sent) break; // Already sent
+        if (!candidate.id) continue;
+
+        try {
+          // Use our safe sender
+          const result = await EventUtils.sendTimedMessage(client, candidate.id, message);
+          if (result) {
+            logger.info('WebServer', `[Feedback] Sent to ${candidate.type} channel (${candidate.id})`);
+            sent = true;
+          } else {
+            logger.debug('WebServer', `[Feedback] Failed to send to ${candidate.type} channel (${candidate.id}) - returned null`);
+          }
+        } catch (err) {
+          logger.debug('WebServer', `[Feedback] Exception sending to ${candidate.type} channel (${candidate.id}): ${err.message}`);
+        }
+      }
+
+      if (!sent) {
+        logger.warn('WebServer', `[Feedback] Could not send feedback to ANY channel for guild ${player.guildId}`);
+      }
+    };
+
+    // Register Playlist v2 API routes
+    import('./routes/playlistV2.js').then(({ registerPlaylistV2Routes }) => {
+      registerPlaylistV2Routes(this.app, this);
+    }).catch(err => {
+      logger.error('WebServer', 'Failed to load Playlist v2 routes:', err);
+    });
+
     // Health check
     this.app.get("/health", (req, res) => {
       res.json({ status: "ok", timestamp: Date.now() });
     });
+    // Proxy for Spotify oEmbed (CORS bypass)
+    this.app.get("/api/utils/spotify-cover", async (req, res) => {
+      const url = req.query.url;
+      if (!url) return res.status(400).json({ error: "Missing url" });
+      try {
+        // Use standard device fetch (Node 18+)
+        const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`, {
+          headers: {
+            'User-Agent': 'TymeeMusic/1.0.0 (https://github.com/gxenzy/tymeemusic)'
+          }
+        });
+        if (!response.ok) throw new Error("Spotify error");
+        const data = await response.json();
+        res.json(data);
+      } catch (e) {
+        console.error("Spotify Proxy Error:", e.message, "URL:", url);
+        res.status(500).json({ error: "Failed to fetch cover" });
+      }
+    });
+    // Deploy slash commands (Admin only)
+    this.app.post(
+      "/api/admin/deploy-commands",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const userId = this.getUserIdFromRequest(req);
+          if (!config.ownerIds.includes(userId)) {
+            return res.status(403).json({ error: "Forbidden. Bot owner only." });
+          }
+
+          const commands = this.client.commandHandler.getSlashCommandsData();
+          if (!commands || commands.length === 0) {
+            return res
+              .status(400)
+              .json({ error: "No slash-enabled commands found." });
+          }
+
+          const { REST } = await import("@discordjs/rest");
+          const { Routes } = await import("discord-api-types/v10");
+          const rest = new REST({ version: "10" }).setToken(config.token);
+
+          await rest.put(Routes.applicationCommands(config.clientId), {
+            body: commands,
+          });
+
+          logger.success(
+            "WebServer",
+            `Slash commands deployed by owner (${userId})`,
+          );
+          res.json({
+            success: true,
+            message: `Successfully registered ${commands.length} slash commands globally!`,
+          });
+        } catch (error) {
+          logger.error("WebServer", "Error deploying commands:", error);
+          res.status(500).json({ error: error.message });
+        }
+      },
+    );
     // Get all active players (guilds with music playing)
     this.app.get(
       "/api/players",
@@ -676,6 +803,8 @@ export class WebServer {
           const { guildId } = req.params;
           const player = this.client.music?.getPlayer(guildId);
           if (!player) {
+            const availablePlayers = this.client.music?.lavalink?.players ? [...this.client.music.lavalink.players.keys()] : [];
+            logger.warn("WebServer", `GET /api/player/${guildId} - Player not found. Available: ${availablePlayers.join(', ')}`);
             return res
               .status(404)
               .json({ error: "No player found for this guild" });
@@ -692,37 +821,102 @@ export class WebServer {
     // Control endpoints
     this.app.post(
       "/api/player/:guildId/play",
+      express.json(), // Force JSON parsing
       this.authenticate.bind(this),
       async (req, res) => {
         try {
           const { guildId } = req.params;
           if (!await this.checkControlPermission(req, res, guildId)) return;
-          const { query } = req.body;
-          const player = this.client.music?.getPlayer(guildId);
-          if (!player) {
-            return res.status(404).json({ error: "No player found" });
+
+          if (!req.body) {
+            return res.status(400).json({ error: "Missing request body" });
           }
+
+          const { query, mode, userId } = req.body;
+          let player = this.client.music?.getPlayer(guildId);
+
+          // If no player exists and we have a query, try to create one
+          if (!player && query) {
+            const guild = this.client.guilds.cache.get(guildId);
+            const memberId = userId || this.getUserIdFromRequest(req);
+            const member = guild?.members.cache.get(memberId);
+
+            if (!member?.voice?.channelId) {
+              return res.status(400).json({ error: "You must be in a voice channel to start playing!" });
+            }
+
+            logger.info("WebServer", `Auto-creating player for ${guildId} to play ${query}`);
+            player = await this.client.music.createPlayer({
+              guildId,
+              voiceChannelId: member.voice.channelId,
+              // Use the voice channel as the text channel (Chat in Voice) to avoid spamming the main #chat
+              textChannelId: member.voice.channelId || guild.systemChannelId || null,
+              selfDeaf: true
+            });
+
+            if (player && !player.connected) await player.connect();
+          } else if (player) {
+            // Correctly update textChannelId and persist it for event listeners
+            const guild = this.client.guilds.cache.get(guildId);
+            const memberId = userId || this.getUserIdFromRequest(req);
+            const member = guild?.members.cache.get(memberId);
+            if (member?.voice?.channelId) {
+              player.textChannelId = member.voice.channelId;
+              player.set('nowPlayingChannelId', member.voice.channelId);
+            }
+          }
+
+          if (!player) return res.status(404).json({ error: "No player found and could not create one. Are you in a voice channel?" });
+
           const { PlayerManager } = await import("#managers/PlayerManager");
           const pm = new PlayerManager(player);
+          const channelId = pm.textChannelId || player.textId;
+          const channel = channelId ? this.client.channels.cache.get(channelId) : null;
+
           if (query) {
-            // Radio Station logic: Clear queue and play new query
             const result = await this.client.music.search(query, { requester: { id: 'WebDashboard' } });
             if (!result || !result.tracks.length) return res.status(404).json({ error: "No tracks found" });
-            await pm.clearQueue();
-            await pm.addTracks(result.tracks);
-            if (!pm.isPlaying) await pm.play();
-            else await pm.skip(); // Play the new track immediately
-            res.json({ success: true, message: "Radio station started" });
+
+            // For single track play, only use the first track
+            const firstTrack = result.tracks[0];
+
+            if (mode === 'queue') {
+              // Add all tracks (for playlist links)
+              await pm.addTracks(result.tracks);
+              if (!pm.isPlaying && !pm.isPaused) {
+                await pm.play({ track: firstTrack });
+              }
+              if (channel) EventUtils.sendTimedMessage(this.client, pm.textChannelId, `➕ **Added to queue:** ${result.tracks.length} track(s) via dashboard.`);
+              res.json({ success: true, message: `Added ${result.tracks.length} track(s) to queue` });
+            } else if (mode === 'play_now' || mode === 'next') {
+              // Add single track to top of queue (play next)
+              await pm.addTracks([firstTrack], 0);
+              if (channel) EventUtils.sendTimedMessage(this.client, pm.textChannelId, `⏭️ **Playing Next:** ${firstTrack.info.title} (via Dashboard)`);
+              res.json({ success: true, message: "Added to play next" });
+            } else {
+              // Default 'play' mode: Clear queue and play single track immediately
+              await pm.clearQueue();
+              // Don't add to queue, just play. play() sets it as current.
+              // await pm.addTracks([firstTrack]); <-- Caused duplication
+              await pm.play({ track: firstTrack });
+              if (channel) EventUtils.sendTimedMessage(this.client, pm.textChannelId, `🎶 **Now Playing:** ${firstTrack.info.title} via dashboard.`);
+              res.json({ success: true, message: "Playing now" });
+            }
           } else {
-            await pm.resume();
-            res.json({ success: true, message: "Playback resumed" });
+            if (player.paused) {
+              await pm.resume();
+              if (channel) EventUtils.sendTimedMessage(this.client, pm.textChannelId, `▶️ **Resumed playback** via dashboard.`);
+              res.json({ success: true, message: "Playback resumed" });
+            } else {
+              res.json({ success: true, message: "Already playing" });
+            }
           }
           this.broadcastToGuild(guildId, {
             type: "state_update",
             data: this.getPlayerState(pm, guildId),
           });
         } catch (error) {
-          logger.error("WebServer", "Error in play/radio command:", error);
+          logger.error("WebServer", "Error in play command:", error);
           res.status(500).json({ error: error.message });
         }
       },
@@ -736,18 +930,22 @@ export class WebServer {
           if (!await this.checkControlPermission(req, res, guildId)) return;
           const player = this.client.music?.getPlayer(guildId);
           if (!player) {
+            const availablePlayers = this.client.music?.lavalink?.players ? [...this.client.music.lavalink.players.keys()] : [];
+            logger.warn("WebServer", `POST /pause - Player not found for ${guildId}. Available: ${availablePlayers.join(', ')}`);
             return res.status(404).json({ error: "No player found" });
           }
           const { PlayerManager } = await import("#managers/PlayerManager");
           const pm = new PlayerManager(player);
-          await pm.pause();
+          if (!player.paused) {
+            await pm.pause();
+            // Silent update - feedback is via the embed state update
+          }
           this.broadcastToGuild(guildId, {
             type: "state_update",
             data: this.getPlayerState(pm, guildId),
           });
           res.json({ success: true, message: "Playback paused" });
         } catch (error) {
-          logger.error("WebServer", "Error pausing playback:", error);
           res.status(500).json({ error: error.message });
         }
       },
@@ -762,19 +960,27 @@ export class WebServer {
           if (!await this.checkControlPermission(req, res, guildId)) return;
           const player = this.client.music?.getPlayer(guildId);
           if (!player) {
+            const availablePlayers = this.client.music?.lavalink?.players ? [...this.client.music.lavalink.players.keys()] : [];
+            logger.warn("WebServer", `POST /skip - Player not found for ${guildId}. Available: ${availablePlayers.join(', ')}`);
             return res.status(404).json({ error: "No player found" });
           }
           const { PlayerManager } = await import("#managers/PlayerManager");
+
+          // DEBUG: Log skip request details
+          logger.warn("WebServer", `POST /skip request received for ${guildId} from IP: ${req.ip}, UA: ${req.headers['user-agent']}`);
+
           const pm = new PlayerManager(player);
           await pm.skip();
-          const newPm = new PlayerManager(player);
+
+          sendFeedback(this.client, player, "⏭️ **Skipped** to the next track.");
+
+          // Skip is handled silently - trackStart event will update the UI
           this.broadcastToGuild(guildId, {
             type: "state_update",
-            data: this.getPlayerState(newPm, guildId),
+            data: this.getPlayerState(new PlayerManager(player), guildId),
           });
           res.json({ success: true, message: "Skipped to next track" });
         } catch (error) {
-          logger.error("WebServer", "Error skipping track:", error);
           res.status(500).json({ error: error.message });
         }
       },
@@ -788,25 +994,23 @@ export class WebServer {
           const { guildId } = req.params;
           if (!await this.checkControlPermission(req, res, guildId)) return;
           const player = this.client.music?.getPlayer(guildId);
-          if (!player) {
-            return res.status(404).json({ error: "No player found" });
-          }
-          const previousTrack = await player.queue.shiftPrevious();
-          if (!previousTrack) {
-            return res
-              .status(400)
-              .json({ error: "No previous track in history" });
-          }
-          await player.play({ clientTrack: previousTrack });
+          if (!player) return res.status(404).json({ error: "No player found" });
           const { PlayerManager } = await import("#managers/PlayerManager");
-          const newPm = new PlayerManager(player);
+          const pm = new PlayerManager(player);
+          const ok = await pm.playPrevious();
+
+          // Send feedback to Discord
+          if (ok) {
+            sendFeedback(this.client, player, "⏮️ **Playing previous track** via dashboard.");
+          }
+
+          // Feedback via UI update
           this.broadcastToGuild(guildId, {
             type: "state_update",
-            data: this.getPlayerState(newPm, guildId),
+            data: this.getPlayerState(new PlayerManager(player), guildId),
           });
-          res.json({ success: true, message: "Played previous track" });
+          res.json({ success: ok, message: ok ? "Played previous track" : "No previous track" });
         } catch (error) {
-          logger.error("WebServer", "Error playing previous:", error);
           res.status(500).json({ error: error.message });
         }
       },
@@ -820,20 +1024,17 @@ export class WebServer {
           const { guildId } = req.params;
           if (!await this.checkControlPermission(req, res, guildId)) return;
           const player = this.client.music?.getPlayer(guildId);
-          if (!player) {
-            return res.status(404).json({ error: "No player found" });
-          }
+          if (!player) return res.status(404).json({ error: "No player found" });
           const { PlayerManager } = await import("#managers/PlayerManager");
           const pm = new PlayerManager(player);
           await pm.shuffleQueue();
-          const newPm = new PlayerManager(player);
+          sendFeedback(this.client, player, "🔀 **Queue shuffled** via dashboard.");
           this.broadcastToGuild(guildId, {
             type: "state_update",
-            data: this.getPlayerState(newPm, guildId),
+            data: this.getPlayerState(new PlayerManager(player), guildId),
           });
           res.json({ success: true, message: "Queue shuffled" });
         } catch (error) {
-          logger.error("WebServer", "Error shuffling:", error);
           res.status(500).json({ error: error.message });
         }
       },
@@ -848,9 +1049,7 @@ export class WebServer {
           if (!await this.checkControlPermission(req, res, guildId)) return;
           let { mode } = req.body;
           const player = this.client.music?.getPlayer(guildId);
-          if (!player) {
-            return res.status(404).json({ error: "No player found" });
-          }
+          if (!player) return res.status(404).json({ error: "No player found" });
           const { PlayerManager } = await import("#managers/PlayerManager");
           const pm = new PlayerManager(player);
           const validModes = ["off", "track", "queue"];
@@ -858,19 +1057,14 @@ export class WebServer {
             const currentIndex = validModes.indexOf(pm.repeatMode || "off");
             mode = validModes[(currentIndex + 1) % validModes.length];
           }
-          await player.setRepeatMode(mode);
-          const newPm = new PlayerManager(player);
+          await pm.setRepeatMode(mode);
+          sendFeedback(this.client, player, `🔁 **Loop mode set to:** ${mode} via dashboard.`);
           this.broadcastToGuild(guildId, {
             type: "state_update",
-            data: this.getPlayerState(newPm, guildId),
+            data: this.getPlayerState(new PlayerManager(player), guildId),
           });
-          res.json({
-            success: true,
-            message: "Loop mode updated",
-            repeatMode: mode,
-          });
+          res.json({ success: true, message: "Loop mode updated", repeatMode: mode });
         } catch (error) {
-          logger.error("WebServer", "Error toggling loop:", error);
           res.status(500).json({ error: error.message });
         }
       },
@@ -885,22 +1079,41 @@ export class WebServer {
           if (!await this.checkControlPermission(req, res, guildId)) return;
           const { volume } = req.body;
           const player = this.client.music?.getPlayer(guildId);
-          if (!player) {
-            return res.status(404).json({ error: "No player found" });
-          }
+          if (!player) return res.status(404).json({ error: "No player found" });
           const { PlayerManager } = await import("#managers/PlayerManager");
           const pm = new PlayerManager(player);
           await pm.setVolume(volume);
+          sendFeedback(this.client, player, `🔊 **Volume set to ${volume}%** via dashboard.`);
           this.broadcastToGuild(guildId, {
             type: "state_update",
             data: this.getPlayerState(pm, guildId),
           });
           res.json({ success: true, message: "Volume set" });
         } catch (error) {
-          logger.error("WebServer", "Error setting volume:", error);
           res.status(500).json({ error: error.message });
         }
       },
+    );
+
+    // Clear guild stats
+    this.app.delete(
+      "/api/stats/:guildId/clear",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId } = req.params;
+          if (!await this.checkControlPermission(req, res, guildId)) return;
+
+          if (this.client.db && this.client.db.stats) {
+            this.client.db.stats.clearGuildStats(guildId);
+            res.json({ success: true, message: "Server statistics cleared" });
+          } else {
+            res.status(501).json({ error: "Statistics system not available" });
+          }
+        } catch (error) {
+          res.status(500).json({ error: error.message });
+        }
+      }
     );
     // Seek
     this.app.post(
@@ -912,19 +1125,202 @@ export class WebServer {
           if (!await this.checkControlPermission(req, res, guildId)) return;
           const { position } = req.body;
           const player = this.client.music?.getPlayer(guildId);
-          if (!player) {
-            return res.status(404).json({ error: "No player found" });
-          }
+          if (!player) return res.status(404).json({ error: "No player found" });
           await player.seek(position);
           const { PlayerManager } = await import("#managers/PlayerManager");
           const pm = new PlayerManager(player);
+          sendFeedback(this.client, player, `⏩ **Seeked playback** to ${pm.formatDuration(position)} via dashboard.`);
           this.broadcastToGuild(guildId, {
             type: "state_update",
             data: this.getPlayerState(pm, guildId),
           });
           res.json({ success: true, message: "Seeked to position" });
         } catch (error) {
-          logger.error("WebServer", "Error seeking:", error);
+          res.status(500).json({ error: error.message });
+        }
+      },
+    );
+
+    this.app.post(
+      "/api/player/:guildId/reset",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId } = req.params;
+          if (!await this.checkControlPermission(req, res, guildId)) return;
+
+          const player = this.client.music?.getPlayer(guildId);
+          if (player) {
+            // Save state if possible
+            const voiceId = player.voiceChannelId;
+            const textId = player.textChannelId;
+
+            player.destroy();
+
+            // Wait a moment and recreate
+            setTimeout(async () => {
+              await this.client.music.createPlayer({
+                guildId,
+                voiceChannelId: voiceId,
+                textChannelId: textId,
+                selfDeaf: true
+              });
+            }, 1000);
+          }
+
+          res.json({ success: true, message: "Player reset initiated" });
+        } catch (error) {
+          res.status(500).json({ error: error.message });
+        }
+      }
+    );
+
+    this.app.get(
+      "/api/player/:guildId/filters",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId } = req.params;
+          const player = this.client.music?.getPlayer(guildId);
+          if (!player) return res.status(404).json({ error: "No player found" });
+
+          res.json({
+            available: filters,
+            active: player.filterManager?.data || {},
+            activeFilterName: player.lastFilterName || null
+          });
+        } catch (error) {
+          res.status(500).json({ error: error.message });
+        }
+      }
+    );
+
+    this.app.post(
+      "/api/player/:guildId/filters/:filter",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId, filter } = req.params;
+          if (!await this.checkControlPermission(req, res, guildId)) return;
+          const player = this.client.music?.getPlayer(guildId);
+          if (!player) return res.status(404).json({ error: "No player found" });
+
+          const filterData = filters[filter];
+          if (!filterData) return res.status(400).json({ error: "Invalid filter" });
+
+          // Apply filters using filterManager
+          if (player.filterManager) {
+            // Super Nuclear Reset: Wipe every piece of internal state
+            const fm = player.filterManager;
+            const props = ['equalizer', 'timescale', 'karaoke', 'tremolo', 'vibrato', 'distortion', 'rotation', 'channelMix', 'lowPass'];
+            props.forEach(p => {
+              try {
+                if (p === 'equalizer') fm[p] = [];
+                else fm[p] = null;
+              } catch (e) { }
+            });
+            if (fm.data) fm.data = {};
+            // THIS IS THE KEY FIX: Clear the separate equalizerBands array!
+            if (fm.equalizerBands) fm.equalizerBands = [];
+
+            // Ensure timescale is 1.0 explicitly
+            if (fm.setSpeed) await fm.setSpeed(1.0);
+            if (fm.setPitch) await fm.setPitch(1.0);
+            if (fm.setRate) await fm.setRate(1.0);
+
+            // Send clear packet to Lavalink
+            if (typeof player.setFilters === "function") {
+              await player.setFilters({});
+            } else {
+              await fm.resetFilters();
+            }
+
+            if (Array.isArray(filterData)) {
+              if (player.filterManager.setEQ) await player.filterManager.setEQ(filterData);
+            } else {
+              if (filterData.timescale) {
+                const { speed, pitch, rate } = filterData.timescale;
+                if (speed && player.filterManager.setSpeed) await player.filterManager.setSpeed(speed);
+                if (pitch && player.filterManager.setPitch) await player.filterManager.setPitch(pitch);
+                if (rate && player.filterManager.setRate) await player.filterManager.setRate(rate);
+              }
+              if (filterData.eq && player.filterManager.setEQ) {
+                await player.filterManager.setEQ(filterData.eq);
+              }
+            }
+          }
+
+          player.lastFilterName = filter;
+
+          const { PlayerManager } = await import("#managers/PlayerManager");
+          const pm = new PlayerManager(player);
+
+          sendFeedback(this.client, player, `🎛️ **Audio filter applied:** ${filter} via dashboard.`);
+
+          // Broadcast the update immediately
+          this.broadcastToGuild(guildId, {
+            type: "state_update",
+            data: this.getPlayerState(pm, guildId),
+          });
+
+          res.json({ success: true, message: `Filter ${filter} applied` });
+        } catch (error) {
+          res.status(500).json({ error: error.message });
+        }
+      },
+    );
+
+    this.app.delete(
+      "/api/player/:guildId/filters",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId } = req.params;
+          logger.info("WebServer", `[Filters] Resetting all filters for guild: ${guildId}`);
+          if (!await this.checkControlPermission(req, res, guildId)) return;
+          const player = this.client.music?.getPlayer(guildId);
+          if (!player) return res.status(404).json({ error: "No player found" });
+
+          // Super Nuclear Reset for DELETE endpoint
+          if (player.filterManager) {
+            const fm = player.filterManager;
+            const props = ['equalizer', 'timescale', 'karaoke', 'tremolo', 'vibrato', 'distortion', 'rotation', 'channelMix', 'lowPass'];
+            props.forEach(p => {
+              try {
+                if (p === 'equalizer') fm[p] = [];
+                else fm[p] = null;
+              } catch (e) { }
+            });
+            if (fm.data) fm.data = {};
+            // THIS IS THE KEY FIX: Clear the separate equalizerBands array!
+            if (fm.equalizerBands) fm.equalizerBands = [];
+
+            if (fm.setSpeed) await fm.setSpeed(1.0);
+            if (fm.setPitch) await fm.setPitch(1.0);
+            if (fm.setRate) await fm.setRate(1.0);
+
+            if (typeof player.setFilters === "function") {
+              await player.setFilters({});
+            } else {
+              await fm.resetFilters();
+            }
+          }
+
+          player.lastFilterName = null;
+
+          const { PlayerManager } = await import("#managers/PlayerManager");
+          const pm = new PlayerManager(player);
+
+          sendFeedback(this.client, player, "🎛️ **Audio filters reset** via dashboard.");
+
+          // Broadcast the reset immediately
+          this.broadcastToGuild(guildId, {
+            type: "state_update",
+            data: this.getPlayerState(pm, guildId),
+          });
+
+          res.json({ success: true, message: "Filters reset" });
+        } catch (error) {
           res.status(500).json({ error: error.message });
         }
       },
@@ -938,19 +1334,17 @@ export class WebServer {
           const { guildId } = req.params;
           if (!await this.checkControlPermission(req, res, guildId)) return;
           const player = this.client.music?.getPlayer(guildId);
-          if (!player) {
-            return res.status(404).json({ error: "No player found" });
-          }
+          if (!player) return res.status(404).json({ error: "No player found" });
           const { PlayerManager } = await import("#managers/PlayerManager");
           const pm = new PlayerManager(player);
           await pm.stop();
+          sendFeedback(this.client, player, "⏹️ **Playback stopped** via dashboard.");
           this.broadcastToGuild(guildId, {
             type: "state_update",
             data: this.getPlayerState(pm, guildId),
           });
           res.json({ success: true, message: "Playback stopped" });
         } catch (error) {
-          logger.error("WebServer", "Error stopping:", error);
           res.status(500).json({ error: error.message });
         }
       },
@@ -967,6 +1361,8 @@ export class WebServer {
           const player = this.client.music?.getPlayer(guildId);
           if (!player) return res.status(404).json({ error: "No player found" });
           const expireAt = player.setSleepTimer(minutes, this.client);
+          if (minutes > 0) sendFeedback(this.client, player, `⏰ **Sleep timer set for ${minutes} minutes** via dashboard.`);
+          else sendFeedback(this.client, player, "⏰ **Sleep timer cancelled** via dashboard.");
           this.broadcastToGuild(guildId, {
             type: "state_update",
             data: this.getPlayerState(new (await import("#managers/PlayerManager")).PlayerManager(player), guildId),
@@ -1004,6 +1400,9 @@ export class WebServer {
           if (!player) {
             return res.json({ queue: [] });
           }
+
+          logger.info('WebServer', `[QueueAPI] Fetching queue for ${guildId}. Length: ${player.queue.tracks.length}`);
+
           const queue = player.queue.tracks.map((track, index) => ({
             title: track.info?.title || "Unknown",
             author: track.info?.author || "Unknown",
@@ -1081,6 +1480,72 @@ export class WebServer {
         }
       },
     );
+
+    // Shuffle Preview - see what the shuffled order would look like without committing
+    this.app.get(
+      "/api/queue/:guildId/shuffle-preview",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId } = req.params;
+          const player = this.client.music?.getPlayer(guildId);
+          if (!player) {
+            return res.status(404).json({ error: "No player found" });
+          }
+          const { PlayerManager } = await import("#managers/PlayerManager");
+          const pm = new PlayerManager(player);
+          const preview = pm.queue.shufflePreview();
+          res.json({ success: true, preview });
+        } catch (error) {
+          logger.error("WebServer", "Error generating shuffle preview:", error);
+          res.status(500).json({ error: error.message });
+        }
+      },
+    );
+
+    // Check for duplicates before adding tracks
+    this.app.post(
+      "/api/queue/:guildId/check-duplicates",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId } = req.params;
+          const { identifiers } = req.body; // Array of track identifiers to check
+
+          if (!Array.isArray(identifiers)) {
+            return res.status(400).json({ error: "identifiers must be an array" });
+          }
+
+          const player = this.client.music?.getPlayer(guildId);
+          if (!player) {
+            return res.json({ duplicates: [], allNew: true });
+          }
+
+          // Build set of existing identifiers
+          const existingIds = new Set();
+          if (player.queue.current?.info?.identifier) {
+            existingIds.add(player.queue.current.info.identifier);
+          }
+          player.queue.tracks.forEach(t => {
+            if (t.info?.identifier) existingIds.add(t.info.identifier);
+          });
+
+          const duplicates = identifiers.filter(id => existingIds.has(id));
+          const newTracks = identifiers.filter(id => !existingIds.has(id));
+
+          res.json({
+            duplicates,
+            newTracks,
+            allNew: duplicates.length === 0,
+            allDuplicates: newTracks.length === 0
+          });
+        } catch (error) {
+          logger.error("WebServer", "Error checking duplicates:", error);
+          res.status(500).json({ error: error.message });
+        }
+      },
+    );
+
     // Clear queue
     this.app.delete(
       "/api/queue/:guildId",
@@ -1116,7 +1581,7 @@ export class WebServer {
           const { guildId, position } = req.params;
           if (!await this.checkControlPermission(req, res, guildId)) return;
           const pos = parseInt(position, 10);
-          if (isNaN(pos) || pos < 1) {
+          if (isNaN(pos) || pos < 0) {
             return res.status(400).json({ error: "Invalid position" });
           }
           const player = this.client.music?.getPlayer(guildId);
@@ -1125,7 +1590,7 @@ export class WebServer {
           }
           const { PlayerManager } = await import("#managers/PlayerManager");
           const pm = new PlayerManager(player);
-          await pm.removeTrack(pos - 1);
+          await pm.removeTrack(pos);
           const queue = player.queue.tracks.map((track, index) => ({
             title: track.info?.title || "Unknown",
             author: track.info?.author || "Unknown",
@@ -1141,6 +1606,133 @@ export class WebServer {
           res.json({ success: true, message: "Track removed" });
         } catch (error) {
           logger.error("WebServer", "Error removing track:", error);
+          res.status(500).json({ error: error.message });
+        }
+      },
+    );
+
+    // Move track in queue (for drag-and-drop reordering)
+    this.app.post(
+      "/api/queue/:guildId/move",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId } = req.params;
+          const { from, to } = req.body;
+
+          if (!await this.checkControlPermission(req, res, guildId)) return;
+
+          if (typeof from !== 'number' || typeof to !== 'number') {
+            return res.status(400).json({ error: "Invalid from/to positions" });
+          }
+
+          const player = this.client.music?.getPlayer(guildId);
+          if (!player) {
+            return res.status(404).json({ error: "No player found" });
+          }
+
+          const tracks = player.queue.tracks;
+          if (from < 0 || from >= tracks.length || to < 0 || to >= tracks.length) {
+            return res.status(400).json({ error: "Position out of bounds" });
+          }
+
+          // Remove track from old position and insert at new position
+          const [movedTrack] = tracks.splice(from, 1);
+          tracks.splice(to, 0, movedTrack);
+
+          const queue = tracks.map((track, index) => ({
+            title: track.info?.title || "Unknown",
+            author: track.info?.author || "Unknown",
+            duration: track.info?.duration || 0,
+            artworkUrl: track.info?.artworkUrl || track.pluginInfo?.artworkUrl,
+            uri: track.info?.uri,
+          }));
+
+          const { PlayerManager } = await import("#managers/PlayerManager");
+          const pm = new PlayerManager(player);
+
+          this.broadcastToGuild(guildId, {
+            type: "state_update",
+            data: this.getPlayerState(pm, guildId),
+          });
+          this.broadcastToGuild(guildId, { type: "queue_update", queue });
+
+          const channel = this.client.channels.cache.get(player.textChannelId);
+          if (channel) EventUtils.sendTimedMessage(this.client, player.textChannelId, `🔀 Track moved in queue via dashboard.`);
+
+          res.json({ success: true, message: "Track moved", queue });
+        } catch (error) {
+          logger.error("WebServer", "Error moving track:", error);
+          res.status(500).json({ error: error.message });
+        }
+      },
+    );
+
+    // Play next (insert track at position 0)
+    this.app.post(
+      "/api/queue/:guildId/playnext",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId } = req.params;
+          const { query, source } = req.body;
+
+          if (!await this.checkControlPermission(req, res, guildId)) return;
+
+          const player = this.client.music?.getPlayer(guildId);
+          if (!player) {
+            return res.status(404).json({ error: "No player found" });
+          }
+
+          // Search for the track
+          const searchPlatform = source || "ytsearch";
+          const searchQuery = query.startsWith("http") ? query : `${searchPlatform}:${query}`;
+          const result = await this.client.music.lavalink.search({
+            query: searchQuery,
+            source: searchPlatform,
+          }, player.get("requester") || { id: "dashboard", username: "Dashboard" });
+
+          if (!result.tracks || result.tracks.length === 0) {
+            return res.status(404).json({ error: "No tracks found" });
+          }
+
+          const track = result.tracks[0];
+
+          // Insert at position 0 (play next)
+          player.queue.tracks.unshift(track);
+
+          const queue = player.queue.tracks.map((t, index) => ({
+            title: t.info?.title || "Unknown",
+            author: t.info?.author || "Unknown",
+            duration: t.info?.duration || 0,
+            artworkUrl: t.info?.artworkUrl || t.pluginInfo?.artworkUrl,
+            uri: t.info?.uri,
+          }));
+
+          const { PlayerManager } = await import("#managers/PlayerManager");
+          const pm = new PlayerManager(player);
+
+          this.broadcastToGuild(guildId, {
+            type: "state_update",
+            data: this.getPlayerState(pm, guildId),
+          });
+          this.broadcastToGuild(guildId, { type: "queue_update", queue });
+
+          const channel = this.client.channels.cache.get(player.textChannelId);
+          if (channel) EventUtils.sendTimedMessage(this.client, player.textChannelId, `⏭️ **${track.info?.title}** will play next (added via dashboard).`);
+
+          res.json({
+            success: true,
+            message: "Track will play next",
+            track: {
+              title: track.info?.title,
+              author: track.info?.author,
+              duration: track.info?.duration,
+              artworkUrl: track.info?.artworkUrl,
+            }
+          });
+        } catch (error) {
+          logger.error("WebServer", "Error adding play next track:", error);
           res.status(500).json({ error: error.message });
         }
       },
@@ -1431,7 +2023,20 @@ export class WebServer {
             playlists = db.playlists.getAllPlaylists(guildId, null);
           }
           console.log("Found playlists:", playlists?.length || 0);
-          res.json(playlists || []);
+
+          // Transform snake_case to camelCase for frontend
+          const transformedPlaylists = (playlists || []).map(pl => ({
+            ...pl,
+            trackCount: pl.track_count || pl.trackCount || 0,
+            isPublic: Boolean(pl.is_public || pl.isPublic),
+            totalDuration: pl.total_duration || pl.totalDuration || 0,
+            coverImage: pl.cover_image || pl.coverImage || null,
+            createdAt: pl.created_at || pl.createdAt,
+            updatedAt: pl.updated_at || pl.updatedAt,
+            userId: pl.user_id || pl.userId,
+          }));
+
+          res.json(transformedPlaylists);
         } catch (error) {
           logger.error("WebServer", "Error getting playlists:", error);
           res.status(500).json({ error: error.message });
@@ -1456,7 +2061,20 @@ export class WebServer {
           if (playlist.user_id !== userId) {
             return res.status(403).json({ error: "Access denied" });
           }
-          res.json(playlist);
+
+          // Transform snake_case to camelCase for frontend
+          const transformedPlaylist = {
+            ...playlist,
+            trackCount: playlist.track_count || playlist.trackCount || 0,
+            isPublic: Boolean(playlist.is_public || playlist.isPublic),
+            totalDuration: playlist.total_duration || playlist.totalDuration || 0,
+            coverImage: playlist.cover_image || playlist.coverImage || null,
+            createdAt: playlist.created_at || playlist.createdAt,
+            updatedAt: playlist.updated_at || playlist.updatedAt,
+            userId: playlist.user_id || playlist.userId,
+          };
+
+          res.json(transformedPlaylist);
         } catch (error) {
           logger.error("WebServer", "Error getting playlist:", error);
           res.status(500).json({ error: error.message });
@@ -1932,6 +2550,75 @@ export class WebServer {
       },
     );
     // Search tracks from music sources
+    // Radio Endpoints
+    this.app.get(
+      "/api/radio/:type",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { type } = req.params;
+          const { seed } = req.query;
+          const userId = this.getUserIdFromRequest(req);
+
+          if (!userId) return res.status(401).json({ error: "User ID not found in session" });
+
+          const tracks = await this.client.playlistManager.db.getRadioTracks(userId, type, seed);
+          res.json({ success: true, tracks });
+        } catch (error) {
+          logger.error("WebServer", "Error fetching radio tracks:", error);
+          res.status(500).json({ error: error.message });
+        }
+      }
+    );
+
+    this.app.post(
+      "/api/radio/play",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { type, seed, guildId } = req.body;
+          const userId = this.getUserIdFromRequest(req);
+
+          if (!await this.checkControlPermission(req, res, guildId)) return;
+
+          const tracks = await this.client.playlistManager.db.getRadioTracks(userId, type, seed);
+          if (!tracks || tracks.length === 0) {
+            return res.status(404).json({ error: "No tracks found for this radio" });
+          }
+
+          // Generate a temporary playlist name
+          const radioName = type === 'artist' ? `${seed} Radio` : (type === 'mixed' ? "Mixed For You" : "Discovery Radio");
+
+          // We use playPlaylist but with a virtual playlist object
+          const playlist = {
+            id: `radio_${type}_${Date.now()}`,
+            name: radioName,
+            tracks: tracks,
+            isSystemPlaylist: true
+          };
+
+          // Standard play logic from playPlaylist
+          const player = this.client.music.getPlayer(guildId);
+          if (!player) return res.status(404).json({ error: "No active player" });
+
+          const pm = new (await import("#managers/PlayerManager")).PlayerManager(player);
+          await pm.clearQueue();
+          await pm.addTracks(tracks);
+          await player.play();
+
+          this.broadcastToGuild(guildId, {
+            type: "state_update",
+            data: this.getPlayerState(pm, guildId),
+          });
+
+          res.json({ success: true, message: `Started ${radioName}`, tracksQueued: tracks.length });
+        } catch (error) {
+          logger.error("WebServer", "Error playing radio:", error);
+          res.status(500).json({ error: error.message });
+        }
+      }
+    );
+
     this.app.get(
       "/api/search",
       this.authenticate.bind(this),
@@ -1950,71 +2637,154 @@ export class WebServer {
             soundcloud: "scsearch",
             apple: "amsearch",
             deezer: "dzsearch",
-            all: null,
+            all: "ytsearch", // Default to YouTube for text searches
           };
-          let searchSource = sourceMap[source] || sourceMap.all;
-          let searchQuery = searchSource ? `${searchSource}:${query}` : query;
-          // Special handling for playlist search
-          if (type === "playlist") {
-            if (source === "youtube" || source === "all") {
-              searchQuery = `ytmsearch:${query} playlist`;
-            } else if (source === "spotify") {
-              searchQuery = `spsearch:${query} playlist`;
-            }
+
+          let normalizedQuery = query;
+          if (query.includes("music.youtube.com")) {
+            normalizedQuery = query.replace("music.youtube.com", "www.youtube.com");
           }
-          // Use the music client's search functionality
-          const playerManager = this.client.music;
-          if (!playerManager) {
-            return res
-              .status(500)
-              .json({ error: "Music system not available" });
+
+          const isUrl = /^https?:\/\//.test(normalizedQuery);
+          let searchOptions = { requester: { id: 'WebDashboard' } };
+
+          if (!isUrl) {
+            const mappedSource = sourceMap[source] || "ytsearch";
+            searchOptions.source = mappedSource;
           }
-          // Get a player node for searching
-          let node = null;
-          if (playerManager.nodes && playerManager.nodes.size > 0) {
-            node = playerManager.nodes.values().next().value;
-          } else if (playerManager.getNode) {
-            node = await playerManager.getNode();
-            // Access lavalink manager directly if exposed, or try helper methods
-            if (playerManager.lavalink && playerManager.lavalink.nodeManager) {
-              node = playerManager.lavalink.nodeManager.nodes.values().next().value;
-            } else if (playerManager.nodes && playerManager.nodes.size > 0) {
-              node = playerManager.nodes.values().next().value;
-            }
-            if (!node) {
-              return res.status(500).json({ error: "No music nodes available" });
-            }
-            const searchResult = await node.search(searchQuery, null);
-            if (!searchResult) {
+
+          // Timeout promise (15 seconds for slow playlists)
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Search timed out')), 15000)
+          );
+
+          try {
+            const searchResult = await Promise.race([
+              this.client.music.search(normalizedQuery, searchOptions),
+              timeoutPromise
+            ]);
+
+            console.log(`[Search] Query: "${query}" | Type: ${type} | LoadType: ${searchResult?.loadType} | Tracks: ${searchResult?.tracks?.length || 0}`);
+
+            if (!searchResult || searchResult.loadType === 'empty') {
               return res.json({ results: [], playlists: [] });
             }
-            // Return playlists if requested
-            if (type === "playlist" && searchResult.playlists) {
-              const playlists = searchResult.playlists.map((p) => ({
-                id: p.id || p.info?.identifier,
-                title: p.info?.title || p.title,
-                author: p.info?.author || p.author,
-                url: p.info?.uri || p.uri,
-                artworkUrl: p.info?.artworkUrl || p.artworkUrl || p.thumbnail,
-                trackCount: p.tracks?.length || 0,
-                source: detectSource(p.info?.uri || p.uri),
-              }));
-              return res.json({ results: [], playlists });
+
+            if (searchResult.loadType === 'error') {
+              const msg = searchResult.exception?.message || 'Unknown Lavalink Error';
+              return res.status(502).json({ error: msg });
             }
-            const results = (searchResult.tracks || []).map((track, index) => ({
-              source: detectSource(track.uri),
-              identifier: track.identifier,
-              title: track.title,
-              author: track.author,
-              duration: track.duration,
-              durationFormatted: formatDuration(track.duration),
-              uri: track.uri,
-              artworkUrl: track.artworkUrl || track.thumbnail || null,
-              isExplicit: track.isExplicit || false,
-              sourceName: track.sourceName || detectSource(track.uri),
+
+            // Handle various playlist load types
+            const isPlaylistLoad = searchResult.loadType === 'playlist' ||
+              searchResult.loadType === 'PLAYLIST_LOADED' ||
+              (type === 'playlist' && (searchResult.playlist || searchResult.playlistInfo));
+
+            if (type === "playlist" || isPlaylistLoad) {
+              let playlists = [];
+
+              // Case 1: Search Result returns a list of playlists (e.g. from plugin)
+              if (searchResult.playlists) {
+                playlists = searchResult.playlists;
+              }
+              // Case 2: Result IS a playlist (URL loaded)
+              else if (isPlaylistLoad || searchResult.tracks?.length > 1) {
+                const info = searchResult.playlistInfo || searchResult.playlist || searchResult.info;
+                if (info || searchResult.tracks?.length > 0) {
+                  playlists = [{
+                    info: info || { title: query.startsWith('http') ? 'Loaded Playlist' : query },
+                    tracks: searchResult.tracks
+                  }];
+                }
+              }
+
+              const formattedPlaylists = await Promise.all(playlists.map(async (p) => {
+                const pInfo = p.info || p;
+                const uri = pInfo.uri || pInfo.url || (normalizedQuery.startsWith('http') ? normalizedQuery : '');
+
+                // Improved artwork detection for YouTube and others
+                let artwork = pInfo.artworkUrl || pInfo.thumbnail || (p.tracks?.[0]?.artworkUrl) || (p.tracks?.[0]?.pluginInfo?.artworkUrl) || null;
+
+                // Construct fallback for YouTube playlists specifically
+                if (!artwork && (uri.includes('youtube.com') || uri.includes('youtu.be')) && p.tracks?.[0]?.identifier) {
+                  artwork = `https://img.youtube.com/vi/${p.tracks[0].identifier}/hqdefault.jpg`;
+                }
+
+                // Try to get artwork for Spotify playlists if missing
+                if (!artwork && uri.includes('spotify.com/playlist/')) {
+                  const token = await this.client.music.getSpotifyToken();
+                  if (token) {
+                    try {
+                      const id = uri.split('playlist/')[1]?.split('?')[0];
+                      const spRes = await fetch(`https://api.spotify.com/v1/playlists/${id}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      });
+                      const spData = await spRes.json();
+                      artwork = spData.images?.[0]?.url || artwork;
+                    } catch (e) { }
+                  }
+                }
+
+                return {
+                  id: pInfo.identifier || pInfo.id || 'unknown',
+                  title: pInfo.name || pInfo.title || 'Unknown Playlist',
+                  author: pInfo.author || 'Unknown',
+                  url: uri,
+                  artworkUrl: artwork,
+                  trackCount: p.tracks?.length || pInfo.trackCount || 0,
+                  source: uri.includes('spotify') ? 'spotify' : 'youtube',
+                };
+              }));
+
+              if (formattedPlaylists.length > 0) {
+                return res.json({ results: [], playlists: formattedPlaylists });
+              }
+              // Fallback for when "Playlists" was requested but it loaded tracks
+              if (type === 'playlist' && searchResult.tracks?.length > 0) {
+                // If we got tracks but no playlist info, wrap it
+                return res.json({
+                  results: [], playlists: [{
+                    id: 'loaded',
+                    title: 'Tracks from link',
+                    author: 'Unknown',
+                    url: normalizedQuery,
+                    artworkUrl: searchResult.tracks[0].artworkUrl || null,
+                    trackCount: searchResult.tracks.length,
+                    source: normalizedQuery.includes('spotify') ? 'spotify' : 'youtube'
+                  }]
+                });
+              }
+            }
+
+            // Handle tracks
+            const results = await Promise.all((searchResult.tracks || []).map(async (track, index) => {
+              const uri = track.info?.uri || track.uri;
+              let artworkUrl = track.artworkUrl || track.thumbnail || null;
+
+              // Enhance Spotify tracks with real artwork if missing
+              if (!artworkUrl && uri?.includes('spotify.com')) {
+                artworkUrl = await this.client.music.getSpotifyArtwork(uri);
+              }
+
+              return {
+                source: detectSource(uri),
+                identifier: track.info?.identifier || track.identifier,
+                title: track.info?.title || track.title,
+                author: track.info?.author || track.author,
+                duration: track.info?.duration || track.duration,
+                durationFormatted: formatDuration(track.info?.duration || track.duration),
+                uri: uri,
+                artworkUrl: artworkUrl,
+                isExplicit: track.isExplicit || false,
+                sourceName: track.sourceName || detectSource(uri),
+              };
             }));
             res.json({ results, playlists: [] });
+          } catch (searchError) {
+            logger.error("WebServer", "Search timeout or error:", searchError);
+            res.status(504).json({ error: "Search timed out or failed" });
           }
+
         } catch (error) {
           logger.error("WebServer", "Error searching tracks:", error);
           res.status(500).json({ error: error.message });
@@ -2032,6 +2802,7 @@ export class WebServer {
       if (uri.includes("deezer.com")) return "deezer";
       return "youtube";
     }
+
     // Helper function to format duration
     function formatDuration(ms) {
       if (!ms) return "0:00";
@@ -2414,8 +3185,7 @@ export class WebServer {
           const pm = new PlayerManager(player);
           if (!pm.isConnected) await pm.connect();
           if (clearQueue) {
-            pm.stop();
-            // player.queue.clear();
+            pm.player.queue.tracks.splice(0, pm.player.queue.tracks.length);
           }
           let tracksToPlay = [...playlist.tracks];
           if (shuffle) {
@@ -2778,7 +3548,69 @@ export class WebServer {
           logger.error("WebServer", "Error getting session:", error);
           res.status(500).json({ error: error.message });
         }
-      },
+      }
+    );
+
+    // --- RADIO API ROUTES ---
+    this.app.get(
+      "/api/radio/:type",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { type } = req.params;
+          const { userId, seed, limit = 20 } = req.query;
+
+          if (!userId) {
+            return res.status(400).json({ error: "User ID is required" });
+          }
+
+          const tracks = await this.client.playlistManager.db.getRadioTracks(userId, type, seed);
+          res.json({ type, tracks, count: tracks.length });
+        } catch (error) {
+          logger.error("WebServer", `Error fetching radio tracks for ${req.params.type}:`, error);
+          // Return JSON error, NOT 500 HTML
+          res.status(500).json({ error: error.message });
+        }
+      }
+    );
+
+    this.app.post(
+      "/api/radio/play",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { type, seed, guildId, requesterId } = req.body;
+          if (!guildId) return res.status(400).json({ error: "Guild ID is required" });
+
+          // Use the session user if requesterId not explicit
+          const userId = requesterId || (req.user ? req.user.id : null);
+          if (!userId) return res.status(400).json({ error: "User unauthorized" });
+
+          // Permission check
+          if (!await this.checkControlPermission(req, res, guildId)) return;
+
+          // 1. Get Radio Tracks
+          const tracks = await this.client.playlistManager.db.getRadioTracks(userId, type, seed);
+          if (!tracks || tracks.length === 0) {
+            return res.status(404).json({ error: "No tracks found for this radio station. Try playing more songs first!" });
+          }
+
+          // 2. Clear Queue & Add
+          // We use playlistManager to handle the queuing logic properly
+          await this.client.playlistManager.addTracks(guildId, userId, tracks);
+
+          // 3. Ensure playing
+          const player = this.client.music.getPlayer(guildId);
+          if (player && !player.playing && !player.paused) {
+            await player.play();
+          }
+
+          res.json({ success: true, trackCount: tracks.length, message: `Started ${type} radio` });
+        } catch (error) {
+          logger.error("WebServer", "Error starting radio:", error);
+          res.status(500).json({ error: error.message });
+        }
+      }
     );
 
     // Check if user can control player
@@ -2955,14 +3787,42 @@ export class WebServer {
   getPlayerState(pm, guildId) {
     const currentTrack = pm.currentTrack;
     const guild = this.client.guilds.cache.get(guildId);
+
+    // Fallback for artwork
+    const getArtwork = (track) => {
+      if (!track) return null;
+      let artwork = track.info?.artworkUrl || track.artworkUrl || track.pluginInfo?.artworkUrl;
+      const uri = track.info?.uri || track.uri;
+
+      if ((!artwork || artwork.includes('placehold.co')) && uri) {
+        if (uri.includes('youtube.com') || uri.includes('youtu.be')) {
+          const match = uri.match(/(?:v=|youtu\.be\/|v\/)([^&?]+)/);
+          if (match && match[1]) artwork = `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`;
+        }
+      }
+      return artwork;
+    };
+
     return {
       guildId,
       guildName: guild?.name || "Unknown Guild",
-      isPlaying: pm.isPlaying,
-      isPaused: pm.isPaused,
+      isPlaying: pm.isPlaying && !!currentTrack,
+      isPaused: pm.paused || pm.isPaused,
       isConnected: pm.isConnected,
       volume: pm.volume,
       repeatMode: pm.repeatMode,
+      activeFilterName: pm.player?.lastFilterName || null,
+      timescale: (() => {
+        const fm = pm.player?.filterManager;
+        // Robust check for timescale data location: direct property, filters object, or data object
+        const ts = fm?.timescale || fm?.filters?.timescale || fm?.data?.timescale || {};
+        const speed = ts.speed || 1.0;
+        const rate = ts.rate || 1.0;
+
+
+
+        return speed * rate;
+      })(),
       position: pm.position,
       currentTrack: currentTrack
         ? {
@@ -2970,16 +3830,25 @@ export class WebServer {
           author: currentTrack.info?.author || "Unknown",
           duration: currentTrack.info?.duration || 0,
           uri: currentTrack.info?.uri,
-          artworkUrl:
-            currentTrack.info?.artworkUrl ||
-            currentTrack.pluginInfo?.artworkUrl,
+          artworkUrl: getArtwork(currentTrack),
           isStream: currentTrack.info?.isStream || false,
           isSeekable:
             currentTrack.info?.isSeekable !== false &&
             !currentTrack.info?.isStream,
+          requester: currentTrack.requester || currentTrack.userData || null,
+          userData: currentTrack.userData || null
         }
         : null,
       queueSize: pm.queueSize,
+      queue: pm.player.queue.tracks.slice(0, 50).map((track) => ({
+        title: track.info?.title || "Unknown",
+        author: track.info?.author || "Unknown",
+        duration: track.info?.duration || 0,
+        artworkUrl: getArtwork(track),
+        uri: track.info?.uri,
+        requester: track.requester || track.userData || null,
+        userData: track.userData || null
+      })),
       sleepEnd: pm.player?.get('sleepTimerEnd') || null,
       voiceChannel: pm.voiceChannelId
         ? {
@@ -3062,6 +3931,13 @@ export class WebServer {
       }
     }
   }
+
+  broadcastToUser(userId, data) {
+    if (this.socketManager) {
+      const eventName = data.type || "notification";
+      this.socketManager.emitToUser(userId, eventName, data);
+    }
+  }
   // Method to be called when player state changes
   async updatePlayerState(guildId) {
     try {
@@ -3105,6 +3981,8 @@ export class WebServer {
           duration: track.info?.duration || 0,
           artworkUrl: track.info?.artworkUrl || track.pluginInfo?.artworkUrl,
           uri: track.info?.uri,
+          requester: track.requester || track.userData || null,
+          userData: track.userData || null
         })) || [];
       this.broadcastToGuild(guildId, { type: "queue_update", queue });
     } catch (error) {

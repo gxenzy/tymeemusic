@@ -34,9 +34,9 @@ export class DiscordPlayerEmbed {
         iconURL: 'https://cdn.discordapp.com/emojis/837570776794009610.png' // Default music icon
       });
 
-      // Main track info - Modern styling
-      const title = this.escapeMarkdown(track.info?.title || 'Unknown');
-      const artist = this.escapeMarkdown(track.info?.author || 'Unknown Artist');
+      // Main track info - Modern styling - Prioritize Original Metadata
+      const title = this.escapeMarkdown(track.requester?.originalTitle || track.userData?.originalTitle || track.info?.title || 'Unknown');
+      const artist = this.escapeMarkdown(track.requester?.originalAuthor || track.userData?.originalAuthor || track.info?.author || 'Unknown Artist');
 
       // Requester display (prefer mention if id available)
       const requester = track.requester ? (track.requester.id ? `<@${track.requester.id}>` : (track.requester.username || track.requester.tag || 'Unknown')) : 'Unknown';
@@ -48,8 +48,15 @@ export class DiscordPlayerEmbed {
       );
 
       // Modern progress bar with animated theme
-      const currentTime = this.formatTime(position);
-      const totalTime = isStream ? '🔴 LIVE' : this.formatTime(duration);
+      // FIX: Calculate timescale for synchronous embed as well
+      const fm = pm.player?.filterManager;
+      const ts = fm?.timescale || fm?.filters?.timescale || fm?.data?.timescale || {};
+      const speed = ts.speed || 1.0;
+      const rate = ts.rate || 1.0;
+      const effectiveTimescale = speed * rate;
+
+      const currentTime = this.formatTime(position / effectiveTimescale);
+      const totalTime = isStream ? '🔴 LIVE' : this.formatTime(duration / effectiveTimescale);
 
       // Try to get animated progress bar, fallback to modern if needed
       let progressBar;
@@ -85,7 +92,7 @@ export class DiscordPlayerEmbed {
       );
 
       // Footer with source and modern styling
-      const source = track.info?.sourceName || 'Unknown';
+      const source = track.requester?.originalSource || track.userData?.originalSource || track.info?.sourceName || 'Unknown';
       const sourceEmoji = this.getSourceEmoji(source, guild, client);
       embed.setFooter({
         text: `${source.toUpperCase()} • TymeeMusic`,
@@ -299,8 +306,8 @@ export class DiscordPlayerEmbed {
       .replace(/\n/g, ' ');
   }
 
-  static async createPlayerEmbedAsync(pm, guild, currentPosition = null, client = null) {
-    const track = pm.currentTrack;
+  static async createPlayerEmbedAsync(pm, guild, currentPosition = null, client = null, trackOverride = null) {
+    const track = trackOverride || pm.currentTrack;
     const player = pm.player;
     const position = currentPosition !== null ? currentPosition : (player?.position ?? pm.position ?? 0);
     const duration = track?.info?.duration || 0;
@@ -324,19 +331,35 @@ export class DiscordPlayerEmbed {
         embed.setThumbnail(artworkUrl);
       }
 
-      const title = this.escapeMarkdown(track.info?.title || 'Unknown');
-      const artist = this.escapeMarkdown(track.info?.author || 'Unknown Artist');
+      const title = this.escapeMarkdown(track.requester?.originalTitle || track.userData?.originalTitle || track.info?.title || 'Unknown');
+      const artist = this.escapeMarkdown(track.requester?.originalAuthor || track.userData?.originalAuthor || track.info?.author || 'Unknown Artist');
       const requester = track.requester ? (track.requester.id ? `<@${track.requester.id}>` : (track.requester.username || track.requester.tag || 'Unknown')) : 'System';
 
       embed.setTitle(title);
-      embed.setURL(track.info?.uri || null);
+
+      // Resolve proper URL to display (prefer original Spotify URI if available)
+      let displayUri = track.requester?.originalUri || track.userData?.originalUri || track.info?.uri;
+      if (displayUri && (displayUri.startsWith('http') || displayUri.startsWith('https'))) {
+        embed.setURL(displayUri);
+      } else {
+        embed.setURL(null);
+      }
+
       embed.setDescription(
         `**Artist:** ${artist}\n` +
         `**Requested by:** ${requester}`
       );
 
-      const currentTime = this.formatTime(position);
-      const totalTime = isStream ? '🔴 LIVE' : this.formatTime(duration);
+      // Calculate effective timescale for duration
+      // FIX: Access filter data directly if filterManager exists
+      const fm = pm.player?.filterManager;
+      const ts = fm?.timescale || fm?.filters?.timescale || fm?.data?.timescale || {};
+      const speed = ts.speed || 1.0;
+      const rate = ts.rate || 1.0;
+      const effectiveTimescale = speed * rate;
+
+      const currentTime = this.formatTime(position / effectiveTimescale);
+      const totalTime = isStream ? '🔴 LIVE' : this.formatTime(duration / effectiveTimescale);
 
       const progressBar = await this.createAnimatedProgressBar(guild?.id, client?.emojiManager, progress, 25);
 
@@ -379,18 +402,37 @@ export class DiscordPlayerEmbed {
       const nextTracks = player.queue.tracks;
       if (nextTracks && nextTracks.length > 0) {
         const next = nextTracks[0];
+        // Ensure next track URL is also valid
+        let nextUri = next.requester?.originalUri || next.userData?.originalUri || next.info?.uri || '';
+
+        let nextValue = '';
+        if (nextUri && (nextUri.startsWith('http') || nextUri.startsWith('https'))) {
+          nextValue = `[${this.escapeMarkdown(next.info.title)}](${nextUri})`;
+        } else {
+          nextValue = `**${this.escapeMarkdown(next.info.title)}**`;
+        }
+
         embed.addFields({
           name: 'Next Up',
-          value: `[${this.escapeMarkdown(next.info.title)}](${next.info.uri})`,
+          value: nextValue,
           inline: false
         });
       }
 
-      const source = track.info?.sourceName || 'Unknown';
+      const source = track.requester?.originalSource || track.userData?.originalSource || track.info?.sourceName || 'Unknown';
+      const isSpotify = source.toLowerCase() === 'spotify' || (track.info?.uri?.includes('spotify.com'));
+
+      const footerText = isSpotify ? `SPOTIFY • TymeeMusic` : `${source.toUpperCase()} • TymeeMusic`;
+
       embed.setFooter({
-        text: `${source.toUpperCase()} • TymeeMusic`,
-        iconURL: guild?.iconURL() || undefined
+        text: footerText,
+        iconURL: isSpotify ? 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/1024px-Spotify_logo_without_text.svg.png' : (guild?.iconURL() || undefined)
       });
+
+      // If Spotify, we can also set the color to Spotify green
+      if (isSpotify) {
+        embed.setColor(0x1DB954); // Spotify Green
+      }
     } else {
       embed.setDescription(`${emojis.idle} No track is currently playing.`);
     }

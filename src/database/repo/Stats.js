@@ -118,4 +118,16 @@ export class Stats extends Database {
         const totalGuilds = this.get('SELECT COUNT(*) as count FROM guild_stats').count || 0;
         return { totalPlays, totalGuilds };
     }
+
+    clearGuildStats(guildId) {
+        try {
+            this.exec('DELETE FROM track_history WHERE guild_id = ?', [guildId]);
+            this.exec('DELETE FROM guild_stats WHERE guild_id = ?', [guildId]);
+            logger.info('StatsDB', `Cleared statistics for guild: ${guildId}`);
+            return true;
+        } catch (error) {
+            logger.error('StatsDB', `Error clearing guild stats: ${error.message}`);
+            return false;
+        }
+    }
 }

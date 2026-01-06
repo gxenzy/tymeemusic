@@ -48,6 +48,30 @@ class MusicDashboard {
     this.attachEventListeners();
     // Initialize user dropdown (includes theme selector)
     this.setupUserDropdown();
+
+    // Initialize visualizer
+    this.visualizer = new AudioVisualizer(this.visualizerCanvas);
+    if (this.visualizer) this.visualizer.updateColor(this.theme);
+
+    // Add click handler to cycle visualizer modes
+    if (this.visualizerCanvas) {
+      this.visualizerCanvas.addEventListener('click', () => {
+        this.cycleVisualizerMode();
+      });
+      this.visualizerCanvas.style.cursor = 'pointer';
+      this.visualizerCanvas.title = 'Click to change visualizer mode';
+    }
+
+    // Global click listener to close suggestions
+    document.addEventListener('click', (e) => {
+      const container = document.getElementById('searchSuggestions');
+      const input = document.getElementById('unifiedSearchInput');
+      if (container && !container.classList.contains('hidden')) {
+        if (!container.contains(e.target) && e.target !== input) {
+          container.classList.add('hidden');
+        }
+      }
+    });
     // Servers page status cache: guildId -> { active, playing, paused, queueSize, voiceChannel }
     this.serverStatusMap = new Map();
     // Auto-refresh Servers page statuses
@@ -62,6 +86,12 @@ class MusicDashboard {
     setTimeout(() => {
       this.checkAuth();
     }, 50);
+
+    // Initialize keyboard shortcuts
+    this.setupKeyboardShortcuts();
+
+    // Load track history from localStorage
+    this.loadHistoryFromStorage();
   }
   initializeElements() {
     this.authSection = document.getElementById("authSection");
@@ -95,7 +125,13 @@ class MusicDashboard {
       emojis: document.getElementById("emojisPage"),
       stats: document.getElementById("statsPage"),
       radio: document.getElementById("radioPage"),
+      search: document.getElementById("searchPage"),
+      playlistDetails: document.getElementById("playlistDetailsView"),
     };
+    // Debug check
+    Object.entries(this.pages).forEach(([name, el]) => {
+      if (!el) console.warn(`Page element not found: ${name}`);
+    });
     // Homepage Stats
     this.statServers = document.getElementById("stat-servers");
     this.statUsers = document.getElementById("stat-users");
@@ -113,7 +149,6 @@ class MusicDashboard {
     this.previousBtn = document.getElementById("previousBtn");
     this.nextBtn = document.getElementById("nextBtn");
     this.shuffleBtn = document.getElementById("shuffleBtn");
-    this.lastRealtimeAt = 0; // Fixed some duplicate IDs
     this.repeatBtn = document.getElementById("repeatBtn");
     this.volumeSlider = document.getElementById("volumeSlider");
     this.volumeValue = document.getElementById("volumeValue");
@@ -132,6 +167,8 @@ class MusicDashboard {
     this.lyricsContent = document.getElementById("lyricsContent");
     this.lyricsLangSelect = document.getElementById("lyricsLangSelect");
     this.translateLyricsBtn = document.getElementById("translateLyricsBtn");
+    this.visualizerCanvas = document.getElementById("visualizerCanvas");
+    this.idlePlayerView = document.getElementById("idlePlayerView");
   }
   async checkAuth() {
     console.log("=== FRONTEND AUTH CHECK (APP) ===");
@@ -245,6 +282,8 @@ class MusicDashboard {
     // Show only the requested page
     if (this.pages[pageName]) {
       this.pages[pageName].classList.remove("hidden");
+    } else {
+      console.error(`Page "${pageName}" not registered in this.pages!`);
     }
     // Nav visibility rule:
     // ONLY show nav if the user is logged in AND a server is selected
@@ -264,6 +303,7 @@ class MusicDashboard {
       this.loadHomePageStats();
     } else if (pageName === "playlists" && this.guildId) {
       this.loadPlaylists();
+      this.loadLikedSongsCount(); // Update system playlists counts
     } else if (pageName === "settings" && this.guildId) {
       this.loadSettings();
     } else if (pageName === "stats" && this.guildId) {
@@ -273,6 +313,8 @@ class MusicDashboard {
       this.loadEmojiMappings();
     } else if (pageName === "servers") {
       this.loadUserServers();
+    } else if (pageName === "player" && this.guildId) {
+      this.loadFilters();
     }
     // Redirect if guild is required but missing
     const pagesRequiringGuild = ["player", "queue", "playlists", "settings", "stats", "emojis", "radio"];
@@ -284,6 +326,29 @@ class MusicDashboard {
   // ============ SHARED PLAYLIST LINKS ============
   // Logged-in users only:
   // then auto-open the playlist (no random guild auto-selection).
+  filterPlaylistsDebounced() {
+    if (this.filterTimeout) clearTimeout(this.filterTimeout);
+    this.filterTimeout = setTimeout(() => {
+      this.filterPlaylists();
+    }, 300);
+  }
+
+  filterPlaylists() {
+    const query = document.getElementById("playlistsFilterInput").value.toLowerCase().trim();
+    if (!query) {
+      this.renderPlaylists(); // Reset to all
+      return;
+    }
+
+    const filtered = this.playlists.filter(p =>
+      p.name.toLowerCase().includes(query) ||
+      (p.description && p.description.toLowerCase().includes(query)) ||
+      (p.ownerName && p.ownerName.toLowerCase().includes(query))
+    );
+
+    this.renderPlaylists(filtered);
+  }
+
   async openSharedPlaylist(playlistId) {
     try {
       if (!playlistId) {
@@ -297,8 +362,9 @@ class MusicDashboard {
         return;
       }
       // Use the details endpoint which supports access checks server-side.
+      // Use the v2 endpoint
       const resp = await fetch(
-        `/api/playlists/${encodeURIComponent(playlistId)}/details`,
+        `/api/v2/playlists/${encodeURIComponent(playlistId)}`,
         {
           headers: { "X-API-Key": this.apiKey },
         },
@@ -313,7 +379,8 @@ class MusicDashboard {
         else this.showPage("servers");
         return;
       }
-      this.currentPlaylist = await resp.json();
+      const data = await resp.json();
+      this.currentPlaylist = data.playlist || data;
       this.pendingPlaylistId = null;
       // Clear the shared playlist URL param so refresh doesn't re-open it
       try {
@@ -430,6 +497,33 @@ class MusicDashboard {
             ? `<span class="server-sub">Queue: ${status.queueSize}</span>`
             : "";
         const selectedClass = this.guildId === server.id ? " selected" : "";
+        const hasBot = server.hasBot !== false; // Default true if undefined to be safe, but API returns it now
+
+        // If bot is not in guild, show Invite UI
+        if (!hasBot) {
+          return `
+            <div class="server-item server-item-invite" data-guild-id="${server.id}">
+                <div class="server-icon-wrapper grayscale">
+                    ${server.icon
+              ? `<img src="https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png?size=64" alt="${server.name}" class="server-icon">`
+              : `<div class="server-icon-placeholder">${server.name.charAt(0)}</div>`
+            }
+                </div>
+                <div class="server-meta">
+                  <div class="server-meta-top">
+                    <span class="server-name">${this.escapeHtml(server.name)}</span>
+                  </div>
+                  <div class="server-meta-bottom">
+                    <span class="server-sub error-text">Bot not added</span>
+                  </div>
+                  <div class="server-card-actions">
+                    <a href="https://discord.com/oauth2/authorize?client_id=YOUR_BOT_ID_HERE&permissions=8&scope=bot%20applications.commands" target="_blank" class="action-btn small invite-btn" onclick="event.stopPropagation()"><i class="ph ph-plus-circle"></i> Invite Bot</a>
+                  </div>
+                </div>
+            </div>
+        `;
+        }
+
         return `
             <div class="server-item${selectedClass}" data-guild-id="${server.id}">
                 ${server.icon
@@ -447,9 +541,9 @@ class MusicDashboard {
                     ${queue}
                   </div>
                   <div class="server-card-actions">
-                    <button class="action-btn small" onclick="event.stopPropagation(); dashboard.selectServerAndGo('${server.id}', 'player')" title="Open Player">🎵 Player</button>
-                    <button class="action-btn small" onclick="event.stopPropagation(); dashboard.selectServerAndGo('${server.id}', 'queue')" title="Open Queue">📋 Queue</button>
-                    <button class="action-btn small" onclick="event.stopPropagation(); dashboard.selectServerAndGo('${server.id}', 'playlists')" title="Open Playlists">📝 Playlists</button>
+                    <button class="action-btn small" onclick="event.stopPropagation(); dashboard.selectServerAndGo('${server.id}', 'player')" title="Open Player"><i class="ph ph-play-circle"></i> Player</button>
+                    <button class="action-btn small" onclick="event.stopPropagation(); dashboard.selectServerAndGo('${server.id}', 'queue')" title="Open Queue"><i class="ph ph-list-numbers"></i> Queue</button>
+                    <button class="action-btn small" onclick="event.stopPropagation(); dashboard.selectServerAndGo('${server.id}', 'playlists')" title="Open Playlists"><i class="ph ph-music-notes"></i> Playlists</button>
                   </div>
                 </div>
             </div>
@@ -648,6 +742,18 @@ class MusicDashboard {
     this.updateQueueUI();
     // Route Servers navigation through the unified page router
     this.showPage("servers");
+
+    // Aggressive visibility fix:
+    const serverSelector = document.getElementById("serverSelector");
+    if (serverSelector) {
+      serverSelector.classList.remove("hidden");
+      serverSelector.style.display = "block";
+    }
+    // Hide main content explicitly if needed
+    document.querySelectorAll(".page").forEach(p => {
+      if (p.id !== 'serverSelector') p.classList.add("hidden");
+    });
+
     return;
   }
   attachEventListeners() {
@@ -663,7 +769,11 @@ class MusicDashboard {
       window.location.href = "/auth/logout";
     });
     document.querySelectorAll(".nav-btn").forEach((btn) => {
-      btn.addEventListener("click", () => this.showPage(btn.dataset.page));
+      btn.addEventListener("click", () => {
+        if (btn.dataset.page) {
+          this.showPage(btn.dataset.page);
+        }
+      });
     });
     this.playPauseBtn.addEventListener("click", () => this.togglePlayPause());
     this.previousBtn.addEventListener("click", () => this.previous());
@@ -695,6 +805,8 @@ class MusicDashboard {
       .getElementById("clearQueueBtn")
       ?.addEventListener("click", () => this.clearQueue());
     // Playlist event listeners
+    // Note: addToPlaylistBtn onclick is defined in HTML calling openAddToPlaylistModal()
+
     document
       .getElementById("createPlaylistBtn")
       ?.addEventListener("click", () => this.openCreatePlaylistModal());
@@ -904,26 +1016,42 @@ class MusicDashboard {
     this.socket.on("player:state", (payload) => {
       if (this.guildId !== intendedGuildId) return;
       this.lastRealtimeAt = Date.now();
+
+      console.log("player:state received:", payload);
+
       // Normalize to the existing UI expectations where possible
-      // payload: { isPlaying, isPaused, volume, position, currentTrack, repeat, shuffle, queue }
       const normalized = {
         isPlaying: Boolean(payload?.isPlaying),
         isPaused: Boolean(payload?.isPaused),
-        volume: payload?.volume,
+        isConnected: Boolean(payload?.isConnected ?? (payload?.voiceChannel || payload?.currentTrack)),
+        volume: payload?.volume ?? 100,
         position: payload?.position ?? 0,
         currentTrack: payload?.currentTrack || null,
-        repeat: payload?.repeat,
+        repeatMode: payload?.repeatMode || payload?.repeat || "off",
         shuffle: payload?.shuffle,
+        activeFilterName: payload?.activeFilterName || null,
+        queueSize: payload?.queueSize ?? 0,
+        voiceChannel: payload?.voiceChannel || null,
+        guildName: payload?.guildName || this.playerState?.guildName || "",
       };
+
       this.playerState = normalized;
+
       // Snapshot-based timekeeping (prevents stuck 0:00 when realtime pauses)
       this.positionAtSnapshotMs = Number(normalized.position || 0);
       this.snapshotReceivedAtMs = Date.now();
+
       // Queue is delivered with the snapshot
       this.queue = Array.isArray(payload?.queue) ? payload.queue : [];
       this.updateQueueUI();
-      // Start local ticking using snapshot base
-      this.startPositionUpdates();
+
+      // Start/stop local ticking based on state
+      if (normalized.isPlaying && !normalized.isPaused && normalized.currentTrack) {
+        this.startPositionUpdates();
+      } else {
+        this.stopPositionUpdates();
+      }
+
       this.updateUI();
       // If we were hydrating, consider it done once we receive the authoritative socket snapshot
       this.setHydratingState(false);
@@ -951,6 +1079,59 @@ class MusicDashboard {
     });
     this.socket.on("error", (evt) => {
       console.warn("Socket.IO server error event:", evt);
+    });
+
+    // Handle 'player:state' - this is what the server actually sends via Socket.IO mapping
+    this.socket.on("player:state", (evt) => {
+      if (this.guildId !== intendedGuildId) return;
+      this.lastRealtimeAt = Date.now();
+
+      const payload = evt?.data || evt;
+      console.log("state_update received:", payload);
+
+      // Normalize to the existing UI expectations
+      const normalized = {
+        isPlaying: Boolean(payload?.isPlaying),
+        isPaused: Boolean(payload?.isPaused),
+        isConnected: Boolean(payload?.isConnected),
+        volume: payload?.volume ?? 100,
+        position: payload?.position ?? 0,
+        currentTrack: payload?.currentTrack || null,
+        repeatMode: payload?.repeatMode || "off",
+        shuffle: payload?.shuffle,
+        activeFilterName: payload?.activeFilterName || null,
+        timescale: payload?.timescale || payload?.filters?.timescale || 1.0,
+        queueSize: payload?.queueSize ?? 0,
+        voiceChannel: payload?.voiceChannel || null,
+        guildName: payload?.guildName || this.playerState?.guildName || "",
+      };
+
+      console.log(`[DEBUG] player:state Normalized Timescale: ${normalized.timescale}`);
+      console.log(`[DEBUG] player:state Payload Timescale: ${payload?.timescale}`);
+      console.log(`[DEBUG] player:state Payload Filters.Timescale: ${payload?.filters?.timescale}`);
+
+      this.playerState = normalized;
+
+      // Update snapshot-based timekeeping
+      this.positionAtSnapshotMs = Number(normalized.position || 0);
+      this.snapshotReceivedAtMs = Date.now();
+
+      // Queue update if included
+      if (Array.isArray(payload?.queue)) {
+        this.queue = payload.queue;
+        this.updateQueueUI();
+      }
+
+      // Start/stop position updates based on playing state
+      if (normalized.isPlaying && !normalized.isPaused && normalized.currentTrack) {
+        this.startPositionUpdates();
+      } else {
+        this.stopPositionUpdates();
+      }
+
+      this.updateUI();
+      this.setHydratingState(false);
+      this.stopPolling();
     });
 
     // ============ PERMISSION SYSTEM WEBSOCKET HANDLERS ============
@@ -1001,6 +1182,39 @@ class MusicDashboard {
       this.pollWatchdogInterval = null;
     }
   }
+
+  /**
+   * Compute the current playback position based on snapshot + elapsed time.
+   * Takes timescale (speed) into account for accurate progress when filters are active.
+   */
+  get computedPosition() {
+    // If scrubbing, return the scrub position for instant UI feedback
+    if (this.isScrubbing && this.scrubDesiredPositionMs !== null) {
+      return this.scrubDesiredPositionMs;
+    }
+
+    // If paused or not playing, return the static position
+    if (!this.playerState?.isPlaying || this.playerState?.isPaused) {
+      return this.positionAtSnapshotMs || this.playerState?.position || 0;
+    }
+
+    // Calculate elapsed time since last snapshot
+    const elapsedMs = Date.now() - (this.snapshotReceivedAtMs || Date.now());
+
+    // Get timescale (playback speed) - default to 1.0
+    const timescale = this.playerState?.timescale || 1.0;
+
+    // Apply timescale to elapsed time for accurate speed-adjusted position
+    const adjustedElapsed = elapsedMs * timescale;
+
+    // Compute current position
+    const computed = (this.positionAtSnapshotMs || 0) + adjustedElapsed;
+
+    // Clamp to track duration if available
+    const duration = this.playerState?.currentTrack?.duration || Infinity;
+    return Math.min(computed, duration);
+  }
+
   startPolling() {
     if (this.pollInterval) return;
     this.pollInterval = setInterval(() => {
@@ -1032,8 +1246,21 @@ class MusicDashboard {
         this.snapshotReceivedAtMs = Date.now();
         this.updateUI();
       } else {
-        const error = await response.json();
-        console.error("Error loading player state:", error);
+        if (response.status === 404) {
+          console.warn("No player found (404). Resetting UI.");
+          this.playerState = {
+            isPlaying: false,
+            isPaused: false,
+            isConnected: false,
+            currentTrack: null,
+            position: 0,
+            duration: 0
+          };
+          this.updateUI();
+        } else {
+          const error = await response.json();
+          console.error("Error loading player state:", error);
+        }
       }
     } catch (error) {
       console.error("Error loading player state:", error);
@@ -1067,27 +1294,46 @@ class MusicDashboard {
       currentTrack,
       isPlaying,
       isPaused,
-      volume,
+      volume = 100,
       repeatMode,
       position,
       guildName,
+      activeFilterName,
     } = this.playerState;
     if (currentTrack) {
-      this.trackTitle.textContent = currentTrack.title;
-      this.trackArtist.textContent = currentTrack.author;
-      if (currentTrack.artworkUrl) {
-        this.albumArt.src = currentTrack.artworkUrl;
-        this.albumArt.classList.remove("hidden");
-        this.noArtwork.classList.add("hidden");
+      const displayTitle = currentTrack.requester?.originalTitle || currentTrack.userData?.originalTitle || currentTrack.title;
+      const displayAuthor = currentTrack.requester?.originalAuthor || currentTrack.userData?.originalAuthor || currentTrack.author;
+
+      this.trackTitle.textContent = displayTitle;
+      this.trackArtist.textContent = displayAuthor;
+
+      const artwork = this.resolveArtwork(currentTrack);
+      this.albumArt.src = artwork;
+      this.albumArt.classList.remove("hidden");
+      this.noArtwork.classList.add("hidden");
+
+      // Hide idle view when playing
+      if (this.idlePlayerView) this.idlePlayerView.classList.add("hidden");
+
+      // Enable ticker if playing, disable if paused
+      if (isPlaying && !isPaused) {
+        this.startPositionUpdates();
       } else {
-        this.albumArt.classList.add("hidden");
-        this.noArtwork.classList.remove("hidden");
+        this.stopPositionUpdates();
       }
     } else {
-      this.trackTitle.textContent = "No track playing";
-      this.trackArtist.textContent = "Unknown Artist";
+      this.trackTitle.textContent = "Not Playing";
+      this.trackArtist.textContent = "-";
+      this.albumArt.src = "";
       this.albumArt.classList.add("hidden");
       this.noArtwork.classList.remove("hidden");
+      this.progressFill.style.width = "0%";
+      this.currentTime.textContent = "0:00";
+      this.totalTime.textContent = "0:00";
+      this.stopPositionUpdates();
+
+      // Show idle view when not playing
+      if (this.idlePlayerView) this.idlePlayerView.classList.remove("hidden");
     }
     this.guildName.textContent = guildName || "";
     // Use mapped emojis for controls (render custom emojis as <img> when available)
@@ -1095,6 +1341,11 @@ class MusicDashboard {
       isPlaying && !isPaused
         ? this.getEmojiHtml("pause")
         : this.getEmojiHtml("play");
+
+    // Update visualizer state
+    if (this.visualizer) {
+      this.visualizer.setState(isPlaying && !isPaused);
+    }
     // Repeat button active state + icon based on mode
     this.repeatBtn.classList.toggle(
       "active",
@@ -1112,34 +1363,84 @@ class MusicDashboard {
     this.volumeIcon.innerHTML = this.getEmojiHtml(volKey);
     // Update status bar
     if (this.connectionStatus && this.statusText) {
-      // Robust connection check: explicitly connected OR has voice channel OR has active track/queue
-      const isConnected =
-        this.playerState.isConnected ||
-        !!this.playerState.voiceChannel?.id ||
-        (Array.isArray(this.queue) && this.queue.length > 0) ||
-        !!currentTrack;
+      const isConnected = this.playerState.isConnected === true;
+      const displayTitle = currentTrack ? (currentTrack.requester?.originalTitle || currentTrack.userData?.originalTitle || currentTrack.title) : "Music";
+      let newText = "";
 
-      if (isConnected) {
+      if (isConnected && currentTrack) {
         this.connectionStatus.classList.remove("error", "disconnected");
         this.connectionStatus.classList.add("success", "connected");
 
-        // Detailed status text
         if (isPlaying && !isPaused) {
-          this.statusText.textContent = `🟢 Playing: ${currentTrack?.title || "Music"}`;
+          newText = `🟢 Playing: ${displayTitle}`;
         } else if (isPaused) {
-          this.statusText.textContent = "🟠 Paused";
+          newText = "🟠 Paused";
         } else {
-          this.statusText.textContent = "🟢 Connected";
+          newText = "🟢 Ready to play";
         }
+      } else if (isConnected) {
+        this.connectionStatus.classList.remove("error", "disconnected");
+        this.connectionStatus.classList.add("success", "connected");
+        newText = "🟢 Ready to play";
       } else {
-        this.connectionStatus.classList.remove("success", "connected");
-        this.connectionStatus.classList.add("error", "disconnected");
-        this.statusText.textContent = "🔴 Disconnected";
+        this.connectionStatus.classList.add("disconnected");
+        this.connectionStatus.classList.remove("connected", "success");
+        newText = "🔴 Disconnected / Idle";
+        this.trackTitle.textContent = "Not Playing";
+        this.trackArtist.textContent = "-";
+        this.albumArt.classList.add("hidden");
+        this.noArtwork.classList.remove("hidden");
+        this.stopPositionUpdates();
+      }
+
+      if (this.statusText.textContent !== newText) {
+        this.statusText.classList.add("status-updating");
+        setTimeout(() => {
+          this.statusText.textContent = newText;
+          this.statusText.classList.remove("status-updating");
+        }, 300);
       }
     }
     this.updateProgress();
     this.updateSleepTimerUI();
+
+    // Update visualizer state based on playback
+    if (this.visualizer) {
+      this.visualizer.setState(isPlaying && !isPaused);
+    }
+
+    // Update like button state when track changes
+    if (currentTrack && this._lastTrackIdForLike !== (currentTrack.identifier || currentTrack.uri)) {
+      this._lastTrackIdForLike = currentTrack.identifier || currentTrack.uri;
+      this.updateLikeButtonState();
+
+      // Add to track history when track changes
+      this.addToHistory(currentTrack);
+    }
+
+    // Update filter UI if active filter changed and we're on player page
+    if (this.currentPage === "player" && this.lastRenderedFilterName !== activeFilterName) {
+      if (this.renderFilters(this.availableFilters, this.activeFilters, activeFilterName)) {
+        this.lastRenderedFilterName = activeFilterName;
+      }
+    }
   }
+  // --- Local Position Ticker (for smooth UI) ---
+  startPositionUpdates() {
+    if (this.positionUpdateInterval) return;
+    // Update progress bar every 200ms for smooth movement
+    this.positionUpdateInterval = setInterval(() => {
+      this.updateProgress();
+    }, 200);
+  }
+
+  stopPositionUpdates() {
+    if (this.positionUpdateInterval) {
+      clearInterval(this.positionUpdateInterval);
+      this.positionUpdateInterval = null;
+    }
+  }
+
   updateSleepTimerUI() {
     if (!this.sleepTimerStatus) return;
     if (this.playerState?.sleepEnd) {
@@ -1150,6 +1451,7 @@ class MusicDashboard {
         this.sleepTimerStatus.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
         this.sleepTimerBtn.classList.add("active");
         if (!this.sleepTimerInterval) {
+
           this.sleepTimerInterval = setInterval(() => this.updateSleepTimerUI(), 1000);
         }
       } else {
@@ -1190,13 +1492,13 @@ class MusicDashboard {
       });
       const data = await response.json();
       if (data.error) {
-        this.lyricsContent.textContent = `❌ ${data.error}`;
+        this.lyricsContent.innerHTML = `<i class="ph ph-x-circle"></i> ${data.error}`;
       } else {
         this.lyricsTitle.textContent = `${data.title} - ${data.artist}`;
         this.lyricsContent.textContent = data.text || data.lyrics || "No lyrics content found.";
       }
     } catch (err) {
-      this.lyricsContent.textContent = "❌ Failed to load lyrics.";
+      this.lyricsContent.innerHTML = '<i class="ph ph-x-circle"></i> Failed to load lyrics.';
     }
   }
   async translateLyrics() {
@@ -1218,22 +1520,38 @@ class MusicDashboard {
         // We could swap the content or append it. Let's swap for now but maybe keep original in a hidden area?
         // Benefit of swapping: simpler UI.
         this.lyricsContent.textContent = data.translated;
-        this.showToast(`✅ Translated to ${this.lyricsLangSelect.options[this.lyricsLangSelect.selectedIndex].text}`);
+        this.showToast(`Translated to ${this.lyricsLangSelect.options[this.lyricsLangSelect.selectedIndex].text}`);
       } else if (data.error) {
-        this.showToast(`❌ Translation error: ${data.error}`, "error");
+        this.showToast(`Translation error: ${data.error}`, "error");
       }
     } catch (err) {
       console.error("Translation failed:", err);
-      this.showToast("❌ Failed to translate lyrics.", "error");
+      this.showToast("Failed to translate lyrics.", "error");
     } finally {
       this.translateLyricsBtn.disabled = false;
-      this.translateLyricsBtn.textContent = "🌐 Translate";
+      this.translateLyricsBtn.innerHTML = '<i class="ph ph-globe"></i> Translate';
     }
   }
   closeModal(id) {
     const modal = document.getElementById(id);
     if (modal) modal.classList.add("hidden");
   }
+
+  formatTime(ms) {
+    if (!ms || isNaN(ms) || ms < 0) return "0:00";
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const hours = Math.floor(minutes / 60);
+    const displayMinutes = minutes % 60;
+
+    if (hours > 0) {
+      return `${hours}:${displayMinutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    }
+    return `${displayMinutes}:${seconds.toString().padStart(2, "0")}`;
+  }
+
+
   updateProgress() {
     // Always render based on the real DOM element (#progressFill) and
     // the latest playerState values. This prevents “stuck at 0:00” UI
@@ -1247,14 +1565,37 @@ class MusicDashboard {
     }
     const duration = Number(currentTrack.duration || 0);
     const isStream = Boolean(currentTrack.isStream);
-    let position = Number(this.playerState?.position || 0);
+    let position = Number(this.computedPosition || 0);
     if (!isStream && duration > 0) {
       // Clamp position to sane range
       position = Math.max(0, Math.min(position, duration));
+      const timescale = this.playerState?.timescale || 1.0;
+      // For the progress bar width, we compare "virtual" position vs original duration
+      // (because computedPosition returns the position within the source file).
       const progress = (position / duration) * 100;
       this.progressFill.style.width = `${progress}%`;
-      this.currentTime.textContent = this.formatTime(position);
-      this.totalTime.textContent = this.formatTime(duration);
+
+      // For the text display, the user wants "real time", so we adjust by the speed.
+      // e.g. Nightcore (1.5x) -> Track finishes faster -> Show shorter duration.
+      this.currentTime.textContent = this.formatTime(position / timescale);
+      this.totalTime.textContent = this.formatTime(duration / timescale);
+
+      // Add visual speed indicator if speed is not 1.0
+      const speedIndicator = document.getElementById("speedIndicator");
+      if (Math.abs(timescale - 1.0) > 0.01) {
+        if (!speedIndicator) {
+          const span = document.createElement("span");
+          span.id = "speedIndicator";
+          span.className = "text-xs text-muted ml-1";
+          this.totalTime.parentNode.appendChild(span);
+          span.textContent = `(${timescale.toFixed(2)}x)`;
+        } else {
+          speedIndicator.textContent = `(${timescale.toFixed(2)}x)`;
+          speedIndicator.classList.remove("hidden");
+        }
+      } else if (speedIndicator) {
+        speedIndicator.classList.add("hidden");
+      }
       return;
     }
     // Streams / unknown duration
@@ -1269,30 +1610,213 @@ class MusicDashboard {
         '<p class="empty-queue">No tracks in queue</p>';
       return;
     }
+
     this.queueList.innerHTML = this.queue
       .map(
-        (track, index) => `
-            <div class="queue-item" data-position="${index + 1}">
-                ${track.artworkUrl
-            ? `<img src="${track.artworkUrl}" alt="${track.title}" class="queue-item-artwork">`
-            : '<div class="queue-item-artwork-placeholder">♪</div>'
-          }
+        (track, index) => {
+          const artwork = this.resolveArtwork(track);
+          return `
+            <div class="queue-item" data-index="${index}" draggable="true">
+                <span class="queue-item-drag-handle" title="Drag to reorder"><i class="ph ph-dots-six-vertical"></i></span>
+                ${artwork
+              ? `<img src="${artwork}" alt="${this.escapeHtml(track.title)}" class="queue-item-artwork">`
+              : '<div class="queue-item-artwork-placeholder"><i class="ph ph-music-note"></i></div>'
+            }
                 <div class="queue-item-info">
-                    <div class="queue-item-title">${this.escapeHtml(track.title)}</div>
-                    <div class="queue-item-artist">${this.escapeHtml(track.author || "Unknown")}</div>
+                    <div class="queue-item-title">${this.escapeHtml(track.requester?.originalTitle || track.userData?.originalTitle || track.title)}</div>
+                    <div class="queue-item-artist">${this.escapeHtml(track.requester?.originalAuthor || track.userData?.originalAuthor || track.author || "Unknown")}</div>
                 </div>
                 <div class="queue-item-duration">${this.formatTime(track.duration)}</div>
-                <button class="queue-item-remove" data-index="${index}">❌</button>
+                <button class="queue-item-remove" data-index="${index}" title="Remove from queue"><i class="ph ph-x"></i></button>
             </div>
-        `,
+        `;
+        }
       )
       .join("");
+
+    // Setup remove buttons
     this.queueList.querySelectorAll(".queue-item-remove").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         this.removeFromQueue(parseInt(btn.dataset.index));
       });
     });
+
+    // Setup drag and drop
+    this.setupQueueDragAndDrop();
+  }
+
+  setupQueueDragAndDrop() {
+    const queueItems = this.queueList.querySelectorAll('.queue-item[draggable="true"]');
+    let draggedItem = null;
+    let draggedIndex = -1;
+
+    queueItems.forEach((item) => {
+      item.addEventListener('dragstart', (e) => {
+        draggedItem = item;
+        draggedIndex = parseInt(item.dataset.index);
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedIndex);
+      });
+
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        queueItems.forEach(i => {
+          i.classList.remove('drag-over');
+          i.classList.remove('drag-over-bottom');
+        });
+        draggedItem = null;
+        draggedIndex = -1;
+      });
+
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (!draggedItem || draggedItem === item) return;
+
+        const rect = item.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+
+        queueItems.forEach(i => {
+          i.classList.remove('drag-over');
+          i.classList.remove('drag-over-bottom');
+        });
+
+        if (e.clientY < midY) {
+          item.classList.add('drag-over');
+        } else {
+          item.classList.add('drag-over-bottom');
+        }
+      });
+
+      item.addEventListener('dragleave', () => {
+        item.classList.remove('drag-over');
+        item.classList.remove('drag-over-bottom');
+      });
+
+      item.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        if (!draggedItem || draggedItem === item) return;
+
+        const fromIndex = draggedIndex;
+        let toIndex = parseInt(item.dataset.index);
+
+        const rect = item.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (e.clientY > midY && toIndex < this.queue.length - 1) {
+          toIndex++;
+        }
+
+        // Adjust for the removal of the dragged item
+        if (fromIndex < toIndex) {
+          toIndex--;
+        }
+
+        if (fromIndex !== toIndex) {
+          await this.moveQueueTrack(fromIndex, toIndex);
+        }
+
+        queueItems.forEach(i => {
+          i.classList.remove('drag-over');
+          i.classList.remove('drag-over-bottom');
+        });
+      });
+    });
+  }
+
+  async moveQueueTrack(from, to) {
+    if (!await this.ensurePermission("reorder queue")) return;
+
+    try {
+      const response = await this.apiCall("POST", `/api/queue/${this.guildId}/move`, { from, to });
+      if (response && response.success) {
+        this.showToast("Track moved");
+      }
+    } catch (error) {
+      console.error("Error moving track:", error);
+      this.showToast("Failed to move track", "error");
+    }
+    await this.loadQueue();
+  }
+
+  async shuffleQueue() {
+    if (!await this.ensurePermission("shuffle queue")) return;
+    await this.apiCall("POST", `/api/queue/${this.guildId}/shuffle`);
+    this.showToast("🔀 Queue shuffled");
+    await this.loadQueue();
+  }
+
+  async clearQueue() {
+    if (!await this.ensurePermission("clear queue")) return;
+
+    this.showConfirmModal("Clear Queue", "Are you sure you want to clear the entire queue?", async () => {
+      await this.apiCall("DELETE", `/api/queue/${this.guildId}`);
+      this.showToast("🗑️ Queue cleared");
+      await this.loadQueue();
+    });
+  }
+
+  async saveQueueToPlaylist() {
+    if (!this.queue || this.queue.length === 0) {
+      this.showToast("❌ Queue is empty", "error");
+      return;
+    }
+
+    const playlistName = prompt("Enter a name for your new playlist:", `My Queue - ${new Date().toLocaleDateString()}`);
+    if (!playlistName || !playlistName.trim()) {
+      return;
+    }
+
+    // Get user ID
+    const userId = this.getUserId();
+    if (!userId) {
+      this.showToast("❌ Please log in to create playlists", "error");
+      return;
+    }
+
+    try {
+      this.showToast("💾 Creating playlist from queue...");
+
+      // Use v2 API to import queue directly
+      const response = await fetch(`/api/v2/playlists/import/queue`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": this.apiKey
+        },
+        body: JSON.stringify({
+          guildId: this.guildId,
+          name: playlistName.trim(),
+          localUserId: userId
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        this.showToast(`✅ Playlist "${playlistName}" created with ${data.imported || 0} tracks!`, "success");
+
+        // Refresh playlists if on playlists page
+        if (this.currentPage === "playlists") {
+          await this.loadPlaylists();
+        }
+      } else {
+        const error = await response.json();
+        this.showToast(`❌ ${error.error || "Failed to create playlist"}`, "error");
+      }
+    } catch (error) {
+      console.error("Error saving queue to playlist:", error);
+      this.showToast("❌ Failed to save queue", "error");
+    }
+  }
+  async shuffleQueue() {
+    if (!await this.ensurePermission("shuffle queue")) return;
+    await this.apiCall("POST", `/api/queue/${this.guildId}/shuffle`);
+    await this.loadQueue();
+  }
+  async clearQueue() {
+    if (!await this.ensurePermission("clear queue")) return;
+    await this.apiCall("DELETE", `/api/queue/${this.guildId}`);
+    await this.loadQueue();
   }
   async removeFromQueue(index) {
     if (!await this.ensurePermission("remove from queue")) return;
@@ -1326,16 +1850,8 @@ class MusicDashboard {
         this.updateProgress();
         return;
       }
-      // Compute position from snapshot baseline (prevents drift + "stuck at 0:00")
-      const now = Date.now();
-      const elapsed = Math.max(0, now - (this.snapshotReceivedAtMs || now));
-      const base = Number(this.positionAtSnapshotMs || 0);
-      let computed = base + elapsed;
-      // Clamp at duration.
-      const duration = Number(this.playerState.currentTrack.duration || 0);
-      if (duration > 0 && computed > duration) computed = duration;
       // Write computed position back so updateProgress uses it consistently.
-      this.playerState.position = computed;
+      this.playerState.position = this.computedPosition;
       this.updateProgress();
     }, 250);
   }
@@ -1530,11 +2046,14 @@ class MusicDashboard {
     const ownerName = perm.sessionOwner?.tag || "the session owner";
     this.showToast(`🔒 Permission required from ${ownerName}`, "error");
 
-    // Show overlay or prompt
-    // For now, simpler prompt
-    if (confirm(`This session is owned by ${ownerName}. Do you want to request permission to control the player?`)) {
-      this.requestPlayerPermission(action);
-    }
+    // Show custom modal
+    this.showConfirmModal(
+      "Permission Required",
+      `This session is owned by ${ownerName}. Do you want to request permission to control the player?`,
+      () => {
+        this.requestPlayerPermission(action);
+      }
+    );
     return false;
   }
 
@@ -1556,11 +2075,21 @@ class MusicDashboard {
     await this.apiCall("POST", `/api/player/${this.guildId}/shuffle`);
   }
   async toggleRepeat() {
+    if (!this.guildId) {
+      this.showToast('Please select a server first', 'error');
+      return;
+    }
     if (!await this.ensurePermission("change loop mode")) return;
-    const modes = ["none", "track", "queue"];
-    const currentMode = this.playerState?.repeatMode || "none";
+    const modes = ["off", "track", "queue"];
+    // Map 'none' to 'off' for compatibility
+    let currentMode = this.playerState?.repeatMode || "off";
+    if (currentMode === "none") currentMode = "off";
+
     const currentIndex = modes.indexOf(currentMode);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
+    // Safety check if mode is unknown
+    const baseIndex = currentIndex === -1 ? 0 : currentIndex;
+    const nextMode = modes[(baseIndex + 1) % modes.length];
+
     await this.apiCall("POST", `/api/player/${this.guildId}/loop`, {
       mode: nextMode,
     });
@@ -1582,21 +2111,8 @@ class MusicDashboard {
       volume: parseInt(volume),
     });
   }
-  async shuffleQueue() {
-    if (!await this.ensurePermission("shuffle queue")) return;
-    await this.apiCall("POST", `/api/queue/${this.guildId}/shuffle`);
-    await this.loadQueue();
-  }
-  async clearQueue() {
-    if (!await this.ensurePermission("clear queue")) return;
-    await this.apiCall("POST", `/api/queue/${this.guildId}/clear`);
-    await this.loadQueue();
-  }
-  async removeFromQueue(index) {
-    if (!await this.ensurePermission("remove from queue")) return;
-    await this.apiCall("DELETE", `/api/queue/${this.guildId}/${index}`);
-    await this.loadQueue();
-  }
+
+
   async apiCall(method, url, body = null) {
     try {
       const options = {
@@ -1608,11 +2124,25 @@ class MusicDashboard {
       };
       if (body) options.body = JSON.stringify(body);
       const response = await fetch(url, options);
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || `Request failed: ${response.status}`);
+
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        // If not OK, use text as error message; otherwise we can't parse success data
+        if (!response.ok) {
+          throw new Error(text || `Request failed: ${response.status}`);
+        }
+        // If OK but not JSON, just return empty object or text
+        return { success: true, message: text };
       }
-      return await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Request failed: ${response.status}`);
+      }
+      return data;
     } catch (error) {
       console.error("API Call failed:", error);
       this.showToast("❌ " + error.message);
@@ -1621,6 +2151,8 @@ class MusicDashboard {
   }
   async startRadio(station) {
     if (!this.guildId) return alert("Please select a server first");
+
+    let url = "";
     const stations = {
       lofi: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
       rock: "https://www.youtube.com/watch?v=hTWKbfoikeg",
@@ -1631,13 +2163,71 @@ class MusicDashboard {
       gaming: "https://www.youtube.com/watch?v=BTYAsjAVa3I",
       kpop: "https://www.youtube.com/playlist?list=PL4fGSI1pDJn6jWqs706AuE3k58W_LToGO"
     };
-    const url = stations[station];
+
+    if (station === "personalized") {
+      if (!this.trackHistory || this.trackHistory.length === 0) {
+        this.showToast("📻 Play some songs first to unlock your personalized mix!", "info");
+        return;
+      }
+
+      // Find most frequent artist in history
+      const artists = this.trackHistory
+        .map(t => t.author)
+        .filter(a => a && a !== "Unknown");
+
+      if (artists.length === 0) {
+        this.showToast("📻 Not enough history for a personalized mix yet.", "info");
+        return;
+      }
+
+      const frequency = {};
+      let maxFreq = 0;
+      let topArtist = "";
+
+      artists.forEach(a => {
+        frequency[a] = (frequency[a] || 0) + 1;
+        if (frequency[a] > maxFreq) {
+          maxFreq = frequency[a];
+          topArtist = a;
+        }
+      });
+
+      this.showToast(`📻 Crafting a mix based on your love for ${topArtist}...`);
+
+      // Use new Radio API
+      await this.playRadio('artist', topArtist);
+      return;
+    } else {
+      // url = stations[station]; // Legacy URL approach
+      // Use new Radio API "mixed" which falls back to random if no seed, 
+      // OR we can implement specific genre radios in the backend later.
+      // For now, let's map these simple stations to 'mixed' with a seed if possible
+      // or just treat them as play queries if they are URLs.
+
+      url = stations[station];
+
+      if (url) {
+        // If it's a direct URL, just play it using standard play endpoint
+        await this.apiCall("POST", `/api/player/${this.guildId}/play`, {
+          query: url,
+          source: 'ytsearch'
+        });
+        this.showPage("player");
+        this.showToast(`📻 Starting ${station} radio...`);
+        return;
+      }
+    }
+
     if (!url) return;
-    await this.apiCall("POST", `/api/player/${this.guildId}/play`, {
-      query: url
-    });
-    this.showPage("playerPage");
-    this.showToast(`📻 Starting ${station} radio...`);
+    url = stations[station];
+    // Legacy fallback if code reaches here (shouldn't for handled cases)
+    if (url) {
+      await this.apiCall("POST", `/api/player/${this.guildId}/play`, {
+        query: url
+      });
+      this.showPage("player");
+      this.showToast(`📻 Starting ${station} radio...`);
+    }
   }
   // Placeholder for consolidated emoji logic to follow
   async loadServerEmojis() {
@@ -1933,11 +2523,20 @@ class MusicDashboard {
   }
 
   getEmojiHtml(botName) {
-    const mapping = this.emojiMap?.get(botName) || this.emojiMappings?.find(m => (m.bot_name || m.botName) === botName);
-    if (mapping && (mapping.emoji_id || mapping.emojiId)) {
-      return `<img src="${mapping.emoji_url || mapping.emojiUrl}" alt="${botName}" style="width: 20px; height: 20px; vertical-align: middle;">`;
+    if (!botName) return "❓";
+    // 1. Try direct map (usually for custom Discord emojis)
+    const mapped = this.emojiMap?.get(botName);
+    if (mapped && mapped.emoji_url && mapped.emoji_id) {
+      const alt = mapped.discord_name || mapped.bot_name || botName;
+      return `<img class="ui-emoji" src="${mapped.emoji_url}" alt="${this.escapeHtml(alt)}" />`;
     }
-    return mapping ? (mapping.fallback || mapping.emojiName || "❓") : "❓";
+    // 2. Try array find (backup)
+    const found = this.emojiMappings?.find(m => (m.bot_name || m.botName) === botName);
+    if (found && (found.emoji_url || found.emojiUrl)) {
+      return `<img class="ui-emoji" src="${found.emoji_url || found.emojiUrl}" alt="${botName}" />`;
+    }
+    // 3. Fallback to text emoji
+    return this.escapeHtml(this.getEmojiText(botName));
   }
   renderEmojiMappings(category) {
     let mappings = this.emojiMappings || [];
@@ -2148,18 +2747,18 @@ class MusicDashboard {
       if (response.ok) {
         const result = await response.json();
         this.showToast(
-          `✅ Sync complete! ${result.synced} mapped, ${result.skipped} skipped.`,
+          `Sync complete! ${result.synced} mapped, ${result.skipped} skipped.`,
         );
         this.closeSyncPreview();
         await this.loadEmojiMappings();
         await this.loadServerEmojis();
       } else {
         const error = await response.json();
-        this.showToast(`❌ Sync failed: ${error.error || "Unknown error"}`, "error");
+        this.showToast(`Sync failed: ${error.error || "Unknown error"}`, "error");
       }
     } catch (error) {
       console.error("Error syncing emojis:", error);
-      this.showToast("❌ Error syncing emojis: " + error.message, "error");
+      this.showToast("Error syncing emojis: " + error.message, "error");
     }
   }
 
@@ -2187,15 +2786,15 @@ class MusicDashboard {
       });
 
       if (response.ok) {
-        this.showToast("✅ Server emojis synced!");
+        this.showToast("Server emojis synced!");
         await this.loadServerEmojis();
       } else {
         const err = await response.json();
-        this.showToast("❌ " + (err.error || "Sync failed"), "error");
+        this.showToast((err.error || "Sync failed"), "error");
       }
     } catch (e) {
       console.error(e);
-      this.showToast("❌ Network error", "error");
+      this.showToast("Network error", "error");
     } finally {
       btn.textContent = original;
       btn.disabled = false;
@@ -2308,87 +2907,149 @@ class MusicDashboard {
         '<p class="error">Failed to load statistics</p>';
     }
   }
-  // ============ PLAYLIST FUNCTIONS ============
+  // ============ PLAYLIST FUNCTIONS (v2.0) ============
+
+  getUserId() {
+    return localStorage.getItem("dashboard_user_id") || this.user?.id || this.user?.userId || this.user?._id;
+  }
+
   async loadPlaylists() {
+    // Cancel previous fetch
+    if (this.playlistsAbortController) {
+      this.playlistsAbortController.abort();
+    }
+    this.playlistsAbortController = new AbortController();
+    const signal = this.playlistsAbortController.signal;
+
     const container = document.getElementById("playlistsList");
-    container.innerHTML = `
-        <div class="loading-state">
-            <div class="spinner-small"></div>
-            <p>Loading playlists...</p>
-        </div>
-    `;
-    // Get userId from localStorage (stored by inline auth script)
+    // Show loading if we don't have playlists cached or switch implies it?
+    // We'll show a loading spinner only if we don't have data, effectively.
+    if (!this.playlists || this.playlists.length === 0) {
+      container.innerHTML = `
+            <div class="loading-state">
+                <div class="spinner-small"></div>
+                <p>Loading playlists...</p>
+            </div>
+        `;
+    }
+
+    // Get userId
     let userId = localStorage.getItem("dashboard_user_id");
-    // Also try this.user object
     if (!userId) {
-      userId =
-        this.user?.id ||
-        this.user?.discordId ||
-        this.user?.userId ||
-        this.user?._id;
+      userId = this.user?.id || this.user?.discordId || this.user?.userId || this.user?._id;
     }
-    if (!userId && this.user) {
-      userId = this.user.id || this.user.discordId;
-    }
-    console.log(
-      "loadPlaylists - userId:",
-      userId,
-      "this.user:",
-      JSON.stringify(this.user),
-    );
+    // Fallback if user object isn't fully ready but we have auth
+    if (!userId && this.user) userId = this.user.id;
+
+    console.log("loadPlaylists v2 - userId:", userId);
+
     try {
-      // Include localUserId in query params for server to use
-      const url = userId
-        ? `/api/playlists/${this.guildId}?userId=${encodeURIComponent(String(userId))}&localUserId=${encodeURIComponent(String(userId))}`
-        : `/api/playlists/${this.guildId}`;
+      // Use v2 API endpoint with includePublic=true
+      const url = `/api/v2/playlists?userId=${encodeURIComponent(String(userId || ''))}&guildId=${this.guildId}&includePublic=true`;
       console.log("Fetching playlists from:", url);
+
       const response = await fetch(url, {
         headers: { "X-API-Key": this.apiKey },
+        signal
       });
+
       if (response.ok) {
         const data = await response.json();
-        console.log("Loaded playlists:", data);
-        this.playlists = data;
+        console.log("Loaded playlists v2:", data);
+        // v2 API returns { success: true, playlists: [...], count: n }
+        this.playlists = data.playlists || data || [];
         this.renderPlaylists();
       } else {
         const error = await response.json();
         console.error("Error loading playlists:", error);
-        container.innerHTML =
-          '<p class="error">Failed to load playlists: ' +
-          (error.error || "Unknown error") +
-          "</p>";
+        container.innerHTML = `<p class="error">Failed to load playlists: ${error.error || "Unknown error"}</p>`;
       }
     } catch (error) {
+      if (error.name === 'AbortError') return;
       console.error("Failed to load playlists:", error);
       container.innerHTML = '<p class="error">Failed to load playlists</p>';
+    } finally {
+      if (this.playlistsAbortController && this.playlistsAbortController.signal === signal) {
+        this.playlistsAbortController = null;
+      }
     }
   }
+
   renderPlaylists() {
     const container = document.getElementById("playlistsList");
-    if (!this.playlists || this.playlists.length === 0) {
-      container.innerHTML =
-        '<p class="empty-playlists">No playlists found. Create your first playlist!</p>';
+    if (!container) return;
+
+    const userId = this.getUserId();
+    const tab = this.playlistTab || 'my';
+
+    let filtered = [];
+    if (!this.playlists) this.playlists = [];
+
+    if (tab === 'my') {
+      filtered = this.playlists.filter(p => String(p.user_id) === String(userId));
+    } else {
+      // Public playlists: Include ALL public playlists (mine + others)
+      filtered = this.playlists.filter(p => (p.is_public === 1 || p.is_public === true));
+    }
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">🎵</span>
+                <p>${tab === 'my' ? "You have no playlists." : "No public playlists found."}</p>
+                ${tab === 'my' ? `<button onclick="dashboard.openCreatePlaylistModal()" class="action-btn small">Create New Playlist</button>` : ''}
+            </div>
+        `;
       return;
     }
-    container.innerHTML = this.playlists
-      .map(
-        (playlist) => `
-            <div class="playlist-card">
-                <div class="playlist-card-content" onclick="dashboard.viewPlaylist('${playlist.id}')">
-                    <div class="playlist-name">${this.escapeHtml(playlist.name)}</div>
-                    <div class="playlist-info">
-                        ${playlist.trackCount || 0} tracks • ${playlist.isPublic ? "Public" : "Private"}
+
+    let html = filtered.map(p => {
+      let coverHtml = '';
+      if (p.cover_url) {
+        coverHtml = `<img src="${p.cover_url}" class="playlist-card-img" alt="${this.escapeHtml(p.name)}">`;
+      } else if (p.collageArtworks && p.collageArtworks.length > 0) {
+        const imgs = p.collageArtworks.slice(0, 4).map(src => `<img src="${src}">`).join('');
+        coverHtml = `<div class="playlist-card-collage c-${Math.min(p.collageArtworks.length, 4)}">${imgs}</div>`;
+      } else {
+        coverHtml = `<div class="playlist-card-placeholder">♪</div>`;
+      }
+
+      return `
+            <div class="playlist-card" onclick="dashboard.openPlaylist('${p.id}')">
+                <div class="playlist-card-cover">
+                    ${coverHtml}
+                    <div class="playlist-card-overlay">
+                        <button class="action-btn small play-btn" onclick="event.stopPropagation(); dashboard.playPlaylist(false, '${p.id}')">▶</button>
                     </div>
                 </div>
-                <div class="playlist-card-actions">
-                    <button class="action-btn small" onclick="event.stopPropagation(); dashboard.copyPlaylistLink('${playlist.id}')" title="Copy Share Link">🔗</button>
-                    <button class="action-btn small" onclick="event.stopPropagation(); dashboard.togglePlaylistPrivacy('${playlist.id}', ${!playlist.isPublic})" title="${playlist.isPublic ? "Make Private" : "Make Public"}">${playlist.isPublic ? "🔓" : "🔒"}</button>
+                <div class="playlist-card-info">
+                    <div class="playlist-card-title" title="${this.escapeHtml(p.name)}">${this.escapeHtml(p.name)}</div>
+                    <div class="playlist-card-meta">${p.track_count || 0} tracks • ${p.ownerName || 'Unknown'}</div>
                 </div>
             </div>
-        `,
-      )
-      .join("");
+        `;
+    }).join("");
+
+    if (tab === 'my') {
+      const createCard = `
+        <div class="playlist-card create-new" onclick="dashboard.openCreatePlaylistModal()">
+            <div class="playlist-card-cover">
+                <div class="playlist-card-placeholder create-icon">
+                    <i class="ph ph-plus-circle"></i>
+                </div>
+            </div>
+            <div class="playlist-card-info">
+                <div class="playlist-card-title">Create New</div>
+                <div class="playlist-card-meta">Start a fresh mix</div>
+            </div>
+        </div>
+      `;
+      html = createCard + html;
+    }
+
+    container.innerHTML = html;
   }
+
   openCreatePlaylistModal() {
     document.getElementById("createPlaylistModal").classList.remove("hidden");
     // Reset fields
@@ -2440,10 +3101,21 @@ class MusicDashboard {
     }
 
     // Get userId
-    let userId = localStorage.getItem("dashboard_user_id") || this.user?.id || this.user?.userId;
+    const userId = this.getUserId();
+    if (!userId) {
+      this.showToast("❌ Please log in to create playlists", "error");
+      this.closeModal("createPlaylistModal");
+      return;
+    }
+
+    const confirmBtn = document.getElementById("createPlaylistConfirmBtn");
+    const originalText = confirmBtn.textContent;
+    confirmBtn.textContent = "Creating...";
+    confirmBtn.disabled = true;
 
     try {
-      const response = await fetch(`/api/playlists/${this.guildId}`, {
+      // Use v2 API endpoint
+      const response = await fetch(`/api/v2/playlists`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2453,28 +3125,33 @@ class MusicDashboard {
           name,
           description,
           isPublic,
-          userId: String(userId),
+          guildId: this.guildId,
+          localUserId: userId
         }),
       });
 
       if (response.ok) {
+        const data = await response.json();
         this.closeModal("createPlaylistModal");
         this.showToast("✅ Playlist created successfully!");
         await this.loadPlaylists();
       } else {
         const error = await response.json();
-        this.showToast(`❌ ${error.error || "Failed to create playlist"}`, "error");
+        this.showToast(`${error.error || "Failed to create playlist"}`, "error");
       }
     } catch (error) {
       console.error("Failed to create playlist:", error);
-      this.showToast("❌ Network error while creating playlist", "error");
+      this.showToast("Network error while creating playlist", "error");
+    } finally {
+      confirmBtn.textContent = originalText;
+      confirmBtn.disabled = false;
     }
   }
 
   async submitImportPlaylist() {
     const url = document.getElementById("importPlaylistUrl").value.trim();
     if (!url) {
-      this.showToast("⚠️ Please enter a playlist URL", "error");
+      this.showToast("Please enter a playlist URL", "error");
       return;
     }
 
@@ -2484,14 +3161,17 @@ class MusicDashboard {
     confirmBtn.disabled = true;
 
     try {
-      // Determine import type roughly
-      let endpoint = `/api/playlists/${this.guildId}/import/spotify`;
+      // Determine import type and use v2 endpoints
+      let endpoint;
+      let bodyData = { url, guildId: this.guildId, localUserId: this.getUserId() };
+
       if (url.includes("youtube.com") || url.includes("youtu.be")) {
-        // Assume YouTube logic (might need specific endpoint if exists, but we'll use spotify for now as placeholder or need to check if we have a generic import)
-        // Wait, the backend has /import/spotify. Does it have /import/youtube?
-        // Let's assume we reuse the logic or it handles it. 
-        // Use generic import if available, otherwise default to spotify import structure which might handle both in backend
-        endpoint = `/api/playlists/${this.guildId}/import/spotify`;
+        endpoint = `/api/v2/playlists/import/youtube`;
+      } else if (url.includes("spotify.com")) {
+        endpoint = `/api/v2/playlists/import/spotify`;
+      } else {
+        // Try YouTube as default for unknown links
+        endpoint = `/api/v2/playlists/import/youtube`;
       }
 
       const response = await fetch(endpoint, {
@@ -2500,23 +3180,21 @@ class MusicDashboard {
           "Content-Type": "application/json",
           "X-API-Key": this.apiKey,
         },
-        body: JSON.stringify({
-          playlistUrl: url,
-        }),
+        body: JSON.stringify(bodyData),
       });
 
       if (response.ok) {
         const data = await response.json();
         this.closeModal("createPlaylistModal");
-        this.showToast(`✅ Imported ${data.imported || 0} tracks!`);
+        this.showToast(`Imported ${data.imported || 0} of ${data.total || 0} tracks!`);
         await this.loadPlaylists();
       } else {
         const error = await response.json();
-        this.showToast(`❌ ${error.error || "Failed to import playlist"}`, "error");
+        this.showToast(`${error.error || "Failed to import playlist"}`, "error");
       }
     } catch (error) {
       console.error("Import failed:", error);
-      this.showToast("❌ Import failed: " + error.message, "error");
+      this.showToast("Import failed: " + error.message, "error");
     } finally {
       confirmBtn.textContent = originalText;
       confirmBtn.disabled = false;
@@ -2527,7 +3205,7 @@ class MusicDashboard {
 
     // If no track passed and no current track, or current track is empty/invalid
     if (!track && (!currentTrack || !currentTrack.title)) {
-      this.showToast("⚠️ Nothing is playing", "error");
+      this.showToast("Nothing is playing", "error");
       return;
     }
 
@@ -2582,21 +3260,26 @@ class MusicDashboard {
 
   async viewPlaylist(playlistId) {
     try {
-      const response = await fetch(
-        `/api/playlists/${this.guildId}/${playlistId}`,
-        {
-          headers: { "X-API-Key": this.apiKey },
-        },
-      );
+      const userId = this.getUserId();
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+
+      // Use v2 API endpoint
+      const response = await fetch(`/api/v2/playlists/${playlistId}${query}`, {
+        headers: { "X-API-Key": this.apiKey },
+      });
+
       if (response.ok) {
-        this.currentPlaylist = await response.json();
+        const data = await response.json();
+        // v2 returns { success: true, playlist: {...} }
+        this.currentPlaylist = data.playlist || data;
         this.showPlaylistDetails();
       } else {
-        alert("Failed to load playlist");
+        const error = await response.json();
+        this.showToast(`❌ ${error.error || "Failed to load playlist"}`, "error");
       }
     } catch (error) {
       console.error("Failed to load playlist:", error);
-      alert("Failed to load playlist: " + error.message);
+      this.showToast("❌ Failed to load playlist: " + error.message, "error");
     }
   }
   showPlaylistsList() {
@@ -2615,11 +3298,7 @@ class MusicDashboard {
     this.renderPlaylistDetails();
   }
   formatDuration(ms) {
-    if (!ms) return "0:00";
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    return this.formatTime(ms);
   }
   formatDate(timestamp) {
     if (!timestamp) return "";
@@ -2633,103 +3312,260 @@ class MusicDashboard {
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
     return date.toLocaleDateString();
   }
-  renderPlaylistDetails() {
-    if (!this.currentPlaylist) return;
-    const playlist = this.currentPlaylist;
-    // Update header
-    document.getElementById("playlistTitle").textContent = playlist.name;
-    document.getElementById("playlistDescription").textContent =
-      playlist.description || "";
-    document.getElementById("playlistCreator").textContent = "Created by You";
-    document.getElementById("playlistTrackCount").textContent =
-      `${playlist.track_count || playlist.tracks?.length || 0} songs`;
-    document.getElementById("playlistDuration").textContent =
-      this.formatDuration(playlist.total_duration);
-    // Update cover
-    const coverEl = document.getElementById("playlistCover");
-    if (playlist.cover_image) {
-      coverEl.innerHTML = `<img src="${playlist.cover_image}" alt="${this.escapeHtml(playlist.name)}">`;
-    } else {
-      coverEl.innerHTML = '<span class="playlist-cover-placeholder">♪</span>';
-    }
-    // Clear search results when viewing playlist
-    document.getElementById("playlistSearchResults").classList.add("hidden");
-    document.getElementById("playlistSearchResults").innerHTML = "";
-    // Render tracks
-    const tracksList = document.getElementById("playlistTracksList");
-    const tracks = playlist.tracks || [];
-    if (tracks.length > 0) {
-      tracksList.innerHTML = tracks
-        .map(
-          (track, index) => `
-                <div class="playlist-track-item" data-index="${index}">
-                    <div class="track-num">${index + 1}</div>
-                    <div class="track-play-hover" onclick="dashboard.playPlaylistTrack(${index})">▶</div>
-                    <div class="track-main-info">
-                        <div class="track-artwork">
-                            ${track.artworkUrl || track.artwork_url ? `<img src="${track.artworkUrl || track.artwork_url}" alt="">` : '<span class="artwork-placeholder">♪</span>'}
-                        </div>
-                        <div class="track-text-info">
-                            <span class="track-title-text">${this.escapeHtml(track.title || "Unknown")}</span>
-                            <span class="track-artist-text">${this.escapeHtml(track.author || "Unknown")}</span>
-                        </div>
-                    </div>
-                    <div class="track-album-text">${this.escapeHtml(track.album || "-")}</div>
-                    <div class="track-duration-text">${this.formatDuration(track.duration)}</div>
-                    <div class="track-actions">
-                        <button class="track-action-btn" onclick="dashboard.playPlaylistTrack(${index})" title="Play Now">▶</button>
-                        <button class="track-action-btn" onclick="dashboard.addTrackToQueue('${track.uri || track.identifier}')" title="Add to queue">📥</button>
-                        <button class="track-action-btn" onclick="dashboard.removeTrackFromPlaylist('${track.identifier}')" title="Remove from playlist">🗑️</button>
-                    </div>
-                </div>
-            `,
-        )
-        .join("");
-    } else {
-      tracksList.innerHTML = '<p class="empty-tracks">No tracks in this playlist yet. Add some below!</p>';
+
+  async openPlaylist(id) {
+    if (!id) return;
+    try {
+      // DEBUG: Alert start
+      // alert("Opening playlist: " + id);
+
+      // Fetch fresh details with tracks
+      const userId = this.getUserId();
+      const query = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+      const response = await fetch(`/api/v2/playlists/${id}${query}`, {
+        headers: { "X-API-Key": this.apiKey }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // alert("Playlist data loaded");
+        this.currentPlaylist = data.playlist || data;
+
+        // Ensure tracks are populated
+        if (!this.currentPlaylist.tracks) this.currentPlaylist.tracks = [];
+
+        this.renderPlaylistDetails();
+
+        // alert("Playlist rendered, showing page...");
+        this.showPage("playlistDetails");
+
+        // Force check visibility
+        const page = document.getElementById("playlistDetailsView");
+        if (page && page.classList.contains("hidden")) {
+          // alert("Page still hidden! Forcing remove hidden.");
+          page.classList.remove("hidden");
+        }
+      } else {
+        const error = await response.json();
+        this.showToast(`❌ ${error.error || "Failed to load playlist"}`, "error");
+        // alert("Failed: " + (error.error || "Unknown"));
+      }
+    } catch (error) {
+      console.error("Failed to open playlist:", error);
+      // alert("Error opening playlist: " + error.message);
     }
   }
-  async playPlaylist(shuffle = false) {
-    if (!this.currentPlaylist || !this.guildId) return;
-    const clearQueue = confirm("Do you want to clear the current queue before playing this playlist?");
+
+  /**
+   * Open a system playlist (liked, recent, top, discover)
+   */
+  async openSystemPlaylist(type) {
+    const userId = this.getUserId();
+    if (!userId) {
+      this.showToast("Please log in to view history", "error");
+      return;
+    }
+
+    const systemId = `system_${type}_${userId}`;
+    this.showToast(`Loading your ${type} tracks...`, "info");
+    await this.openPlaylist(systemId);
+  }
+
+  /**
+   * Start a radio session
+   */
+  async playRadio(type, seed = null) {
+    if (!this.guildId) {
+      this.showToast("Please select a server first", "error");
+      return;
+    }
+
+    if (type === 'artist' && (!seed || seed.trim() === '')) {
+      this.showToast("Please enter an artist name", "error");
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/playlists/${this.guildId}/${this.currentPlaylist.id}/play`, {
+      this.showToast(`📻 Starting ${type} radio...`, "info");
+      const response = await fetch(`/api/radio/play`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-API-Key": this.apiKey,
         },
         body: JSON.stringify({
-          shuffle,
-          clearQueue,
-          voiceChannelId: this.playerState?.voiceChannel?.id || null, // Might need to prompt if null
-          textChannelId: this.playerState?.textChannel?.id || null,
+          type,
+          seed,
+          guildId: this.guildId
         }),
       });
+
       if (response.ok) {
-        const data = await response.json();
-        this.showPage("playerPage");
-        this.showToast(`🎶 Playing playlist: ${this.currentPlaylist.name}`);
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error(`Server Error: ${text.substring(0, 50)}...`);
+        }
+
+        if (data.success) {
+          this.showToast(`✅ Radio started! Playing ${data.trackCount} tracks.`, "success");
+          this.showPage("player"); // Added this line back from original logic
+          // Update stats or view if needed
+        } else {
+          this.showToast(`❌ ${data.error || "Failed to start radio"}`, "error");
+        }
       } else {
         const error = await response.json();
-        alert("Failed to play playlist: " + (error.error || "Unknown error"));
+        this.showToast(`❌ ${error.error || "Failed to start radio"}`, "error");
+      }
+    } catch (error) {
+      console.error("Error playing radio:", error);
+      this.showToast("❌ Connection error", "error");
+    }
+  }
+
+
+
+  async playPlaylist(shuffle = false, playlistId = null, startIndex = 0) {
+    // If playlistId is provided, use it. Otherwise use currentPlaylist.id
+    const targetId = playlistId || this.currentPlaylist?.id;
+    if (!targetId || !this.guildId) return;
+
+    // Debounce: Prevent double-clicks from causing race conditions
+    const now = Date.now();
+    const lastPlayTime = this._lastPlaylistPlayTime || 0;
+    if (now - lastPlayTime < 3000) {
+      console.log('playPlaylist debounced - too soon after last call');
+      return;
+    }
+    this._lastPlaylistPlayTime = now;
+
+    // Fix: Removed blocking confirm() dialog which caused 'Duplicate Queue' bug
+    // by defaulting to 'false' (append) when blocked.
+    // Standard behavior for "Play" is to Replace Queue.
+    const clearQueue = true;
+
+    console.log(`playPlaylist called: id=${targetId}, shuffle=${shuffle}, startIndex=${startIndex}, clearQueue=${clearQueue}`);
+
+    try {
+      this.showToast("🎵 Loading playlist...", "success");
+      const response = await fetch(`/api/v2/playlists/${targetId}/play`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": this.apiKey,
+        },
+        body: JSON.stringify({
+          guildId: this.guildId,
+          shuffle,
+          startIndex,
+          clearQueue,
+          localUserId: this.getUserId()
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        this.showPage("player");
+        // Update player info immediately if needed
+        this.showToast(`🎶 Playing ${data.tracksQueued || 0} tracks from "${data.playlist?.name || 'playlist'}"${shuffle ? ' (shuffled)' : ''}`);
+      } else {
+        const error = await response.json();
+        this.showToast(`❌ ${error.error || "Failed to play playlist"}`, "error");
+        // Reset debounce on error so user can retry
+        this._lastPlaylistPlayTime = 0;
       }
     } catch (error) {
       console.error("Error playing playlist:", error);
-      alert("Error playing playlist: " + error.message);
+      this.showToast("❌ Error playing playlist: " + error.message, "error");
+      // Reset debounce on error so user can retry
+      this._lastPlaylistPlayTime = 0;
     }
   }
+
   shufflePlaylist() {
     this.playPlaylist(true);
   }
-  async playPlaylistTrack(index) {
-    if (!this.currentPlaylist || !this.currentPlaylist.tracks) return;
-    const track = this.currentPlaylist.tracks[index];
-    if (track) {
-      this.playTrack(track.uri || track.identifier);
+
+  // Drag and Drop State
+  draggedTrackIndex = null;
+
+  handleTrackDragStart(e) {
+    const item = e.target.closest('.playlist-track-item');
+    if (!item) return;
+
+    this.draggedTrackIndex = parseInt(item.dataset.index);
+    item.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', this.draggedTrackIndex);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  handleTrackDragOver(e) {
+    e.preventDefault();
+    const item = e.target.closest('.playlist-track-item');
+    if (!item) return;
+
+    item.classList.add('drag-over');
+    e.dataTransfer.dropEffect = 'move';
+  }
+
+  handleTrackDragLeave(e) {
+    const item = e.target.closest('.playlist-track-item');
+    if (item) {
+      item.classList.remove('drag-over');
     }
   }
-  async addTrackToQueue(identifier) {
+
+  async handleTrackDrop(e) {
+    e.preventDefault();
+    const item = e.target.closest('.playlist-track-item');
+    document.querySelectorAll('.playlist-track-item').forEach(el => {
+      el.classList.remove('dragging', 'drag-over');
+    });
+
+    if (!item || !this.currentPlaylist || this.draggedTrackIndex === null) return;
+
+    const toIndex = parseInt(item.dataset.index);
+    const fromIndex = this.draggedTrackIndex;
+
+    if (fromIndex === toIndex) return;
+
+    await this.reorderPlaylistTracks(fromIndex, toIndex);
+    this.draggedTrackIndex = null;
+  }
+
+  async reorderPlaylistTracks(fromIndex, toIndex) {
+    if (!this.currentPlaylist || !this.guildId) return;
+
+    try {
+      // Use v2 API endpoint
+      const response = await fetch(`/api/v2/playlists/${this.currentPlaylist.id}/tracks/reorder`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": this.apiKey
+        },
+        body: JSON.stringify({ from: fromIndex, to: toIndex, localUserId: this.getUserId() })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        this.currentPlaylist = data.playlist || data;
+        this.renderPlaylistDetails();
+        this.showToast("✅ Track order updated");
+      } else {
+        const error = await response.json();
+        this.showToast(`❌ ${error.error || "Failed to reorder track"}`, "error");
+      }
+    } catch (error) {
+      console.error("Failed to reorder tracks:", error);
+      this.showToast("❌ Connection error", "error");
+    }
+  }
+
+  async addTrackToQueue(identifier, mode = "queue") {
     try {
       const response = await fetch(`/api/player/${this.guildId}/play`, {
         method: "POST",
@@ -2739,30 +3575,77 @@ class MusicDashboard {
         },
         body: JSON.stringify({
           query: identifier,
-          userId: this.user?.id || localStorage.getItem("dashboard_user_id"),
+          mode: mode,
+          userId: this.getUserId(),
         }),
       });
+
       if (response.ok) {
-        this.showToast("✅ Added to queue");
+        this.showToast(mode === "queue" ? "✅ Added to queue" : "🚀 Playing now");
+        return true;
       } else {
         const error = await response.json();
-        alert("Failed to add to queue: " + (error.error || "Unknown error"));
+
+        // If player not found (404), our backend now tries to auto-create it if possible, 
+        // but if that fails or it's a legacy version, we handle it here.
+        if (response.status === 404 || error.error?.includes("No player found")) {
+          console.log("No player found, attempting to start one...");
+          const startResponse = await fetch(`/api/play/${this.guildId}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-API-Key": this.apiKey,
+            },
+            body: JSON.stringify({
+              query: identifier,
+              userId: this.getUserId()
+            }),
+          });
+
+          if (startResponse.ok) {
+            this.showToast("✅ Started player and added track");
+            return true;
+          } else {
+            const startError = await startResponse.json();
+            this.showToast(`❌ ${startError.error || "Failed to start player"}`, "error");
+            return false;
+          }
+        }
+
+        this.showToast(`❌ ${error.error || "Failed to add to queue"}`, "error");
+        return false;
       }
     } catch (error) {
       console.error("Error adding to queue:", error);
+      this.showToast("❌ Connection error", "error");
+      return false;
     }
   }
   showToast(message, type = "success") {
-    // Simple toast implementation or use existing if any
-    console.log("Toast:", message, type);
-    // You could add a DOM element for toasts
-    const toast = document.createElement("div");
-    toast.className = `toast-notification ${type === "error" ? "error" : ""}`;
-    toast.textContent = message;
+    // Strip common emoji prefixes for clean icon-only display
+    const emojiPatterns = [
+      /^[✅❌⚠️🔒🔓🔗🎶📻🗑️💾🚀🎵🎉🎤⏩⏪]+ ?/,
+      /^[✔️❗❓🟢🟠🔴⚡💥🔥🌟⭐📋📎🔔💡🎧🎹🎸🎺🎷🎼🎤🎬🎬]+ ?/
+    ];
 
-    // Remove default icon if error (handled by CSS ::before) or just let CSS handle it
-    // Actually our CSS adds ::before content ALWAYS. 
-    // We can conditionally remove the ::before in CSS or just rely on the .error override I added.
+    let cleanMessage = message;
+    for (const pattern of emojiPatterns) {
+      cleanMessage = cleanMessage.replace(pattern, '');
+    }
+
+    // Determine icon based on type
+    const iconMap = {
+      success: '<i class="ph ph-check-circle"></i>',
+      error: '<i class="ph ph-x-circle"></i>',
+      warning: '<i class="ph ph-warning"></i>',
+      info: '<i class="ph ph-info"></i>'
+    };
+
+    console.log("Toast:", cleanMessage, type);
+
+    const toast = document.createElement("div");
+    toast.className = `toast-notification ${type}`;
+    toast.innerHTML = `${iconMap[type] || iconMap.info} <span>${this.escapeHtml(cleanMessage)}</span>`;
 
     document.body.appendChild(toast);
     setTimeout(() => {
@@ -2773,17 +3656,9 @@ class MusicDashboard {
       }, 3000);
     }, 100);
   }
+
   formatDuration(ms) {
-    if (!ms || isNaN(ms)) return "0:00";
-    const seconds = Math.floor((ms / 1000) % 60);
-    const minutes = Math.floor((ms / (1000 * 60)) % 60);
-    const hours = Math.floor((ms / (1000 * 60 * 60)));
-    const s = seconds < 10 ? "0" + seconds : seconds;
-    if (hours > 0) {
-      const m = minutes < 10 ? "0" + minutes : minutes;
-      return `${hours}:${m}:${s}`;
-    }
-    return `${minutes}:${s}`;
+    return this.formatTime(ms);
   }
   escapeHtml(text) {
     if (!text) return "";
@@ -2795,73 +3670,155 @@ class MusicDashboard {
       .replace(/'/g, "&#039;");
   }
   renderPlaylistDetails() {
-    if (!this.currentPlaylist) return;
-    const p = this.currentPlaylist;
-    // const isOwner = p.userId === (this.user?.id || localStorage.getItem("dashboard_user_id"));
-    // Update Header Info
-    const nameEl = document.getElementById("playlistName");
-    if (nameEl) nameEl.textContent = p.name;
-    const descEl = document.getElementById("playlistDescription");
-    if (descEl) descEl.textContent = p.description || "No description";
-    const countEl = document.getElementById("playlistTrackCount");
-    if (countEl) countEl.textContent = `${p.tracks ? p.tracks.length : 0} tracks`;
-    const durationEl = document.getElementById("playlistDuration");
-    if (durationEl) {
-      const duration = p.tracks ? p.tracks.reduce((acc, t) => acc + (t.info?.length || 0), 0) : 0;
-      durationEl.textContent = this.formatDuration(duration);
-    }
-    const creatorEl = document.getElementById("playlistCreator");
-    if (creatorEl) creatorEl.textContent = `Created by: ${p.ownerName || 'Unknown'}`;
-    // Cover Image
-    const coverImg = document.getElementById("playlistCover");
-    if (coverImg) {
-      coverImg.src = p.cover_image || "https://cdn.discordapp.com/embed/avatars/0.png";
-    }
-    // Controls
-    const playBtn = document.getElementById("playPlaylistBtn");
-    if (playBtn) playBtn.onclick = () => this.playPlaylist(false);
-    const shuffleBtn = document.getElementById("shufflePlaylistBtn");
-    if (shuffleBtn) shuffleBtn.onclick = () => this.shufflePlaylist();
-    // Tracks List
-    const list = document.getElementById("playlistTracksList");
-    if (list) {
-      list.innerHTML = "";
-      if (!p.tracks || p.tracks.length === 0) {
-        list.innerHTML = '<p class="empty-state">No tracks in this playlist.</p>';
-      } else {
-        p.tracks.forEach((track, index) => {
-          const div = document.createElement("div");
-          div.className = "playlist-track-item";
-          div.innerHTML = `
-                    <div class="track-index">${index + 1}</div>
-                    <div class="track-info">
-                        <div class="track-title">${this.escapeHtml(track.info?.title || track.title || "Unknown")}</div>
-                        <div class="track-artist">${this.escapeHtml(track.info?.author || track.author || "Unknown")}</div>
+    try {
+      if (!this.currentPlaylist) return;
+      const p = this.currentPlaylist;
+      // const isOwner = p.userId === (this.user?.id || localStorage.getItem("dashboard_user_id"));
+      // Update Header Info
+      const titleEl = document.getElementById("playlistTitle");
+      if (titleEl) titleEl.textContent = p.name;
+      const descEl = document.getElementById("playlistDescription");
+      if (descEl) descEl.textContent = p.description || "No description";
+      const countEl = document.getElementById("playlistTrackCount");
+      if (countEl) countEl.textContent = `${p.tracks ? p.tracks.length : 0} tracks`;
+      const durationEl = document.getElementById("playlistDuration");
+      if (durationEl) {
+        const duration = p.tracks ? p.tracks.reduce((acc, t) => acc + (t.info?.length || 0), 0) : 0;
+        durationEl.textContent = this.formatDuration(duration);
+      }
+      const creatorEl = document.getElementById("playlistCreator");
+      if (creatorEl) creatorEl.textContent = `Created by: ${p.ownerName || 'Unknown'}`;
+      // Cover/Collage Image
+      const coverContainer = document.getElementById("playlistCover");
+      if (coverContainer) {
+        if (p.cover_url) {
+          coverContainer.innerHTML = `<img src="${p.cover_url}" class="playlist-cover-img" alt="Playlist Cover">`;
+          coverContainer.classList.remove('collage');
+        } else if (p.collageArtworks && p.collageArtworks.length > 0) {
+          let collageHtml = '';
+          const count = p.collageArtworks.length;
+          if (count >= 4) {
+            collageHtml = p.collageArtworks.slice(0, 4).map(url => `<img src="${url}" alt="Track Art">`).join('');
+            coverContainer.classList.add('collage-4');
+            coverContainer.classList.remove('collage-2', 'collage-1');
+          } else if (count >= 2) {
+            collageHtml = p.collageArtworks.slice(0, 2).map(url => `<img src="${url}" alt="Track Art">`).join('');
+            coverContainer.classList.add('collage-2');
+            coverContainer.classList.remove('collage-4', 'collage-1');
+          } else {
+            collageHtml = `<img src="${p.collageArtworks[0]}" alt="Track Art">`;
+            coverContainer.classList.add('collage-1');
+            coverContainer.classList.remove('collage-4', 'collage-2');
+          }
+          coverContainer.innerHTML = collageHtml;
+          coverContainer.classList.add('collage');
+        } else {
+          coverContainer.innerHTML = `<span class="playlist-cover-placeholder">♪</span>`;
+          coverContainer.classList.remove('collage', 'collage-4', 'collage-2', 'collage-1');
+        }
+      }
+      // Controls
+      const playBtn = document.getElementById("playlistPlayBtn");
+      if (playBtn) playBtn.onclick = () => this.playPlaylist(false);
+      const shuffleBtn = document.getElementById("playlistShuffleBtn");
+      if (shuffleBtn) shuffleBtn.onclick = () => this.shufflePlaylist();
+      // Tracks List
+      const list = document.getElementById("playlistTracksList");
+      if (list) {
+        list.innerHTML = "";
+        if (!p.tracks || p.tracks.length === 0) {
+          list.innerHTML = `
+          <div class="empty-playlist">
+            <span class="empty-icon">🎵</span>
+            <p>This playlist is empty</p>
+            <button class="action-btn" onclick="document.getElementById('playlistSearchInput').focus()">Add some tracks below</button>
+          </div>
+        `;
+        } else {
+          p.tracks.forEach((track, index) => {
+            const div = document.createElement("div");
+            div.className = "playlist-track-item";
+            div.draggable = true;
+            div.dataset.index = index;
+
+            // Drag events
+            div.ondragstart = (e) => this.handleTrackDragStart(e);
+            div.ondragover = (e) => this.handleTrackDragOver(e);
+            div.ondragleave = (e) => this.handleTrackDragLeave(e);
+            div.ondrop = (e) => this.handleTrackDrop(e);
+
+            const artwork = this.resolveArtwork(track);
+
+            div.innerHTML = `
+                    <div class="track-col-num">
+                        <span class="track-num">${index + 1}</span>
+                        <div class="track-play-hover" onclick="dashboard.playPlaylistTrack(${index})">▶</div>
                     </div>
-                    <div class="track-duration">${this.formatDuration(track.info?.length || 0)}</div>
-                    <div class="track-actions">
-                        <button class="action-btn small" onclick="dashboard.playPlaylistTrack(${index})">▶️</button>
-                        <button class="action-btn small" onclick="dashboard.removeTrackFromPlaylist(${index})">🗑️</button>
+                    <div class="track-col-title">
+                        <div class="track-main-info">
+                            <div class="track-artwork">
+                                <img src="${artwork}" alt="Art" onerror="this.src='https://placehold.co/40x40/2d2d2d/fff.png?text=♪'">
+                            </div>
+                            <div class="track-text-info">
+                                <span class="track-title-text">${this.escapeHtml(track.info?.title || track.title || "Unknown")}</span>
+                                <span class="track-artist-text">${this.escapeHtml(track.info?.author || track.author || "Unknown")}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="track-col-album">
+                        <span class="track-album-text">${this.escapeHtml(track.info?.sourceName || track.sourceName || "-")}</span>
+                    </div>
+                    <div class="track-col-duration">
+                        <span class="track-duration-text">${this.formatDuration(track.info?.length || 0)}</span>
+                    </div>
+                    <div class="track-col-actions">
+                        <div class="track-actions">
+                            <button class="icon-btn small" onclick="event.stopPropagation(); dashboard.addPlaylistTrackToQueue(${index})" title="Add to Queue">➕</button>
+                            <button class="icon-btn small danger" onclick="event.stopPropagation(); dashboard.removeTrackFromPlaylist(${index})" title="Remove">✕</button>
+                        </div>
                     </div>
                 `;
-          list.appendChild(div);
-        });
+            list.appendChild(div);
+          });
+        }
       }
+
+      // Render collaborators section for owner
+      this.renderCollaboratorsSection();
+    } catch (err) {
+      console.error("Error rendering playlist details:", err);
     }
   }
-  async searchTracksForPlaylist() {
+  searchTracksForPlaylistDebounced() {
+    if (this.plSearchTimeout) clearTimeout(this.plSearchTimeout);
     const query = document.getElementById("playlistSearchInput").value.trim();
-    const source = document.getElementById("playlistSearchSource").value || "youtube";
-    const type = "track";
 
     if (!query) {
-      this.showToast("⚠️ Please enter a search query", "error");
+      const resultsContainer = document.getElementById("playlistSearchResults");
+      if (resultsContainer) {
+        resultsContainer.innerHTML = '';
+        resultsContainer.classList.add("hidden");
+      }
       return;
     }
 
+    this.plSearchTimeout = setTimeout(() => {
+      this.searchTracksForPlaylist();
+    }, 500);
+  }
+
+  async searchTracksForPlaylist() {
+    const query = document.getElementById("playlistSearchInput").value.trim();
+    const source = document.getElementById("playlistSearchSource").value || "all";
+    const type = "track";
+
+    if (!query) return;
+
     const resultsContainer = document.getElementById("playlistSearchResults");
-    resultsContainer.classList.remove("hidden");
-    resultsContainer.innerHTML = '<p class="empty-playlists">Searching...</p>';
+    if (resultsContainer) {
+      resultsContainer.classList.remove("hidden");
+      resultsContainer.innerHTML = '<div class="loading-state"><div class="spinner-small"></div><p>Searching...</p></div>';
+    }
 
     try {
       const response = await fetch(
@@ -2872,39 +3829,121 @@ class MusicDashboard {
       );
       if (response.ok) {
         const data = await response.json();
-        const results = data.results || [];
+        const results = data.results || data.tracks || [];
+
+        resultsContainer.innerHTML = '';
 
         if (results.length === 0) {
           resultsContainer.innerHTML = '<p class="empty-playlists">No results found. Try a different search.</p>';
           return;
         }
 
-        let html = '<h5 class="search-results-section">Tracks</h5>';
-        html += results.map(track => `
-          <div class="search-result-item" data-track='${JSON.stringify(track).replace(/'/g, "&#39;")}'>
-              <img class="search-result-artwork" src="${track.artworkUrl || "https://via.placeholder.com/48"}" alt="">
-              <div class="search-result-info">
-                  <div class="search-result-title">${this.escapeHtml(track.title)}</div>
-                  <div class="search-result-artist">${this.escapeHtml(track.author)}</div>
-              </div>
-              <span class="search-result-source">${track.sourceName || track.source}</span>
-              <button class="search-result-add" onclick="dashboard.addSearchResultToPlaylist(this)">+ Add</button>
-          </div>
-        `).join("");
+        // Use the same card-based grid as main search
+        const grid = document.createElement('div');
+        grid.className = 'results-grid';
+        resultsContainer.appendChild(grid);
 
-        resultsContainer.innerHTML = html;
+        results.forEach(track => {
+          const card = document.createElement('div');
+          card.className = 'search-card';
+          card.dataset.track = JSON.stringify(track);
+
+          const artwork = this.resolveArtwork(track);
+          const imgId = `pl-search-img-${Math.random().toString(36).substr(2, 9)}`;
+
+          // Spotify Cover Logic
+          const isSpotifyResult = (track.source === 'spotify' || track.source === 'spsearch' || (track.uri && track.uri.includes('spotify')));
+          if (isSpotifyResult && artwork.includes('placehold.co') && track.uri) {
+            let spotifyUrl = track.uri;
+            if (spotifyUrl.startsWith('spotify:')) {
+              const parts = spotifyUrl.split(':');
+              if (parts.length >= 3) {
+                spotifyUrl = `https://open.spotify.com/${parts[1]}/${parts[2]}`;
+              }
+            }
+            fetch(`/api/utils/spotify-cover?url=${encodeURIComponent(spotifyUrl)}`)
+              .then(r => r.json())
+              .then(d => {
+                if (d.thumbnail_url) {
+                  const img = document.getElementById(imgId);
+                  if (img) img.src = d.thumbnail_url;
+                }
+              }).catch(() => { });
+          }
+
+          // YouTube Cover Logic - extract video ID and use YouTube thumbnail
+          const isYouTubeResult = (track.source === 'youtube' || track.source === 'ytsearch' || (track.uri && (track.uri.includes('youtube.com') || track.uri.includes('youtu.be'))));
+          if (isYouTubeResult && artwork.includes('placehold.co') && track.uri) {
+            let videoId = null;
+            try {
+              const url = new URL(track.uri);
+              if (url.hostname.includes('youtu.be')) {
+                videoId = url.pathname.slice(1);
+              } else if (url.searchParams.has('v')) {
+                videoId = url.searchParams.get('v');
+              }
+            } catch (e) {
+              // Try regex fallback
+              const match = track.uri.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+              if (match) videoId = match[1];
+            }
+            if (videoId) {
+              // Use YouTube's thumbnail API
+              setTimeout(() => {
+                const img = document.getElementById(imgId);
+                if (img && img.src.includes('placehold.co')) {
+                  img.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+                }
+              }, 100);
+            }
+          }
+
+          const title = track.title || 'Unknown Title';
+          const author = track.author || 'Unknown Artist';
+          const duration = this.formatDuration(track.duration || track.length || 0);
+
+          card.innerHTML = `
+            <div class="search-card-image-wrapper">
+              <img id="${imgId}" src="${artwork}" class="search-card-image" loading="lazy" 
+                   onerror="this.src='https://placehold.co/200x200/2d2d2d/fff.png?text=♪'" alt="${this.escapeHtml(title)}">
+              <div class="search-card-overlay">
+                <button class="search-card-action add-to-playlist-btn" title="Add to Playlist">+</button>
+              </div>
+              <div class="search-source-badge">${track.source || 'unknown'}</div>
+            </div>
+            <div class="search-card-content">
+              <div class="search-card-title" title="${this.escapeHtml(title)}">${this.escapeHtml(title)}</div>
+              <div class="search-card-artist" title="${this.escapeHtml(author)}">${this.escapeHtml(author)} • ${duration}</div>
+            </div>
+          `;
+
+          // Add click listener to the add button
+          const addBtn = card.querySelector('.add-to-playlist-btn');
+          addBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.addSearchResultToPlaylist(addBtn);
+          };
+
+          grid.appendChild(card);
+        });
+
       } else {
         const error = await response.json();
-        resultsContainer.innerHTML = `<p class="empty-playlists">Search failed: ${error.error || "Unknown error"}</p>`;
+        resultsContainer.innerHTML = `<p class="error-text">Search failed: ${error.error || "Unknown error"}</p>`;
       }
     } catch (error) {
-      console.error("Search failed:", error);
-      resultsContainer.innerHTML = '<p class="empty-playlists">Search failed. Please try again.</p>';
+      console.error("Search error:", error);
+      resultsContainer.innerHTML = `<p class="error-text">Search failed: ${error.message}</p>`;
     }
   }
 
   addSearchResultToPlaylist(button) {
-    const trackItem = button.closest(".search-result-item");
+    // Support both old list-style and new card-style search results
+    const trackItem = button.closest(".search-card") || button.closest(".search-result-item");
+    if (!trackItem || !trackItem.dataset.track) {
+      this.showToast("⚠️ Could not find track data", "error");
+      return;
+    }
     const track = JSON.parse(trackItem.dataset.track.replace(/&#39;/g, "'"));
     if (!this.currentPlaylist) {
       this.showToast("⚠️ No playlist selected", "error");
@@ -2916,24 +3955,78 @@ class MusicDashboard {
 
   async addTrackToPlaylist(playlistId, track, position = null) {
     try {
-      const response = await fetch(
-        `/api/playlists/${this.guildId}/${playlistId}/tracks`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": this.apiKey,
-          },
-          body: JSON.stringify({ track, position }),
+      // Use v2 API endpoint
+      const response = await fetch(`/api/v2/playlists/${playlistId}/tracks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": this.apiKey,
         },
-      );
+        body: JSON.stringify({ track, localUserId: this.getUserId() }),
+      });
+
       if (response.ok) {
-        this.currentPlaylist = await response.json();
+        const data = await response.json();
+        console.log("addTrackToPlaylist response:", data);
+
+        if (data.addedCount === 0) {
+          this.showToast(data.message || "Track already in playlist", "warning");
+        } else {
+          this.showToast("✅ Track added to playlist");
+        }
+
+        // Re-fetch the playlist to get complete data with artwork
+        try {
+          const playlistResponse = await fetch(`/api/v2/playlists/${playlistId}?userId=${this.getUserId()}`, {
+            headers: { "X-API-Key": this.apiKey }
+          });
+          if (playlistResponse.ok) {
+            const fetchedData = await playlistResponse.json();
+            console.log("Re-fetched playlist - raw response:", JSON.stringify(fetchedData, null, 2));
+
+            // Extract the actual playlist object from various possible formats
+            let extractedPlaylist = null;
+
+            if (fetchedData.playlist && typeof fetchedData.playlist === 'object') {
+              extractedPlaylist = fetchedData.playlist;
+              console.log("Extracted from fetchedData.playlist");
+            } else if (fetchedData.id && fetchedData.tracks) {
+              extractedPlaylist = fetchedData;
+              console.log("fetchedData is the playlist itself");
+            } else if (fetchedData.success && fetchedData.playlist) {
+              extractedPlaylist = fetchedData.playlist;
+              console.log("Extracted from success response");
+            } else {
+              console.warn("Unexpected response format, using as-is:", fetchedData);
+              extractedPlaylist = fetchedData;
+            }
+
+            this.currentPlaylist = extractedPlaylist;
+          } else {
+            console.log("Re-fetch failed, using data.playlist");
+            this.currentPlaylist = data.playlist || data;
+          }
+        } catch (e) {
+          console.error("Re-fetch error:", e);
+          this.currentPlaylist = data.playlist || data;
+        }
+
+        // Ensure tracks array exists - final safety check
+        if (!this.currentPlaylist.tracks && this.currentPlaylist.playlist?.tracks) {
+          console.log("Current playlist was wrapper, extracting inner playlist");
+          this.currentPlaylist = this.currentPlaylist.playlist;
+        }
+
+        if (!this.currentPlaylist.tracks) {
+          console.warn("Playlist still has no tracks array, setting empty");
+          this.currentPlaylist.tracks = [];
+        }
+
+        console.log("Final currentPlaylist id:", this.currentPlaylist.id);
+        console.log("Final currentPlaylist name:", this.currentPlaylist.name);
+        console.log("Final tracks count:", this.currentPlaylist.tracks?.length || 0);
         this.renderPlaylistDetails();
-        // Hide search results after adding
-        document.getElementById("playlistSearchResults").classList.add("hidden");
-        document.getElementById("playlistSearchInput").value = "";
-        this.showToast("✅ Track added to playlist");
+        // Don't hide search results - let user add more tracks
       } else {
         const error = await response.json();
         this.showToast(`❌ Failed to add track: ${error.error || "Unknown error"}`, "error");
@@ -2943,107 +4036,109 @@ class MusicDashboard {
       this.showToast(`❌ Failed to add track: ${error.message}`, "error");
     }
   }
-  async playPlaylist() {
-    if (
-      !this.currentPlaylist ||
-      !this.currentPlaylist.tracks ||
-      this.currentPlaylist.tracks.length === 0
-    )
-      return;
-    // Clear queue and add all tracks from playlist
-    try {
-      await fetch(`/api/queue/${this.guildId}`, {
-        method: "DELETE",
-        headers: { "X-API-Key": this.apiKey },
-      });
-      for (const track of this.currentPlaylist.tracks) {
-        await fetch(`/api/player/${this.guildId}/queue`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": this.apiKey,
-          },
-          body: JSON.stringify(track),
-        });
-      }
-      // Start playing
-      await fetch(`/api/player/${this.guildId}/play`, {
-        method: "POST",
-        headers: { "X-API-Key": this.apiKey },
-      });
-    } catch (error) {
-      console.error("Failed to play playlist:", error);
-    }
-  }
-  async shufflePlaylist() {
-    if (
-      !this.currentPlaylist ||
-      !this.currentPlaylist.tracks ||
-      this.currentPlaylist.tracks.length === 0
-    )
-      return;
-    // Shuffle tracks and add to queue
-    const shuffledTracks = [...this.currentPlaylist.tracks].sort(
-      () => Math.random() - 0.5,
-    );
-    try {
-      await fetch(`/api/queue/${this.guildId}`, {
-        method: "DELETE",
-        headers: { "X-API-Key": this.apiKey },
-      });
-      for (const track of shuffledTracks) {
-        await fetch(`/api/player/${this.guildId}/queue`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": this.apiKey,
-          },
-          body: JSON.stringify(track),
-        });
-      }
-      // Start playing
-      await fetch(`/api/player/${this.guildId}/play`, {
-        method: "POST",
-        headers: { "X-API-Key": this.apiKey },
-      });
-    } catch (error) {
-      console.error("Failed to shuffle playlist:", error);
-    }
-  }
-  async playPlaylistTrack(index) {
-    if (
-      !this.currentPlaylist ||
-      !this.currentPlaylist.tracks ||
-      !this.currentPlaylist.tracks[index]
-    )
-      return;
+  // Legacy duplicates removed to fix player issues
+  // playPlaylist and shufflePlaylist are already defined above using V2 API
+  // Selected track for modal
+  selectedPlayTrackIndex = null;
+
+  playPlaylistTrack(index) {
+    if (!this.currentPlaylist || !this.currentPlaylist.tracks) return;
     const track = this.currentPlaylist.tracks[index];
-    try {
-      // Add all tracks up to and including this track
-      const tracksToAdd = this.currentPlaylist.tracks.slice(0, index + 1);
-      await fetch(`/api/queue/${this.guildId}`, {
-        method: "DELETE",
-        headers: { "X-API-Key": this.apiKey },
-      });
-      for (const t of tracksToAdd) {
-        await fetch(`/api/player/${this.guildId}/queue`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": this.apiKey,
-          },
-          body: JSON.stringify(t),
-        });
-      }
-      // Start playing
-      await fetch(`/api/player/${this.guildId}/play`, {
-        method: "POST",
-        headers: { "X-API-Key": this.apiKey },
-      });
-    } catch (error) {
-      console.error("Failed to play track:", error);
+    if (!track) return;
+
+    this.selectedPlayTrackIndex = index;
+
+    // Update Modal Info
+    const title = track.info?.title || track.title || "Unknown Track";
+    document.getElementById('playOptionsTrackTitle').textContent = title;
+
+    this.showModal('playOptionsModal');
+  }
+
+  async confirmPlayNow() {
+    this.closeModal('playOptionsModal');
+    if (this.selectedPlayTrackIndex === null) return;
+
+    // Play NOW matches the old generic Play behavior: Replace Queue
+    // Play NOW: Play single track (Replace Queue)
+    const track = this.currentPlaylist.tracks[this.selectedPlayTrackIndex];
+    if (!track) return;
+
+    console.log(`Playing now (Single): ${track.info?.title}`);
+    const identifier = track.uri || track.info?.uri || track.url || track.identifier;
+
+    if (identifier) {
+      // Send 'play' mode to force queue replacement
+      await this.addTrackToQueue(identifier, "play");
+    }
+    this.showPage("player");
+  }
+
+  // Search Debounce
+  searchTimeout = null;
+  searchTracksForPlaylistDebounced() {
+    if (this.searchTimeout) clearTimeout(this.searchTimeout);
+    const input = document.getElementById("playlistSearchInput");
+    const query = input.value.trim();
+
+    if (!query) {
+      document.getElementById("playlistSearchResults").classList.add("hidden");
+      document.getElementById("playlistSearchResults").innerHTML = "";
+      document.getElementById("playlistTracksList").classList.remove("hidden");
+      return;
+    }
+
+    document.getElementById("playlistTracksList").classList.add("hidden");
+
+    this.searchTimeout = setTimeout(() => {
+      this.searchTracksForPlaylist();
+    }, 500);
+  }
+
+  playlistTab = 'my'; // 'my' or 'public'
+
+  switchPlaylistViewTab(tab) {
+    this.playlistTab = tab;
+    // Update active tab UI 
+    document.querySelectorAll('.playlist-tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`pl-tab-${tab}`)?.classList.add('active');
+
+    this.renderPlaylists();
+  }
+
+  async confirmPlayNext() {
+    this.closeModal('playOptionsModal');
+    if (this.selectedPlayTrackIndex === null) return;
+
+    const track = this.currentPlaylist.tracks[this.selectedPlayTrackIndex];
+    if (!track) return;
+
+    const identifier = track.uri || track.info?.uri || track.url || track.identifier;
+    if (identifier) {
+      await this.addTrackToQueue(identifier, "next");
     }
   }
+
+  async confirmAddToQueue() {
+    this.closeModal('playOptionsModal');
+    if (this.selectedPlayTrackIndex === null) return;
+
+    const track = this.currentPlaylist.tracks[this.selectedPlayTrackIndex];
+    if (!track) return;
+
+    const identifier = track.uri || track.info?.uri || track.url || track.identifier;
+    if (identifier) {
+      await this.addTrackToQueue(identifier, "queue");
+    }
+  }
+
+
+
+
+
+
+
+
   async addPlaylistTrackToQueue(index) {
     if (
       !this.currentPlaylist ||
@@ -3052,126 +4147,203 @@ class MusicDashboard {
     )
       return;
     const track = this.currentPlaylist.tracks[index];
+    const identifier = track.uri || track.info?.uri || track.url || track.identifier;
+
+    if (identifier) {
+      await this.addTrackToQueue(identifier);
+    } else {
+      this.showToast("❌ Could not resolve track identifier", "error");
+    }
+  }
+
+  createPlaylistCard(p) {
+    // Logic extracted for reuse
+    let coverHtml = '';
+    if (p.cover_url) {
+      coverHtml = `< img src = "${p.cover_url}" alt = "${this.escapeHtml(p.name)}" > `;
+    } else if (p.collageArtworks && p.collageArtworks.length > 0) {
+      const count = p.collageArtworks.length;
+      let collageImgs = '';
+      let collageClass = 'collage-1';
+      if (count >= 4) {
+        collageImgs = p.collageArtworks.slice(0, 4).map(url => `< img src = "${url}" > `).join('');
+        collageClass = 'collage-4';
+      } else if (count >= 2) {
+        collageImgs = p.collageArtworks.slice(0, 2).map(url => `< img src = "${url}" > `).join('');
+        collageClass = 'collage-2';
+      } else {
+        collageImgs = `< img src = "${p.collageArtworks[0]}" > `;
+        collageClass = 'collage-1';
+      }
+      coverHtml = `< div class="playlist-cover-collage ${collageClass}" > ${collageImgs}</div > `;
+    } else {
+      coverHtml = `< span class="playlist-cover-placeholder" >♪</span > `;
+    }
+
+    return `
+  < div class="playlist-card" onclick = "dashboard.openPlaylist('${p.id}')" >
+            <div class="playlist-cover ${!p.cover_url && (!p.collageArtworks || p.collageArtworks.length === 0) ? 'placeholder' : ''}">
+                ${coverHtml}
+            </div>
+            <div class="playlist-info">
+                <div class="playlist-name">${this.escapeHtml(p.name)}</div>
+                <div class="playlist-meta">
+                    <span>${p.track_count} tracks</span>
+                    <span class="dot">•</span>
+                    <span>${p.ownerName || 'Unknown'}</span>
+                </div>
+                ${p.is_public ? '<span class="playlist-badge public">Public</span>' : '<span class="playlist-badge private">Private</span>'}
+            </div>
+        </div >
+  `;
+  }
+
+
+  async removeTrackFromPlaylist(index) {
+    console.error("!!! removeTrackFromPlaylist CALLED with index:", index);
+    if (!this.currentPlaylist) {
+      this.showToast("❌ No playlist selected", "error");
+      return;
+    }
+
+    // Removed blocking confirm() to fix browser popup blocker issues
+    // if (!confirm("Are you sure you want to remove this track from the playlist?")) return;
+
     try {
-      await fetch(`/api/player/${this.guildId}/queue`, {
-        method: "POST",
+      const userId = this.getUserId();
+      if (!userId) {
+        this.showToast("❌ Not logged in", "error");
+        return;
+      }
+
+      const position = index + 1;
+      const url = `/api/v2/playlists/${this.currentPlaylist.id}/tracks/position/${position}?userId=${encodeURIComponent(userId)}`;
+
+      console.log("Removing track at position:", position, "from playlist:", this.currentPlaylist.id);
+
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: { "X-API-Key": this.apiKey },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Remove track response:", data);
+        this.currentPlaylist = data.playlist || data;
+        this.renderPlaylistDetails();
+        this.showToast("✅ Track removed from playlist");
+        await this.loadPlaylists();
+      } else {
+        const error = await response.json();
+        console.error("Remove track error:", error);
+        this.showToast(`❌ ${error.error || "Failed to remove track"} `, "error");
+      }
+    } catch (error) {
+      console.error("Failed to remove track:", error);
+      this.showToast("❌ Failed to remove track", "error");
+    }
+  }
+  showPlaylistMoreOptions() {
+    console.log("showPlaylistMoreOptions called");
+    console.log("currentPlaylist:", this.currentPlaylist);
+
+    // Remove existing context menu if any
+    const existing = document.querySelector('.context-menu-overlay');
+    if (existing) existing.remove();
+
+    if (!this.currentPlaylist || !this.currentPlaylist.id) {
+      console.error("No playlist selected!");
+      this.showToast("❌ No playlist selected", "error");
+      return;
+    }
+
+    const btn = document.getElementById("playlistMoreBtn");
+    if (!btn) {
+      console.error("More button not found!");
+      return;
+    }
+    const rect = btn.getBoundingClientRect();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'context-menu-overlay';
+    overlay.onclick = () => overlay.remove();
+
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.style.top = `${rect.bottom + 8}px`;
+    menu.style.right = `${window.innerWidth - rect.right}px`; // Align to right
+
+    const isPublic = !!(this.currentPlaylist.is_public || this.currentPlaylist.isPublic);
+
+    const options = [
+      {
+        label: "Edit Details",
+        action: () => this.editPlaylistDetails(),
+        icon: "✏️"
+      },
+      {
+        label: isPublic ? "Make Private" : "Make Public",
+        action: () => this.togglePlaylistPrivacy(this.currentPlaylist.id, !isPublic),
+        icon: isPublic ? "🔒" : "🌍"
+      }
+    ];
+
+    if (this.currentPlaylist.cover_image) {
+      options.push({
+        label: "Remove Cover",
+        action: () => this.removePlaylistCover(),
+        icon: "🖼️"
+      });
+    }
+
+    options.push({
+      label: "Delete Playlist",
+      action: () => this.deletePlaylist(this.currentPlaylist.id),
+      danger: true,
+      icon: "🗑️"
+    });
+
+    options.forEach(opt => {
+      const item = document.createElement('div');
+      item.className = `context-menu-item ${opt.danger ? 'danger' : ''}`;
+      item.innerHTML = `<span>${opt.icon}</span>${opt.label}`;
+      item.onclick = (e) => {
+        e.stopPropagation();
+        opt.action();
+        overlay.remove();
+      };
+      menu.appendChild(item);
+    });
+
+    overlay.appendChild(menu);
+    document.body.appendChild(overlay);
+  }
+
+
+  async removePlaylistCover() {
+    try {
+      // Use v2 API endpoint
+      const response = await fetch(`/ api / v2 / playlists / ${this.currentPlaylist.id} `, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           "X-API-Key": this.apiKey,
         },
-        body: JSON.stringify(track),
+        // Use coverUrl for v2
+        body: JSON.stringify({ coverUrl: null, localUserId: this.getUserId() }),
       });
-      await this.loadQueue();
-    } catch (error) {
-      console.error("Failed to add track to queue:", error);
-    }
-  }
-  async removeTrackFromPlaylist(trackIdentifier) {
-    if (
-      !this.currentPlaylist ||
-      !confirm("Remove this track from the playlist?")
-    )
-      return;
-    try {
-      const response = await fetch(
-        `/api/playlists/${this.guildId}/${this.currentPlaylist.id}/tracks/${trackIdentifier}`,
-        {
-          method: "DELETE",
-          headers: { "X-API-Key": this.apiKey },
-        },
-      );
+
       if (response.ok) {
         const data = await response.json();
         this.currentPlaylist = data.playlist || data;
         this.renderPlaylistDetails();
-        await this.loadPlaylists();
       } else {
         const error = await response.json();
-        alert("Failed to remove track: " + (error.error || "Unknown error"));
-      }
-    } catch (error) {
-      console.error("Failed to remove track:", error);
-    }
-  }
-  showPlaylistMoreOptions() {
-    const options = [];
-    options.push({
-      label: "Edit Details",
-      action: () => this.editPlaylistDetails(),
-    });
-    if (this.currentPlaylist?.cover_image) {
-      options.push({
-        label: "Remove Cover",
-        action: () => this.removePlaylistCover(),
-      });
-    }
-    options.push({
-      label: "Delete Playlist",
-      action: () => this.deletePlaylist(this.currentPlaylist.id),
-    });
-    // For now just use alert, in a full implementation this would be a dropdown
-    alert("Options: Edit Details, Delete Playlist");
-  }
-  async editPlaylistDetails() {
-    const newName = prompt("Playlist name:", this.currentPlaylist.name);
-    if (newName === null) return;
-    const newDescription = prompt(
-      "Description:",
-      this.currentPlaylist.description || "",
-    );
-    if (newDescription === null) return;
-    try {
-      const response = await fetch(
-        `/api/playlists/${this.guildId}/${this.currentPlaylist.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": this.apiKey,
-          },
-          body: JSON.stringify({
-            name: newName,
-            description: newDescription,
-          }),
-        },
-      );
-      if (response.ok) {
-        const data = await response.json();
-        this.currentPlaylist = data.playlist || data;
-        this.renderPlaylistDetails();
-        await this.loadPlaylists();
-      } else {
-        const error = await response.json();
-        alert("Failed to update playlist: " + (error.error || "Unknown error"));
-      }
-    } catch (error) {
-      console.error("Failed to update playlist:", error);
-    }
-  }
-  async removePlaylistCover() {
-    try {
-      const response = await fetch(
-        `/api/playlists/${this.guildId}/${this.currentPlaylist.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": this.apiKey,
-          },
-          body: JSON.stringify({ cover_image: null }),
-        },
-      );
-      if (response.ok) {
-        const data = await response.json();
-        this.currentPlaylist = data.playlist || data;
-        this.renderPlaylistDetails();
-      }
-      if (response.ok) {
-        this.currentPlaylist = await response.json();
-        this.renderPlaylistDetails();
+        this.showToast(`❌ Failed to remove cover: ${error.error || "Unknown error"} `, "error");
       }
     } catch (error) {
       console.error("Failed to remove cover:", error);
+      this.showToast("❌ Network error", "error");
     }
   }
   async loadPlaylistToQueue() {
@@ -3179,7 +4351,7 @@ class MusicDashboard {
     // Add all tracks to queue
     for (const track of this.currentPlaylist.tracks) {
       try {
-        await fetch(`/api/player/${this.guildId}/queue`, {
+        await fetch(`/ api / player / ${this.guildId}/queue`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -3205,19 +4377,220 @@ class MusicDashboard {
       prompt("Copy this link:", url);
     }
   }
+  // --- Playlist Actions (Edit / Delete) ---
+
+  // --- Modal Helpers ---
+  showModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+      modal.classList.remove('hidden');
+    }
+  }
+
+  closeModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  }
+
+  showInputModal(title, label, defaultValue, onConfirm) {
+    document.getElementById('genericInputTitle').textContent = title;
+    document.getElementById('genericInputLabel').textContent = label;
+    const input = document.getElementById('genericInputValue');
+    input.value = defaultValue || "";
+
+    const btn = document.getElementById('genericInputConfirmBtn');
+    // Remove old listeners
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.onclick = () => {
+      const val = input.value.trim();
+      if (val) {
+        this.closeModal('genericInputModal');
+        onConfirm(val);
+      } else {
+        this.showToast("Value cannot be empty", "error");
+      }
+    };
+    // Enter key support
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') newBtn.click();
+    };
+
+    this.showModal('genericInputModal');
+    input.focus();
+  }
+
+  showConfirmModal(title, text, onConfirm) {
+    document.getElementById('genericConfirmTitle').textContent = title;
+    document.getElementById('genericConfirmText').textContent = text;
+
+    const btn = document.getElementById('genericConfirmBtn');
+    // Remove old listeners
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.onclick = () => {
+      this.closeModal('genericConfirmModal');
+      onConfirm();
+    };
+
+    this.showModal('genericConfirmModal');
+  }
+
+  editPlaylistDetails() {
+    console.log("editPlaylistDetails called for:", this.currentPlaylist?.id);
+    if (!this.currentPlaylist) return;
+
+    // Check if modal exists
+    const modal = document.getElementById('editPlaylistModal');
+    const inputName = document.getElementById('editPlaylistName');
+    const inputDesc = document.getElementById('editPlaylistDescription');
+
+    if (!modal || !inputName) {
+      console.error("Edit Modal elements not found!");
+      return;
+    }
+
+    // Populate and show modal
+    console.log("Populating edit modal");
+    inputName.value = this.currentPlaylist.name || "";
+    if (inputDesc) {
+      inputDesc.value = this.currentPlaylist.description || "";
+    }
+
+    this.showModal('editPlaylistModal');
+    inputName.focus();
+  }
+
+  async savePlaylistDetails() {
+    console.log("savePlaylistDetails called");
+    const inputName = document.getElementById('editPlaylistName');
+    const inputDesc = document.getElementById('editPlaylistDescription');
+
+    if (!inputName || !this.currentPlaylist) return;
+
+    const newName = inputName.value.trim();
+    const newDesc = inputDesc ? inputDesc.value.trim() : (this.currentPlaylist.description || "");
+
+    console.log(`Saving details: name="${newName}", desc="${newDesc}"`);
+
+    if (!newName) {
+      this.showToast("Name cannot be empty", "error");
+      return;
+    }
+
+    this.closeModal('editPlaylistModal');
+
+    // Always update if name OR description changed
+    if (newName !== this.currentPlaylist.name || newDesc !== (this.currentPlaylist.description || "")) {
+      await this.updatePlaylistDetails(newName, newDesc);
+    }
+  }
+
+  async updatePlaylistDetails(newName, newDescription) {
+    try {
+      this.showToast("💾 Updating playlist...", "info");
+      const response = await fetch(`/api/v2/playlists/${this.currentPlaylist.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": this.apiKey,
+        },
+        body: JSON.stringify({
+          name: newName,
+          description: newDescription,
+          localUserId: this.getUserId()
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        this.currentPlaylist = data.playlist || data;
+        this.showToast("✅ Playlist updated successfully", "success");
+        this.renderPlaylistDetails();
+        this.loadPlaylists(); // Refresh sidebar
+      } else {
+        const error = await response.json();
+        this.showToast(`❌ ${error.error || "Update failed"}`, "error");
+      }
+    } catch (error) {
+      console.error("Error updating playlist:", error);
+      this.showToast("❌ Error updating playlist", "error");
+    }
+  }
+
+  // Delete Playlist
+  deletePlaylist(id) {
+    console.log("deletePlaylist called for:", id);
+    // If id is not passed (called from menu), use current
+    const playlistId = id || this.currentPlaylist?.id;
+    if (!playlistId) return;
+
+    this.pendingDeleteId = playlistId;
+
+    const modal = document.getElementById('deleteConfirmModal');
+    const btn = document.getElementById('confirmDeleteBtn');
+
+    if (!modal || !btn) {
+      // Fallback
+      console.log("Delete modal not found, using raw confirm");
+      if (confirm("Are you sure you want to delete this playlist?")) {
+        this.performDeletePlaylist(playlistId);
+      }
+      return;
+    }
+
+    // Setup confirm button
+    // We use a one-time wrapper to avoid stacking listeners
+    console.log("Showing delete confirmation modal");
+    btn.onclick = () => {
+      this.performDeletePlaylist(playlistId);
+      this.closeModal('deleteConfirmModal');
+    };
+
+    this.showModal('deleteConfirmModal');
+  }
+
+  async performDeletePlaylist(id) {
+    console.log("performDeletePlaylist executing for:", id);
+    try {
+      const response = await fetch(`/api/v2/playlists/${id}?userId=${this.getUserId()}`, {
+        method: "DELETE",
+        headers: { "X-API-Key": this.apiKey },
+      });
+
+      if (response.ok) {
+        this.showToast("🗑️ Playlist deleted", "success");
+        if (this.currentPlaylist && this.currentPlaylist.id === id) {
+          this.currentPlaylist = null;
+          this.showPage("playlists");
+        }
+        this.loadPlaylists();
+      } else {
+        const error = await response.json();
+        this.showToast(`❌ ${error.error || "Delete failed"}`, "error");
+      }
+    } catch (error) {
+      console.error("Error deleting playlist:", error);
+      this.showToast("❌ Error deleting playlist", "error");
+    }
+  }
+
   async togglePlaylistPrivacy(playlistId, isPublic) {
     try {
-      const response = await fetch(
-        `/api/playlists/${this.guildId}/${playlistId}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": this.apiKey,
-          },
-          body: JSON.stringify({ isPublic: isPublic }),
+      // Use v2 API endpoint
+      const response = await fetch(`/api/v2/playlists/${playlistId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": this.apiKey,
         },
-      );
+        body: JSON.stringify({ isPublic: isPublic, localUserId: this.getUserId() }),
+      });
+
       if (response.ok) {
         this.showToast(isPublic ? "🔓 Playlist is now Public" : "🔒 Playlist is now Private");
         await this.loadPlaylists();
@@ -3230,27 +4603,49 @@ class MusicDashboard {
       this.showToast("❌ Network error", "error");
     }
   }
-  async deletePlaylist(playlistId) {
-    if (!confirm("Are you sure you want to delete this playlist? This cannot be undone.")) return;
-    try {
-      const response = await fetch(
-        `/api/playlists/${this.guildId}/${playlistId}`,
-        {
-          method: "DELETE",
-          headers: { "X-API-Key": this.apiKey },
-        },
-      );
-      if (response.ok) {
-        this.showToast("🗑️ Playlist deleted successfully");
-        await this.loadPlaylists();
-      } else {
-        const error = await response.json();
-        this.showToast("❌ Failed to delete playlist: " + (error.error || "Unknown error"), "error");
-      }
-    } catch (error) {
-      console.error("Failed to delete playlist:", error);
-      this.showToast("❌ Network error", "error");
+
+
+
+  async saveQueueToPlaylist() {
+    if (!this.guildId) return;
+    if (!this.queue || this.queue.length === 0) {
+      this.showToast("⚠️ Queue is empty", "error");
+      return;
     }
+
+    this.showInputModal(
+      "Save Queue as Playlist",
+      "Playlist Name",
+      `Queue Backup - ${new Date().toLocaleDateString()}`,
+      async (name) => {
+        try {
+          const response = await fetch(`/api/v2/playlists/import/queue`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-API-Key": this.apiKey,
+            },
+            body: JSON.stringify({
+              guildId: this.guildId,
+              name: name,
+              localUserId: this.getUserId()
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            this.showToast(`✅ Saved ${data.total} tracks to playlist "${name}"`);
+            await this.loadPlaylists();
+          } else {
+            const error = await response.json();
+            this.showToast(`❌ Failed to save queue: ${error.error || "Unknown error"}`, "error");
+          }
+        } catch (error) {
+          console.error("Error saving queue:", error);
+          this.showToast("❌ Network error", "error");
+        }
+      }
+    );
   }
   // ============ SETTINGS FUNCTIONS ============
   async loadSettings() {
@@ -3265,44 +4660,54 @@ class MusicDashboard {
       });
       if (response.ok) {
         const settings = await response.json();
-        this.renderSettings(settings);
+        await this.renderSettings(settings);
         // Theme selector is local-only; render it whenever settings load.
-        this.renderThemeSelector();
+        // Theme selector is local-only; render it whenever settings load.
+        if (this.renderThemeSelector) this.renderThemeSelector(); // Legacy check
+
+        // Initialize local settings controls
+        const shortcutsCheck = document.getElementById('keyboardShortcutsCheck');
+        if (shortcutsCheck) {
+          shortcutsCheck.checked = localStorage.getItem('shortcuts_enabled') !== 'false';
+        }
       }
     } catch (error) {
       console.error("Failed to load settings:", error);
     }
   }
-  renderSettings(settings) {
+  async renderSettings(settings) {
+    // Show/hide Admin tab for bot owners
+    const adminTab = document.getElementById("adminSettingsTab");
+    if (adminTab) {
+      if (this.user?.isBotOwner) {
+        adminTab.classList.remove("hidden");
+      } else {
+        adminTab.classList.add("hidden");
+      }
+    }
+
     document.getElementById("prefixInput").value = settings.prefix || ".";
     document.getElementById("defaultVolumeSlider").value =
       settings.defaultVolume || 100;
     document.getElementById("defaultVolumeValue").textContent =
       (settings.defaultVolume || 100) + "%";
-    // Set checkbox states and toggle classes
-    const autoPlay = settings.autoPlay || false;
-    document.getElementById("autoPlayCheck").checked = autoPlay;
-    document
-      .getElementById("autoPlayCheck")
-      .closest(".toggle-label")
-      .classList.toggle("checked", autoPlay);
-    const leaveOnEmpty = settings.leaveOnEmpty !== false;
-    document.getElementById("leaveOnEmptyCheck").checked = leaveOnEmpty;
-    document
-      .getElementById("leaveOnEmptyCheck")
-      .closest(".toggle-label")
-      .classList.toggle("checked", leaveOnEmpty);
-    const stay247 = settings.stay247 || false;
-    document.getElementById("stay247Check").checked = stay247;
-    document
-      .getElementById("stay247Check")
-      .closest(".toggle-label")
-      .classList.toggle("checked", stay247);
+    // Set checkbox states and toggle classes with defensive checks
+    const updateToggle = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.checked = value;
+      }
+    };
+
+    updateToggle("autoPlayCheck", settings.autoPlay === true);
+    updateToggle("leaveOnEmptyCheck", settings.leaveOnEmpty === true);
+    updateToggle("stay247Check", settings.stay247 === true);
     // Show/hide 247 channel section
     this.toggle247Channels();
-    // Load roles and users for all selects
-    this.loadAllRoleSelects();
-    this.loadAllUserSelects();
+    // Load roles and users for all selects - AWAIT them so values can be set correctly
+    await this.loadAllRoleSelects();
+    await this.loadAllUserSelects();
+    await this.loadGuildChannels();
     // Render DJ roles (multi-select)
     this.renderRoleTags(
       "djRolesTags",
@@ -3353,11 +4758,11 @@ class MusicDashboard {
       "premiumUsersSelect",
       "premiumUsers",
     );
-    // Load 24/7 channels
-    this.loadGuildChannels();
+    // Load 24/7 channels values
     document.getElementById("247VoiceChannelSelect").value =
       settings["247VoiceChannel"] || "";
-    settings["247TextChannel"] || "";
+    document.getElementById("247TextChannelSelect").value =
+      settings["247TextChannel"] || "";
     // Add click listener to save button
     const saveBtn = document.getElementById("saveSettingsBtn");
     if (saveBtn) {
@@ -3377,13 +4782,12 @@ class MusicDashboard {
 
       if (isPremium) {
         stay247Check.disabled = false;
-        // mode247Label.classList.remove("disabled"); 
         mode247Lock.classList.add("hidden");
       } else {
         stay247Check.disabled = true;
         stay247Check.checked = false;
-        if (mode247Label) mode247Label.classList.remove("checked");
-        // mode247Label.classList.add("disabled");
+        const parent = stay247Check.closest(".toggle-label") || stay247Check.closest(".big-toggle");
+        if (parent) parent.classList.remove("checked");
         mode247Lock.classList.remove("hidden");
       }
     }
@@ -3396,23 +4800,23 @@ class MusicDashboard {
       if (feat247) {
         feat247.classList.remove("inactive");
         feat247.classList.add("active");
-        feat247.innerHTML = "<span>✅</span> 24/7 Mode";
+        feat247.innerHTML = '<span><i class="ph ph-check-circle"></i></span> 24/7 Mode';
       }
       if (featAutoplay) {
         featAutoplay.classList.remove("inactive");
         featAutoplay.classList.add("active");
-        featAutoplay.innerHTML = "<span>✅</span> Smart Autoplay";
+        featAutoplay.innerHTML = '<span><i class="ph ph-check-circle"></i></span> Smart Autoplay';
       }
     } else {
       if (feat247) {
         feat247.classList.add("inactive");
         feat247.classList.remove("active");
-        feat247.innerHTML = "<span>❌</span> 24/7 Mode";
+        feat247.innerHTML = '<span><i class="ph ph-x-circle"></i></span> 24/7 Mode';
       }
       if (featAutoplay) {
         featAutoplay.classList.add("inactive");
         featAutoplay.classList.remove("active");
-        featAutoplay.innerHTML = "<span>❌</span> Smart Autoplay";
+        featAutoplay.innerHTML = '<span><i class="ph ph-x-circle"></i></span> Smart Autoplay';
       }
     }
   }
@@ -3425,342 +4829,245 @@ class MusicDashboard {
       section.classList.add("hidden");
     }
   }
-  handleToggleClick(event, checkboxId) {
-    const checkbox = document.getElementById(checkboxId);
-    const label = event.currentTarget;
-    if (checkbox && label) {
-      checkbox.checked = !checkbox.checked;
-      label.classList.toggle("checked", checkbox.checked);
-      // Trigger change event for any listeners
-      checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-      // Special handling for 247 toggle
-      if (checkboxId === "stay247Check") {
-        this.toggle247Channels();
-      }
-    }
-    return true;
-  }
+
   async loadAllUserSelects() {
     if (!this.guildId) return;
     try {
       const response = await fetch(`/api/guild/${this.guildId}/members`, {
         headers: { "X-API-Key": this.apiKey },
       });
-      if (response.ok) {
-        const members = await response.json();
-        // Update all user select dropdowns
-        const selects = [
-          "allowedUsersSelect",
-          "vipUsersSelect",
-          "premiumUsersSelect",
-        ];
-        selects.forEach((selectId) => {
-          const select = document.getElementById(selectId);
-          if (select) {
-            const currentValue = select.value;
-            select.innerHTML = '<option value="">Select a user...</option>';
-            members.forEach((member) => {
-              const option = document.createElement("option");
-              option.value = member.id;
-              option.textContent = `${member.username}#${member.discriminator}`;
-              if (member.avatar) {
-                option.dataset.avatar = member.avatar;
-              }
-              select.appendChild(option);
-            });
-            select.value = currentValue;
-          }
-        });
-      }
+      if (!response.ok) return;
+
+      const members = await response.json();
+      const selects = [
+        "allowedUsersSelect",
+        "vipUsersSelect",
+        "premiumUsersSelect",
+      ];
+      selects.forEach((selectId) => {
+        const select = document.getElementById(selectId);
+        if (select) {
+          const currentValue = select.value;
+          select.innerHTML = '<option value="">Select a user...</option>';
+          members.forEach((member) => {
+            const option = document.createElement("option");
+            option.value = member.id;
+            const tag = member.discriminator && member.discriminator !== "0"
+              ? `${member.username}#${member.discriminator}`
+              : member.username;
+            option.textContent = tag;
+            if (member.avatar) option.dataset.avatar = member.avatar;
+            select.appendChild(option);
+          });
+          select.value = currentValue;
+        }
+      });
     } catch (error) {
       console.error("Failed to load members:", error);
     }
   }
+
   renderUserTags(containerId, users, selectId, settingsKey) {
     const container = document.getElementById(containerId);
-    container.innerHTML = "";
+    if (!container) return;
     container.dataset.users = JSON.stringify(users);
-    users.forEach((user) => {
-      const tag = document.createElement("div");
-      tag.className = "user-tag";
-      tag.dataset.userId = user.id || user;
-      const userName = user.username
-        ? `${user.username}#${user.discriminator || "0"}`
-        : user;
-      const avatarUrl = user.avatar
-        ? user.avatar
-        : "https://cdn.discordapp.com/embed/avatars/0.png";
-      tag.innerHTML = `
-                <img src="${avatarUrl}" alt="">
-                <span>${userName}</span>
-                <span class="remove" onclick="dashboard.removeUser('${containerId}', '${user.id || user}')">&times;</span>
-            `;
-      container.appendChild(tag);
-    });
+    container.innerHTML = users
+      .map((user) => {
+        const userId = user.id || user;
+        const userName = user.username
+          ? `${user.username}${user.discriminator && user.discriminator !== "0" ? "#" + user.discriminator : ""}`
+          : userId;
+        const avatarUrl = user.avatar || "https://cdn.discordapp.com/embed/avatars/0.png";
+        return `
+          <div class="user-tag" data-id="${userId}">
+            <img src="${avatarUrl}" alt="">
+            <span>${this.escapeHtml(userName)}</span>
+            <span class="remove" onclick="dashboard.removeUserTag('${containerId}', '${userId}')">&times;</span>
+          </div>
+        `;
+      }).join("");
   }
-  addAllowedUser() {
-    const select = document.getElementById("allowedUsersSelect");
+
+  addAllowedUser() { this._addUser("allowedUsersSelect", "allowedUsersTags", "allowedUsers"); }
+  addVipUser() { this._addUser("vipUsersSelect", "vipUsersTags", "vipUsers"); }
+  addPremiumUser() { this._addUser("premiumUsersSelect", "premiumUsersTags", "premiumUsers"); }
+
+  _addUser(selectId, containerId, settingsKey) {
+    const select = document.getElementById(selectId);
+    if (!select || !select.value) return;
     const userId = select.value;
-    if (!userId) return;
-    const container = document.getElementById("allowedUsersTags");
-    const users = JSON.parse(container.dataset.users || "[]");
-    if (!users.find((u) => (u.id || u) === userId)) {
-      const userName = select.options[select.selectedIndex].text;
-      const [username, discriminator] = userName.split("#");
-      users.push({ id: userId, username, discriminator: discriminator || "" });
-      this.renderUserTags(
-        "allowedUsersTags",
-        users,
-        "allowedUsersSelect",
-        "allowedUsers",
-      );
-    }
-    select.value = "";
-  }
-  addVipUser() {
-    const select = document.getElementById("vipUsersSelect");
-    const userId = select.value;
-    if (!userId) return;
-    const container = document.getElementById("vipUsersTags");
-    const users = JSON.parse(container.dataset.users || "[]");
-    if (!users.find((u) => (u.id || u) === userId)) {
-      const userName = select.options[select.selectedIndex].text;
-      const [username, discriminator] = userName.split("#");
-      users.push({ id: userId, username, discriminator: discriminator || "" });
-      this.renderUserTags("vipUsersTags", users, "vipUsersSelect", "vipUsers");
-    }
-    select.value = "";
-  }
-  addPremiumUser() {
-    const select = document.getElementById("premiumUsersSelect");
-    const userId = select.value;
-    if (!userId) return;
-    const container = document.getElementById("premiumUsersTags");
-    const users = JSON.parse(container.dataset.users || "[]");
-    if (!users.find((u) => (u.id || u) === userId)) {
-      const userName = select.options[select.selectedIndex].text;
-      const [username, discriminator] = userName.split("#");
-      users.push({ id: userId, username, discriminator: discriminator || "" });
-      this.renderUserTags(
-        "premiumUsersTags",
-        users,
-        "premiumUsersSelect",
-        "premiumUsers",
-      );
-    }
-    select.value = "";
-  }
-  removeUser(containerId, userId) {
     const container = document.getElementById(containerId);
+    if (!container) return;
+    const users = JSON.parse(container.dataset.users || "[]");
+    if (!users.find((u) => (u.id || u) === userId)) {
+      const userName = select.options[select.selectedIndex].text;
+      const [username, discriminator] = userName.split("#");
+      users.push({ id: userId, username, discriminator: discriminator || "0" });
+      this.renderUserTags(containerId, users, selectId, settingsKey);
+    }
+    select.value = "";
+  }
+
+  removeUserTag(containerId, userId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
     const users = JSON.parse(container.dataset.users || "[]");
     const filtered = users.filter((u) => (u.id || u) !== userId);
-    let newSelectId = "";
-    if (containerId === "allowedUsersTags") newSelectId = "allowedUsersSelect";
-    else if (containerId === "vipUsersTags") newSelectId = "vipUsersSelect";
-    else if (containerId === "premiumUsersTags")
-      newSelectId = "premiumUsersSelect";
-    this.renderUserTags(
-      containerId,
-      filtered,
-      newSelectId,
-      containerId.replace("Tags", ""),
-    );
+    this.renderUserTags(containerId, filtered, null, null);
   }
+
   async loadAllRoleSelects() {
+    if (!this.guildId) return;
     try {
       const response = await fetch(`/api/guild/${this.guildId}/roles`, {
         headers: { "X-API-Key": this.apiKey },
       });
-      if (response.ok) {
-        const roles = await response.json();
-        // Update all role select dropdowns
-        const selects = [
-          "djRolesSelect",
-          "allowedRolesSelect",
-          "vipRolesSelect",
-          "premiumRolesSelect",
-        ];
-        selects.forEach((selectId) => {
-          const select = document.getElementById(selectId);
-          if (select) {
-            const currentValue = select.value;
-            select.innerHTML =
-              '<option value="">Select a role to add...</option>';
-            roles.forEach((role) => {
-              const option = document.createElement("option");
-              option.value = role.id;
-              option.textContent = role.name;
-              if (role.color && role.color !== "#000000") {
-                option.style.color = role.color;
-              }
-              select.appendChild(option);
-            });
-            select.value = currentValue;
-          }
-        });
-      }
+      if (!response.ok) return;
+
+      const roles = await response.json();
+      const selects = [
+        "djRolesSelect",
+        "allowedRolesSelect",
+        "vipRolesSelect",
+        "premiumRolesSelect",
+      ];
+      selects.forEach((selectId) => {
+        const select = document.getElementById(selectId);
+        if (select) {
+          const currentValue = select.value;
+          select.innerHTML = '<option value="">Select a role to add...</option>';
+          roles.forEach((role) => {
+            const option = document.createElement("option");
+            option.value = role.id;
+            option.textContent = role.name;
+            if (role.color && role.color !== "#000000") {
+              option.style.color = role.color;
+            }
+            select.appendChild(option);
+          });
+          select.value = currentValue;
+        }
+      });
     } catch (error) {
       console.error("Failed to load roles:", error);
     }
   }
+
   renderRoleTags(containerId, roles, selectId, settingsKey) {
     const container = document.getElementById(containerId);
-    container.innerHTML = "";
-    // Store current roles in data attribute for tracking
+    if (!container) return;
     container.dataset.roles = JSON.stringify(roles);
-    roles.forEach((role) => {
-      const tag = document.createElement("div");
-      tag.className = "role-tag";
-      tag.dataset.roleId = role.id || role;
-      tag.innerHTML = `
-                <span class="role-name">${role.name || role}</span>
-                <span class="remove" onclick="dashboard.removeRole('${containerId}', '${role.id || role}')">&times;</span>
-            `;
-      container.appendChild(tag);
-    });
+    container.innerHTML = roles
+      .map((role) => `
+        <div class="role-tag" data-id="${role.id || role}">
+          <span class="role-name">${this.escapeHtml(role.name || role)}</span>
+          <span class="remove" onclick="dashboard.removeRoleTag('${containerId}', '${role.id || role}')">&times;</span>
+        </div>
+      `).join("");
   }
-  addDjRole() {
-    const select = document.getElementById("djRolesSelect");
+
+  addDjRole() { this._addRole("djRolesSelect", "djRolesTags", "djRoles"); }
+  addAllowedRole() { this._addRole("allowedRolesSelect", "allowedRolesTags", "allowedRoles"); }
+  addVipRole() { this._addRole("vipRolesSelect", "vipRolesTags", "vipRoles"); }
+  addPremiumRole() { this._addRole("premiumRolesSelect", "premiumRolesTags", "premiumRoles"); }
+
+  _addRole(selectId, containerId, settingsKey) {
+    const select = document.getElementById(selectId);
+    if (!select || !select.value) return;
     const roleId = select.value;
-    if (!roleId) return;
-    const container = document.getElementById("djRolesTags");
-    const roles = JSON.parse(container.dataset.roles || "[]");
-    if (!roles.find((r) => (r.id || r) === roleId)) {
-      const roleName = select.options[select.selectedIndex].text;
-      roles.push({ id: roleId, name: roleName });
-      this.renderRoleTags("djRolesTags", roles, "djRolesSelect", "djRoles");
-    }
-    select.value = "";
-  }
-  addAllowedRole() {
-    const select = document.getElementById("allowedRolesSelect");
-    const roleId = select.value;
-    if (!roleId) return;
-    const container = document.getElementById("allowedRolesTags");
-    const roles = JSON.parse(container.dataset.roles || "[]");
-    if (!roles.find((r) => (r.id || r) === roleId)) {
-      const roleName = select.options[select.selectedIndex].text;
-      roles.push({ id: roleId, name: roleName });
-      this.renderRoleTags(
-        "allowedRolesTags",
-        roles,
-        "allowedRolesSelect",
-        "allowedRoles",
-      );
-    }
-    select.value = "";
-  }
-  addVipRole() {
-    const select = document.getElementById("vipRolesSelect");
-    const roleId = select.value;
-    if (!roleId) return;
-    const container = document.getElementById("vipRolesTags");
-    const roles = JSON.parse(container.dataset.roles || "[]");
-    if (!roles.find((r) => (r.id || r) === roleId)) {
-      const roleName = select.options[select.selectedIndex].text;
-      roles.push({ id: roleId, name: roleName });
-      this.renderRoleTags("vipRolesTags", roles, "vipRolesSelect", "vipRoles");
-    }
-    select.value = "";
-  }
-  addPremiumRole() {
-    const select = document.getElementById("premiumRolesSelect");
-    const roleId = select.value;
-    if (!roleId) return;
-    const container = document.getElementById("premiumRolesTags");
-    const roles = JSON.parse(container.dataset.roles || "[]");
-    if (!roles.find((r) => (r.id || r) === roleId)) {
-      const roleName = select.options[select.selectedIndex].text;
-      roles.push({ id: roleId, name: roleName });
-      this.renderRoleTags(
-        "premiumRolesTags",
-        roles,
-        "premiumRolesSelect",
-        "premiumRoles",
-      );
-    }
-    select.value = "";
-  }
-  removeRole(containerId, roleId) {
     const container = document.getElementById(containerId);
+    if (!container) return;
+    const roles = JSON.parse(container.dataset.roles || "[]");
+    if (!roles.find((r) => (r.id || r) === roleId)) {
+      const roleName = select.options[select.selectedIndex].text;
+      roles.push({ id: roleId, name: roleName });
+      this.renderRoleTags(containerId, roles, selectId, settingsKey);
+    }
+    select.value = "";
+  }
+
+  removeRoleTag(containerId, roleId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
     const roles = JSON.parse(container.dataset.roles || "[]");
     const filtered = roles.filter((r) => (r.id || r) !== roleId);
-    this.renderRoleTags(
-      containerId,
-      filtered,
-      containerId.replace("Tags", "Select"),
-      containerId.replace("Tags", ""),
-    );
+    this.renderRoleTags(containerId, filtered, null, null);
   }
+
   updateTierDisplay() {
-    // This can be used to show/hide tier-specific options if needed
-    console.log("Tier changed");
+    // Current tier logic
   }
+
   async loadGuildChannels() {
-    const voiceSelect = document.getElementById("247VoiceChannelSelect");
-    const textSelect = document.getElementById("247TextChannelSelect");
-    voiceSelect.innerHTML = '<option value="">None</option>';
-    textSelect.innerHTML = '<option value="">None</option>';
+    if (!this.guildId) return;
     try {
       const response = await fetch(`/api/guild/${this.guildId}/channels`, {
         headers: { "X-API-Key": this.apiKey },
       });
-      if (response.ok) {
-        const { voiceChannels, textChannels } = await response.json();
-        voiceChannels.forEach((channel) => {
-          const option = document.createElement("option");
-          option.value = channel.id;
-          option.textContent = channel.name;
-          voiceSelect.appendChild(option);
+      if (!response.ok) return;
+
+      const { voiceChannels, textChannels } = await response.json();
+      const voiceSelect = document.getElementById("247VoiceChannelSelect");
+      const textSelect = document.getElementById("247TextChannelSelect");
+
+      if (voiceSelect) {
+        const cur = voiceSelect.value;
+        voiceSelect.innerHTML = '<option value="">None</option>';
+        voiceChannels.forEach(c => {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = "🔊 " + c.name; // Keep standard emoji for Select option as icons don't render inside <option>
+          voiceSelect.appendChild(opt);
         });
-        textChannels.forEach((channel) => {
-          const option = document.createElement("option");
-          option.value = channel.id;
-          option.textContent = "#" + channel.name;
-          textSelect.appendChild(option);
+        voiceSelect.value = cur;
+      }
+
+      if (textSelect) {
+        const cur = textSelect.value;
+        textSelect.innerHTML = '<option value="">None</option>';
+        textChannels.forEach(c => {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = "#" + c.name;
+          textSelect.appendChild(opt);
         });
+        textSelect.value = cur;
       }
     } catch (error) {
       console.error("Failed to load channels:", error);
     }
   }
+
   async saveSettings() {
-    // Check if guild is selected
-    if (!this.guildId) {
-      alert("Please select a server first");
-      return;
-    }
-    const getRoleIds = (containerId) => {
-      const container = document.getElementById(containerId);
-      const roles = JSON.parse(container.dataset.roles || "[]");
-      return roles.map((r) => r.id || r);
-    };
-    const getUserIds = (containerId) => {
-      const container = document.getElementById(containerId);
-      const users = JSON.parse(container.dataset.users || "[]");
-      return users.map((u) => u.id || u);
-    };
-    const settings = {
-      prefix: document.getElementById("prefixInput").value,
-      defaultVolume: parseInt(
-        document.getElementById("defaultVolumeSlider").value,
-      ),
-      djRoles: getRoleIds("djRolesTags"),
-      autoPlay: document.getElementById("autoPlayCheck").checked,
-      leaveOnEmpty: document.getElementById("leaveOnEmptyCheck").checked,
-      stay247: document.getElementById("stay247Check").checked,
-      textChannelId: document.getElementById("247TextChannelSelect").value,
-      voiceChannelId: document.getElementById("247VoiceChannelSelect").value,
-      tier:
-        document.querySelector('input[name="tier"]:checked')?.value || "free",
-      allowedRoles: getRoleIds("allowedRolesTags"),
-      vipRoles: getRoleIds("vipRolesTags"),
-      premiumRoles: getRoleIds("premiumRolesTags"),
-      allowedUsers: getUserIds("allowedUsersTags"),
-      vipUsers: getUserIds("vipUsersTags"),
-      premiumUsers: getUserIds("premiumUsersTags"),
-    };
+    if (!this.guildId) return;
+    const btn = document.getElementById("saveSettingsBtn");
+    if (!btn) return;
+    const originalText = btn.textContent;
+    btn.textContent = "Saving...";
+    btn.disabled = true;
+
     try {
+      const getRoleIds = (id) => JSON.parse(document.getElementById(id)?.dataset.roles || "[]").map(r => r.id || r);
+      const getUserIds = (id) => JSON.parse(document.getElementById(id)?.dataset.users || "[]").map(u => u.id || u);
+
+      const settings = {
+        prefix: document.getElementById("prefixInput")?.value || ".",
+        defaultVolume: parseInt(document.getElementById("defaultVolumeSlider")?.value || "100"),
+        autoPlay: document.getElementById("autoPlayCheck")?.checked,
+        leaveOnEmpty: document.getElementById("leaveOnEmptyCheck")?.checked,
+        stay247: document.getElementById("stay247Check")?.checked,
+        textChannelId: document.getElementById("247TextChannelSelect")?.value,
+        voiceChannelId: document.getElementById("247VoiceChannelSelect")?.value,
+        tier: document.querySelector('input[name="tier"]:checked')?.value || "free",
+        djRoles: getRoleIds("djRolesTags"),
+        allowedRoles: getRoleIds("allowedRolesTags"),
+        vipRoles: getRoleIds("vipRolesTags"),
+        premiumRoles: getRoleIds("premiumRolesTags"),
+        allowedUsers: getUserIds("allowedUsersTags"),
+        vipUsers: getUserIds("vipUsersTags"),
+        premiumUsers: getUserIds("premiumUsersTags"),
+      };
+
       const response = await fetch(`/api/settings/${this.guildId}`, {
         method: "PUT",
         headers: {
@@ -3769,41 +5076,80 @@ class MusicDashboard {
         },
         body: JSON.stringify(settings),
       });
+
       if (response.ok) {
-        this.showToast("✅ Settings saved successfully!");
+        this.showToast("Settings saved successfully!");
       } else {
         const error = await response.json();
-        this.showToast("❌ Failed to save: " + (error.error || "Unknown error"), "error");
+        this.showToast("Failed: " + (error.error || "Unknown"), "error");
       }
     } catch (error) {
-      console.error("Failed to save settings:", error);
-      this.showToast("❌ Failed to save settings: " + error.message, "error");
+      console.error("Save error:", error);
+      this.showToast("Connection error", "error");
+    } finally {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  }
+
+  async deploySlashCommands() {
+    if (!confirm("Are you sure you want to deploy slash commands globally? This can take up to 1 hour to propagate to all servers.")) {
+      return;
+    }
+
+    const btn = document.getElementById("deployCommandsBtn");
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Deploying...";
+
+    try {
+      const response = await fetch("/api/admin/deploy-commands", {
+        method: "POST",
+        headers: {
+          "X-API-Key": this.apiKey,
+          "Content-Type": "application/json"
+        }
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        this.showToast(`${data.message}`);
+      } else {
+        this.showToast(`${data.error || "Failed to deploy commands"}`, "error");
+      }
+    } catch (error) {
+      console.error("Failed to deploy commands:", error);
+      this.showToast("Network error while deploying commands", "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   }
   closeModal(modalId) {
     document.getElementById(modalId).classList.add("hidden");
   }
-  async apiCall(method, endpoint, body = null) {
+  async updateSetting(key, value) {
+    if (!this.guildId) {
+      this.showToast("❌ Select a server first", "error");
+      return;
+    }
+
     try {
-      const options = {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": this.apiKey,
-        },
-      };
-      if (body) options.body = JSON.stringify(body);
-      const response = await fetch(endpoint, options);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Request failed");
+      console.log(`Updating setting ${key} to ${value} for guild ${this.guildId}`);
+      const response = await this.apiCall('PUT', `/api/settings/${this.guildId}`, {
+        [key]: value
+      });
+
+      if (response && response.success) {
+        this.showToast(`✅ ${key} updated`, 'success');
+        // Update local state if needed
       }
-      return await response.json();
     } catch (error) {
-      console.error("API call failed:", error);
-      alert(`Error: ${error.message}`);
+      console.error(`Failed to update setting ${key}:`, error);
+      this.showToast(`❌ Failed to update ${key}`, 'error');
     }
   }
+
   updateConnectionStatus(connected) {
     this.connectionStatus.classList.remove("hidden");
     this.connectionStatus.classList.toggle("connected", connected);
@@ -3813,11 +5159,12 @@ class MusicDashboard {
       : "🔴 Disconnected";
   }
   formatTime(ms) {
-    if (!ms || ms < 0) return "0:00";
+    if (!ms || isNaN(ms) || ms < 0) return "0:00";
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+    const seconds = Math.floor(totalSeconds % 60);
+
     if (hours > 0) {
       return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
     }
@@ -3944,6 +5291,10 @@ class MusicDashboard {
       // ignore
     }
     this.updateThemeSwatches(t);
+    // Sync visualizer color with theme
+    if (this.visualizer) {
+      this.visualizer.updateColor(t);
+    }
   }
   // ============ DASHBOARD EMOJI RESOLUTION ============
   // Dashboard UI should rely on Emoji Management mappings.
@@ -3980,12 +5331,27 @@ class MusicDashboard {
     return defaults[botName] || "❓";
   }
   getEmojiHtml(botName) {
-    const mapped = this.emojiMap?.get(botName);
-    if (mapped && mapped.emoji_url && mapped.is_available && mapped.emoji_id) {
-      const alt = mapped.discord_name || mapped.bot_name || botName;
-      return `<img class="ui-emoji" src="${mapped.emoji_url}" alt="${this.escapeHtml(alt)}" />`;
-    }
-    return this.escapeHtml(this.getEmojiText(botName));
+    const icons = {
+      play: '<i class="ph ph-play"></i>',
+      pause: '<i class="ph ph-pause"></i>',
+      stop: '<i class="ph ph-stop"></i>',
+      skip: '<i class="ph ph-skip-forward"></i>',
+      previous: '<i class="ph ph-skip-back"></i>',
+      shuffle: '<i class="ph ph-shuffle"></i>',
+      loop: '<i class="ph ph-repeat"></i>',
+      loop_track: '<i class="ph ph-repeat-once"></i>',
+      volume_up: '<i class="ph ph-speaker-high"></i>',
+      volume_down: '<i class="ph ph-speaker-low"></i>',
+      volume_mute: '<i class="ph ph-speaker-slash"></i>',
+      success: '<i class="ph ph-check-circle"></i>',
+      error: '<i class="ph ph-x-circle"></i>',
+      warning: '<i class="ph ph-warning"></i>',
+      info: '<i class="ph ph-info"></i>',
+      loading: '<i class="ph ph-spinner ph-spin"></i>',
+      queue: '<i class="ph ph-list-numbers"></i>',
+      now_playing: '<i class="ph ph-music-note"></i>',
+    };
+    return icons[botName] || this.getEmojiText(botName);
   }
   applyDashboardEmojis() {
     // Update icons on the dashboard immediately based on current state
@@ -4023,199 +5389,8 @@ class MusicDashboard {
   // ============ SPOTIFY & YOUTUBE MUSIC IMPORT ============
   // Moved to consolidated submitImportPlaylist() method
 
-  // ============ SETTINGS FUNCTIONS (CONTINUED) ============
-  addDjRole() {
-    this._addRole("djRolesSelect", "djRolesTags", "djRoles");
-  }
-  addAllowedRole() {
-    this._addRole("allowedRolesSelect", "allowedRolesTags", "allowedRoles");
-  }
-  addVipRole() {
-    this._addRole("vipRolesSelect", "vipRolesTags", "vipRoles");
-  }
-  addPremiumRole() {
-    this._addRole("premiumRolesSelect", "premiumRolesTags", "premiumRoles");
-  }
-  _addRole(selectId, containerId, settingsKey) {
-    const select = document.getElementById(selectId);
-    if (!select) return;
-    const roleId = select.value;
-    if (!roleId) return;
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    const roles = JSON.parse(container.dataset.roles || "[]");
-    if (!roles.find((r) => r.id === roleId)) {
-      const roleName = select.options[select.selectedIndex].text;
-      roles.push({ id: roleId, name: roleName });
-      this.renderRoleTags(containerId, roles, selectId, settingsKey);
-    }
-    select.value = "";
-  }
-  async loadAllRoleSelects() {
-    if (!this.guildId) return;
-    try {
-      const response = await fetch(`/api/guild/${this.guildId}/roles`, {
-        headers: { "X-API-Key": this.apiKey },
-      });
-      if (response.ok) {
-        const roles = await response.json();
-        const selects = [
-          "djRolesSelect",
-          "allowedRolesSelect",
-          "vipRolesSelect",
-          "premiumRolesSelect",
-        ];
-        selects.forEach((selectId) => {
-          const select = document.getElementById(selectId);
-          if (select) {
-            const currentValue = select.value;
-            select.innerHTML = '<option value="">Select a role...</option>';
-            roles.forEach((role) => {
-              const option = document.createElement("option");
-              option.value = role.id;
-              option.textContent = role.name;
-              option.style.color = role.color;
-              select.appendChild(option);
-            });
-            select.value = currentValue;
-          }
-        });
-      }
-    } catch (error) {
-      console.error("Failed to load roles:", error);
-    }
-  }
-  renderRoleTags(containerId, roles, selectId, settingsKey) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.dataset.roles = JSON.stringify(roles);
-    container.innerHTML = roles
-      .map(
-        (role) => `
-            <div class="role-tag" data-id="${role.id}">
-                <span class="role-name" style="${role.color ? "color: " + role.color : ""}">${this.escapeHtml(
-          role.name || role.id,
-        )}</span>
-                <span class="remove" onclick="dashboard.removeRoleTag('${containerId}', '${role.id}')">&times;</span>
-            </div>
-        `,
-      )
-      .join("");
-  }
-  removeRoleTag(containerId, roleId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    let roles = JSON.parse(container.dataset.roles || "[]");
-    roles = roles.filter((r) => r.id !== roleId);
-    this.renderRoleTags(containerId, roles, null, null);
-  }
-  updateTierDisplay() {
-    const tier =
-      document.querySelector('input[name="tier"]:checked')?.value || "free";
-    // Optional: Add visual feedback for selected tier card if needed
-  }
-  async saveSettings() {
-    if (!this.guildId) return;
-    const btn = document.getElementById("saveSettingsBtn");
-    const originalText = btn.textContent;
-    btn.textContent = "Saving...";
-    btn.disabled = true;
-    try {
-      // Gather settings
-      const settings = {
-        prefix: document.getElementById("prefixInput").value,
-        defaultVolume: parseInt(
-          document.getElementById("defaultVolumeSlider").value,
-        ),
-        autoPlay: document.getElementById("autoPlayCheck").checked,
-        leaveOnEmpty: document.getElementById("leaveOnEmptyCheck").checked,
-        stay247: document.getElementById("stay247Check").checked,
-        "247TextChannel": document.getElementById("247TextChannelSelect").value,
-        "247VoiceChannel": document.getElementById("247VoiceChannelSelect")
-          .value,
-        djRoles: JSON.parse(
-          document.getElementById("djRolesTags").dataset.roles || "[]",
-        ),
-        tier:
-          document.querySelector('input[name="tier"]:checked')?.value || "free",
-        allowedRoles: JSON.parse(
-          document.getElementById("allowedRolesTags").dataset.roles || "[]",
-        ),
-        allowedUsers: JSON.parse(
-          document.getElementById("allowedUsersTags").dataset.users || "[]",
-        ),
-        vipRoles: JSON.parse(
-          document.getElementById("vipRolesTags").dataset.roles || "[]",
-        ),
-        vipUsers: JSON.parse(
-          document.getElementById("vipUsersTags").dataset.users || "[]",
-        ),
-        premiumRoles: JSON.parse(
-          document.getElementById("premiumRolesTags").dataset.roles || "[]",
-        ),
-        premiumUsers: JSON.parse(
-          document.getElementById("premiumUsersTags").dataset.users || "[]",
-        ),
-      };
-      const response = await fetch(`/api/settings/${this.guildId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": this.apiKey,
-        },
-        body: JSON.stringify(settings),
-      });
-      if (response.ok) {
-        this.showToast("✅ Settings saved successfully!");
-      } else {
-        const error = await response.json();
-        alert("Failed to save settings: " + (error.error || "Unknown error"));
-      }
-    } catch (error) {
-      console.error("Failed to save settings:", error);
-      alert("Failed to save settings: " + error.message);
-    } finally {
-      btn.textContent = originalText;
-      btn.disabled = false;
-    }
-  }
-  async loadGuildChannels() {
-    if (!this.guildId) return;
-    try {
-      const response = await fetch(`/api/guild/${this.guildId}/channels`, {
-        headers: { "X-API-Key": this.apiKey },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const textSelect = document.getElementById("247TextChannelSelect");
-        const voiceSelect = document.getElementById("247VoiceChannelSelect");
-        if (textSelect) {
-          const current = textSelect.value;
-          textSelect.innerHTML = '<option value="">None</option>';
-          data.textChannels.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.id;
-            opt.textContent = '#' + c.name;
-            textSelect.appendChild(opt);
-          });
-          textSelect.value = current; // Restore selection if valid
-        }
-        if (voiceSelect) {
-          const current = voiceSelect.value;
-          voiceSelect.innerHTML = '<option value="">None</option>';
-          data.voiceChannels.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.id;
-            opt.textContent = '🔊 ' + c.name;
-            voiceSelect.appendChild(opt);
-          });
-          voiceSelect.value = current;
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load channels:", error);
-    }
-  }
+  // ============ SETTINGS FUNCTIONS ============
+  // Functions moved to consolidated area above
   updateLivePreview() {
     // Update the live preview card with current emoji mappings
     const updateEl = (id, botName) => {
@@ -4559,7 +5734,2070 @@ class MusicDashboard {
       // Ignore audio errors
     }
   }
+
+  /**
+   * Audio Filters Logic
+   */
+  async loadFilters() {
+    if (!this.guildId) return;
+    const grid = document.getElementById("filtersGrid");
+    if (!grid) return;
+
+    try {
+      const response = await fetch(`/api/player/${this.guildId}/filters`, {
+        headers: { "X-API-Key": this.apiKey }
+      });
+      if (!response.ok) return;
+
+      const data = await response.json();
+      this.availableFilters = data.available;
+      this.activeFilters = data.active;
+      this.lastRenderedFilterName = data.activeFilterName;
+      this.renderFilters(data.available, data.active, data.activeFilterName);
+    } catch (error) {
+      console.error("Error loading filters:", error);
+      grid.innerHTML = '<p class="error-text">Failed to load filters.</p>';
+    }
+  }
+
+  async applyFilter(filterName) {
+    if (!this.guildId) return;
+
+    // Check permission first
+    if (!await this.ensurePermission(`apply ${filterName} filter`)) return;
+
+    // Optimistic UI update
+    const prevActive = this.lastRenderedFilterName;
+    this.lastRenderedFilterName = filterName;
+    this.renderFilters(this.availableFilters, this.activeFilters, filterName);
+
+    try {
+      const response = await fetch(`/api/player/${this.guildId}/filters/${filterName}`, {
+        method: "POST",
+        headers: { "X-API-Key": this.apiKey }
+      });
+
+      if (response.ok) {
+        this.showToast(`✅ Filter applied: ${filterName}`);
+      } else {
+        // Rollback
+        this.lastRenderedFilterName = prevActive;
+        this.renderFilters(this.availableFilters, this.activeFilters, prevActive);
+        const error = await response.json();
+        this.showToast(`❌ ${error.error || "Failed to apply filter"}`, "error");
+      }
+    } catch (error) {
+      // Rollback
+      this.lastRenderedFilterName = prevActive;
+      this.renderFilters(this.availableFilters, this.activeFilters, prevActive);
+      console.error("Error applying filter:", error);
+      this.showToast("❌ Connection error", "error");
+    }
+  }
+
+  async resetFilters() {
+    if (!this.guildId) return;
+
+    // Check permission
+    if (!await this.ensurePermission("reset filters")) return;
+
+    // Optimistic UI update
+    const prevActive = this.lastRenderedFilterName;
+    this.lastRenderedFilterName = null;
+    this.renderFilters(this.availableFilters, this.activeFilters, null);
+
+    try {
+      const response = await fetch(`/api/player/${this.guildId}/filters`, {
+        method: "DELETE",
+        headers: { "X-API-Key": this.apiKey }
+      });
+
+      if (response.ok) {
+        this.showToast("✅ All filters reset");
+      } else {
+        // Rollback
+        this.lastRenderedFilterName = prevActive;
+        this.renderFilters(this.availableFilters, this.activeFilters, prevActive);
+        const error = await response.json();
+        this.showToast(`❌ ${error.error || "Failed to reset filters"}`, "error");
+      }
+    } catch (error) {
+      // Rollback
+      this.lastRenderedFilterName = prevActive;
+      this.renderFilters(this.availableFilters, this.activeFilters, prevActive);
+      console.error("Error resetting filters:", error);
+      this.showToast("❌ Connection error", "error");
+    }
+  }
+
+  renderFilters(available, active, activeFilterName) {
+    const grid = document.getElementById("filtersGrid");
+    if (!grid || !available) return false;
+
+    const filterIcons = {
+      pop: '<i class="ph ph-microphone-stage"></i>', rock: '<i class="ph ph-guitar"></i>', electronic: '<i class="ph ph-piano-keys"></i>', jazz: '<i class="ph ph-music-note"></i>', classical: '<i class="ph ph-music-notes"></i>',
+      hiphop: '<i class="ph ph-speaker-high"></i>', reggae: '<i class="ph ph-leaf"></i>', bassboost: '<i class="ph ph-speaker-slash"></i>', superbass: '<i class="ph ph-lightning"></i>', deepbass: '<i class="ph ph-waves"></i>',
+      vocals: '<i class="ph ph-microphone"></i>', treble: '<i class="ph ph-speaker-low"></i>', bright: '<i class="ph ph-sparkle"></i>', gaming: '<i class="ph ph-game-controller"></i>', nightcore: '<i class="ph ph-lightning-slash"></i>',
+      vaporwave: '<i class="ph ph-sun-horizon"></i>', boost: '<i class="ph ph-rocket"></i>', soft: '<i class="ph ph-cloud"></i>', flat: '<i class="ph ph-minus"></i>', warm: '<i class="ph ph-fire"></i>',
+      metal: '<i class="ph ph-skull"></i>', oldschool: '<i class="ph ph-cassette-tape"></i>'
+    };
+
+    const filterNames = Object.keys(available).filter(name => typeof available[name] !== 'function');
+
+    grid.innerHTML = filterNames.map(name => {
+      const isActive = name === activeFilterName;
+      return `
+        <div class="filter-card ${isActive ? 'active' : ''}" onclick="dashboard.applyFilter('${name}')">
+          <span class="filter-icon">${filterIcons[name] || '<i class="ph ph-sliders"></i>'}</span>
+          <span class="filter-name">${name}</span>
+          ${isActive ? '<span class="active-badge">Active</span>' : ''}
+        </div>
+      `;
+    }).join('');
+
+    return true;
+  }
+
+
+  // ==========================================
+  // UNIFIED SEARCH SYSTEM
+  // ==========================================
+
+  setSearchSource(source) {
+    this.currentSearchSource = source;
+    this.updateSearchFiltersUI();
+    this.triggerSearchIfReady();
+  }
+
+  setSearchType(type) {
+    this.currentSearchType = type; // 'track' or 'playlist'
+    this.updateSearchFiltersUI();
+    this.triggerSearchIfReady();
+  }
+
+  updateSearchFiltersUI() {
+    document.querySelectorAll('.filter-tag').forEach(btn => {
+      if (btn.dataset.source) {
+        btn.classList.toggle('active', btn.dataset.source === (this.currentSearchSource || 'all'));
+      }
+      if (btn.dataset.type) {
+        btn.classList.toggle('active', btn.dataset.type === (this.currentSearchType || 'track'));
+      }
+    });
+  }
+
+  triggerSearchIfReady() {
+    const query = document.getElementById('unifiedSearchInput').value;
+    if (query && query.trim().length >= 2) {
+      this.performUnifiedSearch();
+    }
+  }
+
+  async performUnifiedSearch() {
+    // Cancel previous search if active
+    if (this.searchAbortController) {
+      this.searchAbortController.abort();
+    }
+    this.searchAbortController = new AbortController();
+    const signal = this.searchAbortController.signal;
+
+    const input = document.getElementById('unifiedSearchInput');
+    const query = input.value.trim();
+    const container = document.getElementById('searchResultsContainer');
+
+    if (!query || query.length < 2) {
+      this.showToast('Please enter at least 2 characters', 'error');
+      return;
+    }
+
+    if (!this.guildId) {
+      this.showToast('Please select a server first', 'error');
+      this.showPage('servers');
+      return;
+    }
+
+    // Default to track if undefined
+    const type = this.currentSearchType || 'track';
+    const source = this.currentSearchSource || 'all';
+
+    // Show loading
+    container.innerHTML = `
+      <div class="loading-state">
+        <div class="spinner-small"></div>
+        <span>Searching ${source} for ${type}s...</span>
+      </div>
+    `;
+
+    try {
+      const response = await fetch(`/api/search?query=${encodeURIComponent(query)}&source=${source}&type=${type}`, {
+        headers: {
+          'X-API-Key': this.apiKey,
+          'Authorization': `Bearer ${this.socketToken}`
+        },
+        signal
+      });
+
+      const data = await response.json();
+
+      let items = [];
+      if (type === 'playlist') {
+        items = data.playlists || [];
+      } else {
+        items = data.results || [];
+      }
+
+      if (items.length > 0) {
+        this.renderUnifiedSearchResults(items, type);
+      } else {
+        container.innerHTML = `
+          <div class="empty-search-state">
+            <div class="search-icon-large" style="font-size: 3rem"><i class="ph ph-x-circle"></i></div>
+            <h3>No results found</h3>
+            <p>Try a different keyword or source.</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      if (error.name === 'AbortError') return; // Ignore cancelled requests
+
+      console.error('Search error:', error);
+      container.innerHTML = `
+        <div class="empty-search-state">
+          <div class="search-icon-large" style="color: var(--danger)"><i class="ph ph-warning-circle"></i></div>
+          <h3>Search Failed</h3>
+          <p>${error.message || 'Could not fetch results'}</p>
+        </div>
+      `;
+    } finally {
+      if (this.searchAbortController && this.searchAbortController.signal === signal) {
+        this.searchAbortController = null;
+      }
+    }
+  }
+
+  resolveArtwork(item) {
+    if (!item) return "https://placehold.co/200x200/2d2d2d/fff.png?text=Music";
+
+    let artwork = item.artworkUrl || item.thumbnail || item.info?.artworkUrl || item.pluginInfo?.artworkUrl;
+
+    // Check if it's a YouTube track and needs a thumbnail fallback
+    const uri = item.uri || item.info?.uri || "";
+    const identifier = item.identifier || item.info?.identifier || "";
+
+    if ((!artwork || artwork.includes('placehold.co')) && (uri.includes('youtube.com') || uri.includes('youtu.be') || identifier.length === 11)) {
+      const vid = identifier.length === 11 ? identifier : (uri.match(/(?:v=|youtu\.be\/|v\/)([^&?]+)/)?.[1]);
+      if (vid) return `https://img.youtube.com/vi/${vid}/hqdefault.jpg`;
+    }
+
+    // Spotify Fallback
+    if (item.source === 'spotify' || item.source === 'spsearch') {
+      if (!artwork || artwork.includes('placehold.co')) return 'https://placehold.co/300x300/1DB954/FFFFFF?text=Spotify';
+    }
+
+    // SoundCloud Fallback
+    if (item.source === 'soundcloud' || item.source === 'scsearch') {
+      if (!artwork || artwork.includes('placehold.co')) return 'https://placehold.co/300x300/ff5500/FFFFFF?text=SoundCloud';
+    }
+
+    // Playlists
+    if (item.trackCount !== undefined || item.tracks || (item.url && item.url.includes('playlist'))) {
+      if (!artwork || artwork.includes('placehold.co')) return 'https://placehold.co/300x300/6366f1/FFFFFF?text=Playlist';
+    }
+
+    return artwork || "https://placehold.co/200x200/2d2d2d/fff.png?text=Music";
+  }
+
+  renderUnifiedSearchResults(results, type) {
+    const container = document.getElementById('searchResultsContainer');
+    container.innerHTML = '<div class="results-grid"></div>';
+    const grid = container.querySelector('.results-grid');
+
+    results.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'search-card';
+
+      const artwork = this.resolveArtwork(item);
+      const imgId = `artwork-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Async fetch official cover for Spotify if using placeholder
+      const isSpotifyResult = (item.source === 'spotify' || item.source === 'spsearch' || (item.uri && item.uri.includes('spotify')));
+      if (isSpotifyResult && artwork.includes('placehold.co') && item.uri) {
+        // Convert spotify:track:ID to https://open.spotify.com/track/ID for oEmbed
+        let spotifyUrl = item.uri;
+        if (spotifyUrl.startsWith('spotify:')) {
+          const parts = spotifyUrl.split(':');
+          if (parts.length >= 3) {
+            spotifyUrl = `https://open.spotify.com/${parts[1]}/${parts[2]}`;
+          }
+        }
+
+        fetch(`/api/utils/spotify-cover?url=${encodeURIComponent(spotifyUrl)}`)
+          .then(r => r.json())
+          .then(d => {
+            console.log("[SpotifyCover] Fetched:", d);
+            if (d.thumbnail_url) {
+              const img = document.getElementById(imgId);
+              if (img) img.src = d.thumbnail_url;
+            }
+          }).catch((e) => { console.error("[SpotifyCover] Error:", e); });
+      }
+
+      const title = item.title || 'Unknown Title';
+      const author = item.author || 'Unknown Artist';
+      const uri = (item.uri || item.url || '').replace(/'/g, "\\'");
+
+      let actionButtons = '';
+
+      if (type === 'playlist') {
+        actionButtons = `
+            <button class="search-card-action" onclick="dashboard.playUnifiedTrack('${uri}', 'play_now')" title="Play Now">
+              <i class="ph ph-play"></i>
+            </button>
+            <button class="search-card-action" onclick="dashboard.addToQueueUnified('${uri}')" title="Add to Queue">
+              <i class="ph ph-plus"></i>
+            </button>
+         `;
+      } else {
+        actionButtons = `
+            <button class="search-card-action" onclick="dashboard.playUnifiedTrack('${uri}', 'play_now')" title="Play Now">
+              <i class="ph ph-play"></i>
+            </button>
+            <button class="search-card-action" onclick="dashboard.playNext('${uri}')" title="Play Next">
+              <i class="ph ph-skip-forward"></i>
+            </button>
+            <button class="search-card-action" onclick="dashboard.addToQueueUnified('${uri}')" title="Add to Queue">
+              <i class="ph ph-plus"></i>
+            </button>
+         `;
+      }
+
+      card.innerHTML = `
+        <div class="search-card-image-wrapper">
+          <img id="${imgId}" src="${artwork}" class="search-card-image" loading="lazy" alt="${title}">
+          <div class="search-card-overlay">
+            ${actionButtons}
+          </div>
+          <div class="search-source-badge">${item.source || 'unknown'}</div>
+        </div>
+        <div class="search-card-content">
+          <div class="search-card-title" title="${title}">${title}</div>
+          <div class="search-card-artist" title="${author}">
+            ${author} ${type === 'playlist' ? `• ${item.trackCount} tracks` : ''}
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  async playUnifiedTrack(uri, mode = 'play_now') {
+    if (!this.guildId) return;
+
+    this.showToast(mode === 'play_now' ? 'Playing now...' : 'Starting playback...');
+    try {
+      await this.apiCall('POST', `/api/player/${this.guildId}/play`, {
+        query: uri,
+        mode: mode
+      });
+      this.showPage('player');
+    } catch (error) {
+      this.showToast(`Failed to play: ${error.message}`, 'error');
+    }
+  }
+
+  async addToQueueUnified(uri) {
+    if (!this.guildId) return;
+
+    try {
+      const btn = event.target.closest('button');
+      const originalContent = btn.innerHTML;
+      btn.innerHTML = '...';
+      btn.disabled = true;
+
+      await this.apiCall('POST', `/api/player/${this.guildId}/play`, {
+        query: uri,
+        mode: 'queue'
+      });
+
+      this.showToast('Added to queue', 'success');
+
+      // Reset button
+      setTimeout(() => {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+      }, 1000);
+    } catch (error) {
+      this.showToast(`Failed to add: ${error.message}`, 'error');
+    }
+  }
+
+  async playNext(uri) {
+    if (!this.guildId) return;
+    if (!await this.ensurePermission("add play next")) return;
+
+    try {
+      const btn = event?.target?.closest('button');
+      let originalContent = '';
+      if (btn) {
+        originalContent = btn.innerHTML;
+        btn.innerHTML = '...';
+        btn.disabled = true;
+      }
+
+      const response = await this.apiCall('POST', `/api/queue/${this.guildId}/playnext`, {
+        query: uri,
+        source: this.currentSearchSource || 'ytsearch'
+      });
+
+      if (response && response.success) {
+        this.showToast(`${response.track?.title || 'Track'} will play next`, 'success');
+      } else {
+        this.showToast('Added to play next', 'success');
+      }
+
+      // Reset button
+      if (btn) {
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+        }, 1000);
+      }
+    } catch (error) {
+      this.showToast(`Failed to add: ${error.message}`, 'error');
+    }
+  }
+
+  // --- Search Suggestions ---
+  handleSearchInput(event) {
+    const query = event.target.value.trim();
+    const container = document.getElementById('searchSuggestions');
+
+    if (this.suggestionTimeout) clearTimeout(this.suggestionTimeout);
+
+    if (query.length < 2) {
+      if (container) {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+      }
+      return;
+    }
+
+    this.suggestionTimeout = setTimeout(() => {
+      this.fetchSearchSuggestions(query);
+    }, 450);
+  }
+
+  async fetchSearchSuggestions(query) {
+    if (!query) return;
+    const container = document.getElementById('searchSuggestions');
+    if (!container) return;
+
+    if (this.suggestionAbortController) {
+      this.suggestionAbortController.abort();
+    }
+    this.suggestionAbortController = new AbortController();
+    const signal = this.suggestionAbortController.signal;
+
+    try {
+      const encoded = encodeURIComponent(query);
+      const source = this.currentSearchSource || 'all';
+      const type = 'track'; // Suggestions always track for now
+
+      const response = await fetch(`/api/search?query=${encoded}&source=${source}&type=${type}`, {
+        headers: {
+          'X-API-Key': this.apiKey
+        },
+        signal
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const results = data.tracks || data.results || [];
+
+      if (results && results.length > 0) {
+        this.renderSearchSuggestions(results.slice(0, 5));
+      } else {
+        container.classList.add('hidden');
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        // console.error('Suggestion error:', e); 
+        container.classList.add('hidden');
+      }
+    }
+  }
+
+  renderSearchSuggestions(items) {
+    const container = document.getElementById('searchSuggestions');
+    if (!container) return;
+
+    container.innerHTML = '';
+    container.classList.remove('hidden');
+
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'suggestion-item';
+      const artwork = this.resolveArtwork(item);
+      const title = item.title || 'Unknown';
+      const author = item.author || 'Unknown';
+
+      div.innerHTML = `
+            <img src="${artwork}" class="suggestion-thumb" loading="lazy" onerror="this.src='https://placehold.co/40x40/1e1e24/FFF?text=♪'">
+            <div class="suggestion-info">
+              <div class="suggestion-title">${this.escapeHtml ? this.escapeHtml(title) : title}</div>
+              <div class="suggestion-meta">${this.escapeHtml ? this.escapeHtml(author) : author}</div>
+            </div>
+          `;
+
+      div.onclick = (e) => {
+        e.stopPropagation();
+        // Play immediately
+        this.playUnifiedTrack(item.uri);
+        container.classList.add('hidden');
+        this.showToast(`Selected: ${title}`, 'success');
+      };
+
+      container.appendChild(div);
+    });
+  }
+
+  escapeHtml(text) {
+    if (!text) return text;
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // ============ LIKE BUTTON FUNCTIONALITY ============
+
+  async toggleLikeCurrentTrack() {
+    const currentTrack = this.playerState?.currentTrack;
+    if (!currentTrack) {
+      this.showToast('No track playing', 'error');
+      return;
+    }
+
+    const userId = this.getUserId();
+    if (!userId) {
+      this.showToast('Please log in to like songs', 'error');
+      return;
+    }
+
+    const track = currentTrack;
+    const trackId = track.identifier || track.uri;
+    const likeBtn = document.getElementById('likeBtn');
+    const likeIcon = document.getElementById('likeIcon');
+
+    try {
+      // Check current state
+      const isCurrentlyLiked = likeBtn?.classList.contains('liked');
+
+      if (isCurrentlyLiked) {
+        // Unlike
+        const res = await fetch(`/api/v2/playlists/liked/tracks/${encodeURIComponent(trackId)}?userId=${userId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': this.apiKey },
+          credentials: 'include'
+        });
+
+        if (res.ok) {
+          likeBtn?.classList.remove('liked');
+          if (likeIcon) likeIcon.innerHTML = '<i class="ph ph-heart"></i>';
+          this.showToast('Removed from Liked Songs', 'info');
+        }
+      } else {
+        // Like
+        const res = await fetch(`/api/v2/playlists/liked/tracks?userId=${userId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': this.apiKey },
+          credentials: 'include',
+          body: JSON.stringify({
+            localUserId: userId,
+            track: {
+              identifier: trackId,
+              title: track.title,
+              author: track.author,
+              uri: track.uri,
+              duration: track.duration,
+              artworkUrl: track.artworkUrl
+            }
+          })
+        });
+
+        if (res.ok) {
+          likeBtn?.classList.add('liked');
+          if (likeIcon) likeIcon.innerHTML = '<i class="ph-fill ph-heart"></i>';
+          this.showToast('Added to Liked Songs', 'success');
+        }
+      }
+    } catch (e) {
+      console.error('Error toggling like:', e);
+      this.showToast('Failed to update liked status', 'error');
+    }
+  }
+
+  async updateLikeButtonState() {
+    const currentTrack = this.playerState?.currentTrack;
+    if (!currentTrack) return;
+
+    const userId = this.getUserId();
+    if (!userId) return;
+
+    const track = currentTrack;
+    const trackId = track.identifier || track.uri;
+    const likeBtn = document.getElementById('likeBtn');
+    const likeIcon = document.getElementById('likeIcon');
+
+    try {
+      const res = await fetch(`/api/v2/playlists/liked/check/${encodeURIComponent(trackId)}?userId=${userId}`, {
+        headers: { 'X-API-Key': this.apiKey },
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.isLiked) {
+          likeBtn?.classList.add('liked');
+          if (likeIcon) likeIcon.innerHTML = '<i class="ph-fill ph-heart"></i>';
+        } else {
+          likeBtn?.classList.remove('liked');
+          if (likeIcon) likeIcon.innerHTML = '<i class="ph ph-heart"></i>';
+        }
+      }
+    } catch (e) {
+      // Ignore - just default to unliked
+    }
+  }
+
+  /**
+   * Open modal to add current track to a playlist (not save entire queue)
+   */
+  async openAddToPlaylistModal() {
+    const currentTrack = this.playerState?.currentTrack;
+    if (!currentTrack) {
+      this.showToast('No track is currently playing', 'error');
+      return;
+    }
+
+    const userId = this.getUserId();
+    if (!userId) {
+      this.showToast('Please log in to add tracks to playlists', 'error');
+      return;
+    }
+
+    // Fetch user's playlists
+    try {
+      const res = await fetch(`/api/v2/playlists?userId=${userId}`, {
+        headers: { 'X-API-Key': this.apiKey },
+        credentials: 'include'
+      });
+
+      if (!res.ok) throw new Error('Failed to load playlists');
+
+      const data = await res.json();
+      const playlists = data.playlists || data || [];
+
+      if (playlists.length === 0) {
+        this.showToast('No playlists found. Create one first!', 'info');
+        this.showPage('playlists');
+        return;
+      }
+
+      // Create and show the modal
+      const modalHtml = `
+        <div id="addToPlaylistSelectModal" class="popup-overlay" onclick="if(event.target===this) dashboard.closeModal('addToPlaylistSelectModal')">
+          <div class="popup-content small">
+            <div class="popup-header">
+              <h3><i class="ph ph-plus-circle"></i> Add to Playlist</h3>
+              <button class="popup-close" onclick="dashboard.closeModal('addToPlaylistSelectModal')">
+                <i class="ph ph-x"></i>
+              </button>
+            </div>
+            <div class="popup-body">
+              <p class="popup-description">Select a playlist to add this track to:</p>
+              <div class="playlist-select-list">
+                ${playlists.map(p => `
+                  <div class="playlist-select-item" onclick="dashboard.addCurrentTrackToPlaylist('${p.id}')">
+                    <i class="ph ph-music-notes-plus"></i>
+                    <span>${this.escapeHtml(p.name)}</span>
+                    <span class="playlist-track-count">${p.trackCount || p.track_count || 0} tracks</span>
+                  </div>
+                `).join('')}
+              </div>
+              <div class="modal-actions" style="margin-top: 16px;">
+                <button class="action-btn secondary" onclick="dashboard.closeModal('addToPlaylistSelectModal'); dashboard.openCreatePlaylistModal();">
+                  <i class="ph ph-plus"></i> Create New Playlist
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Remove existing modal if present
+      document.getElementById('addToPlaylistSelectModal')?.remove();
+
+      // Add modal to page
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    } catch (e) {
+      console.error('Error loading playlists:', e);
+      this.showToast('Failed to load playlists', 'error');
+    }
+  }
+
+  /**
+   * Add the currently playing track to a specific playlist
+   */
+  async addCurrentTrackToPlaylist(playlistId) {
+    const currentTrack = this.playerState?.currentTrack;
+    if (!currentTrack) {
+      this.showToast('No track is currently playing', 'error');
+      return;
+    }
+
+    const userId = this.getUserId();
+    if (!userId) {
+      this.showToast('Please log in first', 'error');
+      return;
+    }
+
+    try {
+      const trackData = {
+        identifier: currentTrack.identifier || currentTrack.uri,
+        title: currentTrack.requester?.originalTitle || currentTrack.userData?.originalTitle || currentTrack.title,
+        author: currentTrack.requester?.originalAuthor || currentTrack.userData?.originalAuthor || currentTrack.author,
+        uri: currentTrack.uri,
+        duration: currentTrack.duration,
+        artworkUrl: currentTrack.artworkUrl || currentTrack.artwork,
+        sourceName: currentTrack.sourceName
+      };
+
+      const res = await fetch(`/api/v2/playlists/${playlistId}/tracks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': this.apiKey
+        },
+        credentials: 'include',
+        body: JSON.stringify({ track: trackData, userId })
+      });
+
+      if (res.ok) {
+        this.showToast('Track added to playlist!', 'success');
+        this.closeModal('addToPlaylistSelectModal');
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add track');
+      }
+    } catch (e) {
+      console.error('Error adding track to playlist:', e);
+      this.showToast(`Failed: ${e.message}`, 'error');
+    }
+  }
+
+  renderPlaylistDetails(playlist) {
+    if (!playlist) return;
+
+    // Update Header Info
+    const titleEl = document.getElementById('playlistTitle');
+    const descEl = document.getElementById('playlistDescription');
+    const creatorEl = document.getElementById('playlistCreator');
+    const countEl = document.getElementById('playlistTrackCount');
+    const durationEl = document.getElementById('playlistDuration');
+    const coverEl = document.getElementById('playlistCover');
+
+    if (titleEl) titleEl.textContent = playlist.name;
+    if (descEl) descEl.textContent = playlist.description || '';
+    if (creatorEl) creatorEl.textContent = playlist.ownerName || (playlist.owner === this.getUserId() ? 'You' : 'System');
+
+    const tracks = playlist.tracks || [];
+    if (countEl) countEl.textContent = `${tracks.length} song${tracks.length !== 1 ? 's' : ''}`;
+
+    const totalDuration = tracks.reduce((acc, t) => acc + (t.info?.length || t.duration || 0), 0);
+    if (durationEl) durationEl.textContent = this.formatTime(totalDuration); // Assuming formatTime handles ms
+
+    // Update Cover
+    if (coverEl) {
+      // Use first track artwork or default
+      const artwork = tracks[0]?.info?.artworkUrl || tracks[0]?.artworkUrl;
+      if (artwork) {
+        coverEl.innerHTML = `<img src="${artwork}" alt="Playlist Cover" class="playlist-cover-img">`;
+      } else {
+        coverEl.innerHTML = `<span class="playlist-cover-placeholder"><i class="ph ph-music-note"></i></span>`;
+        // Set dynamic background color based on type if system playlist
+        if (playlist.isSystemPlaylist) {
+          // Apply specific classes or styles based on type
+          coverEl.className = `playlist-cover ${playlist.systemType || ''}`;
+        }
+      }
+    }
+
+    // Render Tracks
+    const listEl = document.getElementById('playlistTracksList');
+    if (listEl) {
+      if (tracks.length === 0) {
+        listEl.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon"><i class="ph ph-music-notes-simple"></i></div>
+                    <h3>This playlist is empty</h3>
+                    <p>Add some songs to get started!</p>
+                </div>
+            `;
+      } else {
+        listEl.innerHTML = tracks.map((track, index) => {
+          const updatedTrack = track.info || track; // Handle different structures
+          const title = this.escapeHtml(updatedTrack.title || 'Unknown Title');
+          const author = this.escapeHtml(updatedTrack.author || 'Unknown Artist');
+          const duration = this.formatTime(updatedTrack.length || updatedTrack.duration || 0);
+          const album = this.escapeHtml(updatedTrack.album || '-');
+          const trackId = updatedTrack.identifier || updatedTrack.uri;
+          const artwork = updatedTrack.artworkUrl || 'https://placehold.co/40x40/2f3136/FFF?text=Music';
+
+          return `
+                <div class="track-row" ondblclick="dashboard.playPlaylistTrack('${index}')">
+                    <div class="track-col-num">
+                        <span class="track-num">${index + 1}</span>
+                        <button class="track-play-btn" onclick="dashboard.playPlaylistTrack('${index}')"><i class="ph ph-play"></i></button>
+                    </div>
+                    <div class="track-col-title">
+                        <img src="${artwork}" class="track-thumb" loading="lazy" onerror="this.src='https://placehold.co/40x40/2f3136/FFF?text=Music'">
+                        <div class="track-info">
+                            <div class="track-name" title="${title}">${title}</div>
+                            <div class="track-artist" title="${author}">${author}</div>
+                        </div>
+                    </div>
+                    <div class="track-col-album">${album}</div>
+                    <div class="track-col-duration">${duration}</div>
+                    <div class="track-col-actions">
+                        <button class="action-btn icon-only small" onclick="dashboard.removeTrackFromPlaylist('${index}')" title="Remove from playlist">
+                            <i class="ph ph-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                `;
+        }).join('');
+      }
+    }
+  }
+
+  // ============ PLAYLIST ACTIONS ============
+
+  async openPlaylist(id) {
+    if (!id) return;
+
+    // Check if it's a system playlist ID
+    if (id.startsWith('system_')) {
+      const parts = id.split('_');
+      // Format: system_type_userId
+      if (parts.length >= 2) {
+        return this.openSystemPlaylist(parts[1]);
+      }
+    }
+
+    try {
+      this.showToast('Loading playlist...', 'info');
+      const userId = this.getUserId();
+      const res = await fetch(`/api/v2/playlists/${id}?userId=${userId}`, {
+        headers: { 'X-API-Key': this.apiKey },
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+      if (data.success && data.playlist) {
+        this.currentPlaylist = data.playlist;
+        this.renderPlaylistDetails(data.playlist);
+        this.showPage('playlistDetails');
+      } else {
+        throw new Error(data.error || 'Playlist not found');
+      }
+    } catch (e) {
+      this.showToast(`Failed to open playlist: ${e.message}`, 'error');
+    }
+  }
+
+  async playPlaylist(shuffle = false, playlistId = null) {
+    if (!this.guildId) {
+      this.showToast('Select a server to play music', 'error');
+      return;
+    }
+
+    const id = playlistId || (this.currentPlaylist ? this.currentPlaylist.id : null);
+    if (!id) return;
+
+    this.showToast('Starting playlist...', 'info');
+    try {
+      const userId = this.getUserId();
+      await this.apiCall('POST', `/api/v2/playlists/${id}/play`, {
+        guildId: this.guildId,
+        userId: userId,
+        shuffle: shuffle,
+        clearQueue: true
+      });
+      this.showPage('player');
+    } catch (e) {
+      // Error is displayed by apiCall
+    }
+  }
+
+  async playPlaylistTrack(index) {
+    if (!this.currentPlaylist || !this.currentPlaylist.tracks[index]) return;
+    const track = this.currentPlaylist.tracks[index];
+    // Updated: handle track structure differences
+    const uri = track.info?.uri || track.uri;
+
+    if (!uri) {
+      this.showToast('Track URI missing', 'error');
+      return;
+    }
+
+    this.playUnifiedTrack(uri);
+  }
+
+  async removeTrackFromPlaylist(index) {
+    if (!this.currentPlaylist) return;
+    const indexNum = parseInt(index);
+    if (isNaN(indexNum)) return;
+
+    const track = this.currentPlaylist.tracks[indexNum];
+    if (!track) return;
+
+    const userId = this.getUserId();
+
+    if (this.currentPlaylist.isSystemPlaylist) {
+      if (this.currentPlaylist.systemType === 'liked') {
+        // Unlike logic
+        const trackId = track.identifier || track.uri || track.info?.identifier;
+        try {
+          const res = await fetch(`/api/v2/playlists/liked/tracks/${encodeURIComponent(trackId)}?userId=${userId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': this.apiKey },
+            credentials: 'include'
+          });
+          if (res.ok) {
+            this.showToast('Removed from Liked Songs', 'success');
+            // Refresh
+            this.openSystemPlaylist('liked');
+          } else {
+            this.showToast('Failed to remove track', 'error');
+          }
+        } catch (e) {
+          this.showToast('Error removing track', 'error');
+        }
+      } else {
+        this.showToast('This playlist is managed automatically', 'info');
+      }
+    } else {
+      // Regular playlist
+      try {
+        // Note: backend expects position to be 1-indexed probably? Or 0-indexed?
+        // Route: app.delete('/api/v2/playlists/:id/tracks/position/:position'
+        // Verify backend logic... usually arrays are 0-indexed but user input might be 1.
+        // Logic in PlaylistManager.removeTrackAtPosition uses `splice(position, 1)`. So 0-indexed.
+
+        await this.apiCall('DELETE', `/api/v2/playlists/${this.currentPlaylist.id}/tracks/position/${indexNum}`);
+        this.showToast('Track removed', 'success');
+        // Refresh
+        this.openPlaylist(this.currentPlaylist.id);
+      } catch (e) {
+        // handled by apiCall
+      }
+    }
+  }
+
+  async shufflePlaylist() {
+    this.playPlaylist(true);
+  }
+
+  showPlaylistMoreOptions() {
+    if (!this.currentPlaylist) return;
+
+    // Simple menu or just toast for now if not implemented fully
+    if (this.currentPlaylist.isSystemPlaylist) {
+      this.showToast('System Playlist options unavailable', 'info');
+    } else {
+      // Could show modal for Edit/Delete
+      if (confirm(`Delete playlist "${this.currentPlaylist.name}"?`)) {
+        this.deleteCurrentPlaylist();
+      }
+    }
+  }
+
+  async deleteCurrentPlaylist() {
+    if (!this.currentPlaylist) return;
+    try {
+      const userId = this.getUserId();
+      await this.apiCall('DELETE', `/api/v2/playlists/${this.currentPlaylist.id}?userId=${userId}`);
+      this.showToast('Playlist deleted', 'success');
+      this.showPage('playlists');
+      this.loadPlaylists();
+    } catch (e) {
+      // handled
+    }
+  }
+
+  async openSystemPlaylist(type) {
+    const userId = this.getUserId();
+    if (!userId) {
+      this.showToast('Please log in to view your library', 'error');
+      return;
+    }
+
+    try {
+      this.showToast(`Loading ${type === 'liked' ? 'Liked Songs' : type}...`, 'info');
+
+      const res = await fetch(`/api/v2/playlists/system/${type}?userId=${userId}`, {
+        headers: { 'X-API-Key': this.apiKey },
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to load playlist');
+
+      const data = await res.json();
+      if (!data.success || !data.playlist) {
+        throw new Error('Playlist not found');
+      }
+
+      // Store the playlist and show details view
+      this.currentPlaylist = data.playlist;
+      this.renderPlaylistDetails(data.playlist);
+      this.showPage('playlistDetails');
+    } catch (e) {
+      console.error('Error opening system playlist:', e);
+      this.showToast(`Failed to load ${type} playlist`, 'error');
+    }
+  }
+
+  async loadLikedSongsCount() {
+    const userId = this.getUserId();
+    if (!userId) return;
+
+    try {
+      const res = await fetch(`/api/v2/playlists/system/liked?userId=${userId}`, {
+        headers: { 'X-API-Key': this.apiKey },
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const countEl = document.getElementById('likedSongsCount');
+        if (countEl && data.playlist) {
+          const count = data.playlist.track_count || data.playlist.tracks?.length || 0;
+          countEl.textContent = `${count} song${count !== 1 ? 's' : ''}`;
+        }
+      }
+    } catch (e) {
+      // Ignore - count will stay at default
+    }
+  }
+
+  // ============================================
+  // COLLABORATIVE PLAYLISTS UI
+  // ============================================
+
+  async loadCollaborators(playlistId) {
+    const userId = this.getUserId();
+    if (!userId) return [];
+
+    try {
+      const res = await fetch(`/api/v2/playlists/${playlistId}/collaborators?userId=${userId}`, {
+        headers: { 'X-API-Key': this.apiKey },
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.collaborators || [];
+      }
+    } catch (e) {
+      console.error('Error loading collaborators:', e);
+    }
+    return [];
+  }
+
+  openInviteCollaboratorModal() {
+    if (!this.currentPlaylist) {
+      this.showToast('No playlist selected', 'error');
+      return;
+    }
+
+    // Check if user is the owner
+    const userId = this.getUserId();
+    const isOwner = this.currentPlaylist.user_id === userId || this.currentPlaylist.userId === userId;
+    if (!isOwner) {
+      this.showToast('Only playlist owners can invite collaborators', 'error');
+      return;
+    }
+
+    // Show modal
+    const modal = document.getElementById('inviteCollaboratorModal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      // Clear previous input
+      const input = document.getElementById('collaboratorIdInput');
+      if (input) input.value = '';
+    } else {
+      // Fallback: prompt
+      const collaboratorId = prompt('Enter the Discord User ID of the person you want to invite:');
+      if (collaboratorId) {
+        this.inviteCollaborator(collaboratorId);
+      }
+    }
+  }
+
+  async inviteCollaborator(collaboratorId, role = 'editor') {
+    if (!this.currentPlaylist || !collaboratorId) return;
+
+    const userId = this.getUserId();
+    const playlistId = this.currentPlaylist.id;
+
+    try {
+      this.showToast('Inviting collaborator...', 'info');
+
+      const res = await fetch(`/api/v2/playlists/${playlistId}/collaborators`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': this.apiKey
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          collaboratorId,
+          role,
+          localUserId: userId
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        this.showToast('✅ Collaborator invited!', 'success');
+
+        // Refresh collaborators list
+        this.renderCollaboratorsSection();
+
+        // Close modal if open
+        this.closeModal('inviteCollaboratorModal');
+      } else {
+        const error = await res.json();
+        this.showToast(`❌ ${error.error || 'Failed to invite'}`, 'error');
+      }
+    } catch (e) {
+      console.error('Error inviting collaborator:', e);
+      this.showToast('❌ Connection error', 'error');
+    }
+  }
+
+  async removeCollaborator(collaboratorId) {
+    if (!this.currentPlaylist || !collaboratorId) return;
+
+    if (!confirm('Are you sure you want to remove this collaborator?')) return;
+
+    const userId = this.getUserId();
+    const playlistId = this.currentPlaylist.id;
+
+    try {
+      const res = await fetch(`/api/v2/playlists/${playlistId}/collaborators/${collaboratorId}?userId=${userId}`, {
+        method: 'DELETE',
+        headers: { 'X-API-Key': this.apiKey },
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        this.showToast('✅ Collaborator removed', 'success');
+        this.renderCollaboratorsSection();
+      } else {
+        const error = await res.json();
+        this.showToast(`❌ ${error.error || 'Failed to remove'}`, 'error');
+      }
+    } catch (e) {
+      console.error('Error removing collaborator:', e);
+      this.showToast('❌ Connection error', 'error');
+    }
+  }
+
+  async toggleCollaborativeMode(enabled) {
+    if (!this.currentPlaylist) return;
+
+    const userId = this.getUserId();
+    const playlistId = this.currentPlaylist.id;
+
+    try {
+      const res = await fetch(`/api/v2/playlists/${playlistId}/collaborative`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': this.apiKey
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          enabled,
+          localUserId: userId
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        this.currentPlaylist = data.playlist || this.currentPlaylist;
+        this.currentPlaylist.is_collaborative = enabled;
+        this.showToast(enabled ? '✅ Collaborative mode enabled' : '🔒 Collaborative mode disabled', 'success');
+      } else {
+        const error = await res.json();
+        this.showToast(`❌ ${error.error || 'Failed to toggle'}`, 'error');
+      }
+    } catch (e) {
+      console.error('Error toggling collaborative mode:', e);
+      this.showToast('❌ Connection error', 'error');
+    }
+  }
+
+  async renderCollaboratorsSection() {
+    if (!this.currentPlaylist) return;
+
+    const container = document.getElementById('collaboratorsSection');
+    if (!container) return;
+
+    const userId = this.getUserId();
+    const isOwner = this.currentPlaylist.user_id === userId || this.currentPlaylist.userId === userId;
+
+    if (!isOwner) {
+      container.classList.add('hidden');
+      return;
+    }
+
+    container.classList.remove('hidden');
+
+    // Load collaborators
+    const collaborators = await this.loadCollaborators(this.currentPlaylist.id);
+    const isCollaborative = this.currentPlaylist.is_collaborative || this.currentPlaylist.isCollaborative;
+
+    container.innerHTML = `
+      <div class="collaborators-header">
+        <h5><i class="ph ph-users"></i> Collaborators</h5>
+        <label class="toggle-switch small">
+          <input type="checkbox" id="collaborativeToggle" ${isCollaborative ? 'checked' : ''} 
+                 onchange="dashboard.toggleCollaborativeMode(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="collaborators-list" ${!isCollaborative ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>
+        ${collaborators.length === 0 ?
+        '<p class="empty-text">No collaborators yet</p>' :
+        collaborators.map(c => `
+            <div class="collaborator-item">
+              <div class="collaborator-avatar">
+                <img src="https://cdn.discordapp.com/avatars/${c.user_id}/placeholder.png" 
+                     onerror="this.src='https://placehold.co/40x40/2d2d2d/fff.png?text=👤'" alt="Avatar">
+              </div>
+              <div class="collaborator-info">
+                <span class="collaborator-name">${c.username || c.user_id}</span>
+                <span class="collaborator-role">${c.role || 'editor'}</span>
+              </div>
+              <button class="collaborator-remove icon-btn small danger" 
+                      onclick="dashboard.removeCollaborator('${c.user_id}')" title="Remove">
+                <i class="ph ph-x"></i>
+              </button>
+            </div>
+          `).join('')
+      }
+      </div>
+      <button class="action-btn small" onclick="dashboard.openInviteCollaboratorModal()" 
+              ${!isCollaborative ? 'disabled' : ''}>
+        <i class="ph ph-user-plus"></i> Invite
+      </button>
+    `;
+  }
+
+  // ============================================
+  // SHARE TRACK FUNCTIONALITY
+  // ============================================
+
+  async shareCurrentTrack() {
+    const currentTrack = this.playerState?.currentTrack;
+    if (!currentTrack) {
+      this.showToast('No track playing', 'error');
+      return;
+    }
+
+    const track = currentTrack;
+    // Normalized info
+    const info = track.info || track;
+    let shareUrl = info.uri || '';
+    const source = info.sourceName || 'unknown';
+    const identifier = info.identifier;
+
+    // Handle spotify: URIs
+    if (shareUrl && shareUrl.startsWith('spotify:')) {
+      const parts = shareUrl.split(':');
+      if (parts.length >= 3) {
+        shareUrl = `https://open.spotify.com/${parts[1]}/${parts[2]}`;
+      }
+    }
+
+    // Intelligent URL Reconstruction if URI is missing or local
+    if ((!shareUrl || !shareUrl.startsWith('http')) && identifier) {
+      if (source === 'spotify') {
+        shareUrl = `https://open.spotify.com/track/${identifier}`;
+      } else if (source === 'youtube') {
+        shareUrl = `https://youtu.be/${identifier}`;
+      }
+    }
+
+    try {
+      if (shareUrl && shareUrl.startsWith('http')) {
+        await navigator.clipboard.writeText(shareUrl);
+        let niceSource = (source.charAt(0).toUpperCase() + source.slice(1)) || 'Link';
+        if (shareUrl.includes('spotify')) niceSource = 'Spotify';
+        if (shareUrl.includes('youtu')) niceSource = 'YouTube';
+
+        this.showToast(`${niceSource} link copied!`, 'success');
+      } else {
+        // Fallback: Try to force a link if identifier exists
+        let fallbackUrl = '';
+        if (identifier) {
+          if (source === 'spotify') fallbackUrl = `https://open.spotify.com/track/${identifier}`;
+          else if (source === 'youtube') fallbackUrl = `https://youtu.be/${identifier}`;
+        }
+
+        if (fallbackUrl) {
+          await navigator.clipboard.writeText(fallbackUrl);
+          this.showToast(`Link copied: ${fallbackUrl}`, 'success');
+        } else {
+          // Last resort: just text
+          const text = `${info.title} - ${info.author}`;
+          await navigator.clipboard.writeText(text);
+          this.showToast(`Track info copied (No direct link available)`, 'info');
+        }
+      }
+    } catch (e) {
+      console.error('Share failed:', e);
+      this.showToast('Could not copy to clipboard', 'error');
+    }
+  }
+
+
+  // ============================================
+  // TRACK HISTORY PANEL
+  // ============================================
+
+  trackHistory = [];
+  maxHistorySize = 20;
+
+  addToHistory() {
+    const currentTrack = this.playerState?.currentTrack;
+    if (!currentTrack) return;
+
+    const track = {
+      title: currentTrack.title,
+      author: currentTrack.author,
+      uri: currentTrack.uri,
+      artworkUrl: currentTrack.artworkUrl,
+      duration: currentTrack.duration,
+      playedAt: new Date().toISOString()
+    };
+
+    // Prevent immediate duplicates
+    if (this.trackHistory.length > 0) {
+      const last = this.trackHistory[0];
+      if (last.uri === track.uri || (last.title === track.title && last.author === track.author)) {
+        return;
+      }
+    }
+
+    this.trackHistory.unshift(track);
+    if (this.trackHistory.length > 50) this.trackHistory.pop();
+
+    localStorage.setItem('tymee_history', JSON.stringify(this.trackHistory));
+    this.renderHistoryList();
+  }
+
+  loadHistoryFromStorage() {
+    try {
+      const saved = localStorage.getItem('tymee_history'); // Changed key from 'trackHistory' to 'tymee_history'
+      if (saved) {
+        this.trackHistory = JSON.parse(saved);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  toggleHistoryPanel() {
+    const panel = document.getElementById('historyPanel');
+    if (!panel) return;
+
+    const isHidden = panel.classList.contains('hidden');
+
+    if (isHidden) {
+      panel.classList.remove('hidden');
+      this.renderHistoryList();
+    } else {
+      panel.classList.add('hidden');
+    }
+  }
+
+  renderHistoryList() {
+    const list = document.getElementById('historyList');
+    if (!list) return;
+
+    if (this.trackHistory.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <i class="ph ph-music-notes-simple"></i>
+          <p>No history yet</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = this.trackHistory.map((track, index) => {
+      const artwork = track.artworkUrl || 'https://placehold.co/50x50/2d2d2d/fff.png?text=♪';
+      const timeAgo = this.formatTimeAgo(track.playedAt);
+
+      return `
+        <div class="history-item" onclick="dashboard.replayFromHistory(${index})">
+          <img src="${artwork}" alt="Art" class="history-artwork" 
+               onerror="this.src='https://placehold.co/50x50/2d2d2d/fff.png?text=♪'">
+          <div class="history-info">
+            <span class="history-title">${this.escapeHtml(track.title || 'Unknown')}</span>
+            <span class="history-artist">${this.escapeHtml(track.author || 'Unknown')} • ${timeAgo}</span>
+          </div>
+          <button class="icon-btn small" title="Play again">
+            <i class="ph ph-play-circle"></i>
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  formatTimeAgo(timestamp) {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  }
+
+  async replayFromHistory(index) {
+    const track = this.trackHistory[index];
+    if (!track) return;
+
+    const identifier = track.uri || track.identifier;
+    if (identifier) {
+      this.showToast(`🔄 Replaying: ${track.title}`, 'info');
+      await this.addTrackToQueue(identifier, 'play');
+      this.toggleHistoryPanel(); // Close panel
+    }
+  }
+
+  // ============================================
+  // KEYBOARD SHORTCUTS HELP
+  // ============================================
+
+  showShortcutsHelp() {
+    const modal = document.getElementById('shortcutsModal');
+    if (modal) {
+      modal.classList.remove('hidden');
+    }
+  }
+
+  toggleShortcuts(enabled) {
+    localStorage.setItem('shortcuts_enabled', enabled);
+    const msg = enabled ? "Keyboard shortcuts enabled" : "Keyboard shortcuts disabled";
+    this.showToast(msg, "info");
+  }
+
+  setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      // Check for user setting (to be implemented), default to true
+      const shortcutsEnabled = localStorage.getItem('shortcuts_enabled') !== 'false';
+      if (!shortcutsEnabled) return;
+
+      // Don't trigger if typing in input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        return;
+      }
+
+      // Explicitly IGNORE browser refresh keys to allow default behavior
+      // F5, Ctrl+R, Ctrl+F5, Ctrl+Shift+R
+      if (
+        e.key === 'F5' ||
+        (e.ctrlKey && e.key === 'r') ||
+        (e.metaKey && e.key === 'r') ||
+        (e.ctrlKey && e.shiftKey && e.key === 'R') || // Case sensitive for Shift? usually 'R' or 'r' works
+        (e.ctrlKey && e.key === 'F5')
+      ) {
+        return;
+      }
+
+      // Prevent default for our shortcuts ONLY if handled
+      const handled = this.handleKeyboardShortcut(e);
+      if (handled) {
+        e.preventDefault();
+      }
+    });
+  }
+
+  handleKeyboardShortcut(e) {
+    const key = e.key.toLowerCase();
+
+    // Playback controls
+    if (key === ' ' || key === 'spacebar') {
+      this.togglePlayPause();
+      return true;
+    }
+    if (key === 'arrowright' && !e.shiftKey) {
+      this.skipTrack();
+      return true;
+    }
+    if (key === 'arrowleft' && !e.shiftKey) {
+      this.previousTrack();
+      return true;
+    }
+    if (key === 'arrowright' && e.shiftKey) {
+      this.seekForward(10000);
+      return true;
+    }
+    if (key === 'arrowleft' && e.shiftKey) {
+      this.seekBackward(10000);
+      return true;
+    }
+
+    // Volume controls
+    if (key === 'arrowup') {
+      this.adjustVolume(10);
+      return true;
+    }
+    if (key === 'arrowdown') {
+      this.adjustVolume(-10);
+      return true;
+    }
+    if (key === 'm') {
+      // Toggle Mute (only if no modifiers)
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        this.toggleMute();
+        return true;
+      }
+    }
+
+    // Queue controls
+    if (key === 'r') {
+      this.toggleRepeat();
+      return true;
+    }
+    if (key === 's' && !e.ctrlKey && !e.metaKey) {
+      this.shuffleQueue();
+      return true;
+    }
+    if (key === 'l') {
+      this.toggleLikeCurrentTrack();
+      return true;
+    }
+
+    // Navigation
+    if (key === '1') {
+      this.showPage('player');
+      return true;
+    }
+    if (key === '2') {
+      this.showPage('search');
+      return true;
+    }
+    if (key === '3') {
+      this.showPage('playlists');
+      return true;
+    }
+    if (key === '?') {
+      this.showShortcutsHelp();
+      return true;
+    }
+
+    return false;
+  }
+
+  async seekForward(ms) {
+    if (!this.playerState?.position) return;
+    const newPos = Math.min(this.playerState.position + ms, this.playerState.currentTrack?.duration || 0);
+    await this.seek(newPos);
+    this.showToast(`⏩ +${ms / 1000}s`, 'info');
+  }
+
+  async seekBackward(ms) {
+    if (!this.playerState?.position) return;
+    const newPos = Math.max(this.playerState.position - ms, 0);
+    await this.seek(newPos);
+    this.showToast(`⏪ -${ms / 1000}s`, 'info');
+  }
+
+  adjustVolume(delta) {
+    const slider = document.getElementById('volumeSlider');
+    if (!slider) return;
+    const newVal = Math.max(0, Math.min(100, parseInt(slider.value) + delta));
+    slider.value = newVal;
+    this.setVolume(newVal);
+  }
+
+  toggleMute() {
+    const slider = document.getElementById('volumeSlider');
+    if (!slider) return;
+
+    if (parseInt(slider.value) > 0) {
+      this._savedVolume = slider.value;
+      slider.value = 0;
+      this.setVolume(0);
+      this.showToast('🔇 Muted', 'info');
+    } else {
+      slider.value = this._savedVolume || 50;
+      this.setVolume(parseInt(slider.value));
+      this.showToast('🔊 Unmuted', 'info');
+    }
+  }
+
+  // ============================================
+  // AUDIO VISUALIZER CONTROLS
+  // ============================================
+
+  cycleVisualizerMode() {
+    console.log("Cycling visualizer mode...");
+    if (!this.visualizer) {
+      console.warn("Visualizer instance not found in cycleVisualizerMode");
+      return;
+    }
+
+    const newMode = this.visualizer.cycleMode();
+    console.log("New visualizer mode:", newMode);
+    const modeNames = {
+      aura: '🌟 Aura',
+      bars: '📊 Bars',
+      wave: '🌊 Wave',
+      particles: '✨ Particles'
+    };
+
+    this.showToast(`Visualizer: ${modeNames[newMode] || newMode}`, 'info');
+  }
+
+  // --- ADMIN ACTIONS ---
+  async clearGuildStats() {
+    if (!this.guildId) return;
+    if (!confirm('Are you sure you want to clear all statistics for this server? This cannot be undone.')) return;
+
+    try {
+      this.showToast('Clearing statistics...', 'info');
+      const res = await this.apiCall('DELETE', `/api/stats/${this.guildId}/clear`);
+      if (res && res.success) {
+        this.showToast('Statistics cleared successfully', 'success');
+        // Refresh stats page
+        if (typeof this.loadStats === 'function') this.loadStats();
+      }
+    } catch (e) {
+      this.showToast('Failed to clear stats', 'error');
+    }
+  }
+
+  async resetPlayerState() {
+    if (!this.guildId) return;
+    if (!confirm('This will force a player reset and reconnect. Playback may be interrupted. Continue?')) return;
+
+    try {
+      this.showToast('Resetting player...', 'info');
+      const res = await this.apiCall('POST', `/api/player/${this.guildId}/reset`);
+      if (res && res.success) {
+        this.showToast('Player reset successfully', 'success');
+      }
+    } catch (e) {
+      this.showToast('Failed to reset player', 'error');
+    }
+  }
 }
+
+/**
+ * Premium Audio Visualizer for Dashboard
+ * Multiple visualization modes: aura, bars, wave, particles
+ */
+class AudioVisualizer {
+  constructor(canvas) {
+    if (!canvas) return;
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.isPlaying = false;
+    this.energy = 0.5;
+    this.baseHue = 240; // Default Indigo/Blue
+    this.pulse = 0;
+    this.mode = 'aura'; // 'aura', 'bars', 'wave', 'particles'
+    this.bars = [];
+    this.particles = [];
+    this.wavePoints = [];
+
+    // Initialize bars
+    for (let i = 0; i < 32; i++) {
+      this.bars.push({ height: 0, targetHeight: 0, velocity: 0 });
+    }
+
+    // Initialize particles
+    for (let i = 0; i < 30; i++) {
+      this.particles.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 3 + 1,
+        speed: Math.random() * 0.5 + 0.2,
+        angle: Math.random() * Math.PI * 2
+      });
+    }
+
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+
+    // Ensure canvas is visible immediately
+    this.canvas.classList.remove('hidden');
+
+    this.animate();
+  }
+
+  resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    this.canvas.width = rect.width * window.devicePixelRatio;
+    this.canvas.height = rect.height * window.devicePixelRatio;
+    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  }
+
+  setState(isPlaying) {
+    this.isPlaying = isPlaying;
+    // Force resize check when state allows playing, just in case
+    if (isPlaying) this.resize();
+  }
+
+  setMode(mode) {
+    this.mode = mode;
+    // Force reset filter to ensure clarity or blur as needed
+    this.ctx.filter = 'none';
+  }
+
+  cycleMode() {
+    // All visualizer modes available
+    const modes = ['aura', 'particles', 'bars', 'wave', 'spectrum', 'orbit'];
+    const idx = modes.indexOf(this.mode);
+    const nextText = modes[(idx + 1) % modes.length];
+    this.setMode(nextText);
+    return nextText;
+  }
+
+  updateColor(theme) {
+    const hueMap = {
+      default: 235,   // Indigo
+      peach: 15,      // Peach
+      nebula: 260,    // Purple
+      ocean: 180,     // Teal
+      synthwave: 325, // Pink
+      aurora: 145,    // Green
+      emerald: 160,   // Emerald
+      midnight: 220,  // Blue
+      sunset: 25,     // Orange
+      rose: 350       // Rose
+    };
+    this.baseHue = hueMap[theme] || 235;
+  }
+
+  // Simulate audio energy with pseudo-random variations
+  simulateEnergy() {
+    const time = Date.now() / 1000;
+    // Increased base and beat intensity for better visibility
+    const base = 0.6 + Math.sin(time * 2) * 0.2;
+    const beat = Math.sin(time * 10) > 0.5 ? 0.5 : 0;
+    const random = Math.random() * 0.2;
+    return Math.min(1.5, base + beat + random); // Higher threshold for more intense glow
+  }
+
+  animate() {
+    const w = this.canvas.width / window.devicePixelRatio;
+    const h = this.canvas.height / window.devicePixelRatio;
+
+    if (w <= 0 || h <= 0) {
+      // Try to resize if dimensions are missing
+      this.resize();
+      requestAnimationFrame(() => this.animate());
+      return;
+    }
+
+    const centerX = w / 2;
+    const centerY = h / 2;
+
+    this.ctx.clearRect(0, 0, w, h);
+
+    if (this.isPlaying) {
+      this.energy = this.simulateEnergy();
+      this.pulse += 0.05;
+
+      switch (this.mode) {
+        case 'particles':
+          this.drawParticles(w, h, centerX, centerY);
+          break;
+        case 'bars':
+          this.drawBars(w, h);
+          break;
+        case 'wave':
+          this.drawWave(w, h, centerX, centerY);
+          break;
+        case 'spectrum':
+          this.drawSpectrum(w, h, centerX, centerY);
+          break;
+        case 'orbit':
+          this.drawOrbit(w, h, centerX, centerY);
+          break;
+        case 'aura':
+        default:
+          this.drawAura(w, h, centerX, centerY);
+      }
+    } else {
+      // Idle state: very slow breathing
+      this.pulse += 0.01;
+      const radius = (w * 0.35) + Math.sin(this.pulse) * 5;
+      const gradient = this.ctx.createRadialGradient(
+        centerX, centerY, 0,
+        centerX, centerY, radius
+      );
+      gradient.addColorStop(0, `rgba(255, 255, 255, 0.05)`);
+      gradient.addColorStop(1, `rgba(255, 255, 255, 0)`);
+      this.ctx.fillStyle = gradient;
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+
+    requestAnimationFrame(() => this.animate());
+  }
+
+  drawAura(w, h, centerX, centerY) {
+    // Dynamic aura pulses
+    for (let i = 0; i < 4; i++) {
+      const radius = Math.max(1, (w * 0.35) + Math.sin(this.pulse + i) * 30 * this.energy);
+      // Increased base alpha from 0.4 to 0.6
+      const alpha = (0.6 - (i * 0.1)) * Math.min(1, this.energy);
+
+      const gradient = this.ctx.createRadialGradient(
+        centerX, centerY, 0,
+        centerX, centerY, radius
+      );
+
+      const hue = (this.baseHue + Math.sin(this.pulse * 0.5) * 30);
+      gradient.addColorStop(0, `hsla(${hue}, 80%, 65%, ${alpha})`);
+      gradient.addColorStop(0.5, `hsla(${hue + 20}, 70%, 55%, ${alpha * 0.7})`);
+      gradient.addColorStop(1, `hsla(${hue}, 70%, 60%, 0)`);
+
+      this.ctx.fillStyle = gradient;
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+  }
+
+  drawBars(w, h) {
+    const barCount = this.bars.length;
+    const barWidth = w / barCount * 0.7;
+    const gap = w / barCount * 0.3;
+    const maxHeight = h * 0.6;
+
+    // Update bar heights
+    for (let i = 0; i < barCount; i++) {
+      const phase = i / barCount * Math.PI * 2;
+      const target = (0.3 + Math.sin(this.pulse * 2 + phase) * 0.5 +
+        Math.sin(this.pulse * 5 + phase * 2) * 0.2) * this.energy;
+
+      this.bars[i].targetHeight = target * maxHeight;
+      this.bars[i].height += (this.bars[i].targetHeight - this.bars[i].height) * 0.15;
+    }
+
+    // Draw bars
+    for (let i = 0; i < barCount; i++) {
+      const x = i * (barWidth + gap) + gap / 2;
+      const barHeight = this.bars[i].height;
+
+      const gradient = this.ctx.createLinearGradient(x, h, x, h - barHeight);
+      const hue = this.baseHue + (i / barCount) * 60;
+      gradient.addColorStop(0, `hsla(${hue}, 80%, 60%, 0.8)`);
+      gradient.addColorStop(1, `hsla(${hue + 30}, 70%, 70%, 0.4)`);
+
+      this.ctx.fillStyle = gradient;
+      this.ctx.beginPath();
+      this.ctx.roundRect(x, h - barHeight, barWidth, barHeight, [4, 4, 0, 0]);
+      this.ctx.fill();
+    }
+  }
+
+  drawWave(w, h, centerX, centerY) {
+    this.ctx.strokeStyle = `hsla(${this.baseHue}, 80%, 60%, 0.8)`;
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+
+    const bufferLength = 120; // Resolution
+    const spacing = w / bufferLength;
+
+    // Move to starting point
+    this.ctx.moveTo(0, h / 2);
+
+    for (let i = 0; i < bufferLength; i++) {
+      // Create an oscilloscope sine wave effect
+      // Mix low frequency pulse with higher frequency variation
+      const time = Date.now() / 1000;
+      const x = i * spacing;
+
+      // Simulating waveform data since we don't have real audio data here (fake visualizer)
+      // In a real app, this would use analyser.getByteTimeDomainData
+      const freq = (i / bufferLength) * Math.PI * 4 + this.pulse * 2;
+      const amplitude = (h * 0.25) * this.energy * Math.sin(this.pulse + i * 0.1);
+
+      const y = (h / 2) + Math.sin(freq) * amplitude * Math.sin(time * 5 + i * 0.05);
+
+      this.ctx.lineTo(x, y);
+    }
+
+    this.ctx.stroke();
+
+    // Mirror effect for 'Stereo' look
+    this.ctx.strokeStyle = `hsla(${this.baseHue + 40}, 80%, 60%, 0.5)`;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, h / 2);
+    for (let i = 0; i < bufferLength; i++) {
+      const time = Date.now() / 1000;
+      const x = i * spacing;
+      const freq = (i / bufferLength) * Math.PI * 4 + this.pulse * 2 + Math.PI;
+      const amplitude = (h * 0.25) * this.energy * Math.sin(this.pulse + i * 0.1);
+      const y = (h / 2) + Math.sin(freq) * amplitude * Math.sin(time * 5 + i * 0.05);
+      this.ctx.lineTo(x, y);
+    }
+    this.ctx.stroke();
+  }
+
+  drawParticles(w, h, centerX, centerY) {
+    // Distinct dark mode without drawing Aura
+    // Just a subtle background glow
+    const bgGradient = this.ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, w / 1.5);
+    bgGradient.addColorStop(0, `hsla(${this.baseHue}, 50%, 10%, 0.4)`);
+    bgGradient.addColorStop(1, `hsla(${this.baseHue}, 50%, 5%, 0)`);
+    this.ctx.fillStyle = bgGradient;
+    this.ctx.fillRect(0, 0, w, h);
+
+    // Update and draw particles
+    for (const p of this.particles) {
+      // Move particles
+      p.angle += 0.01 + this.energy * 0.03; // Faster movement with energy
+
+      const spiralBase = w * 0.1;
+      // Spiral movement
+      const radius = spiralBase + (Math.sin(this.pulse * 0.5 + p.angle) * w * 0.3) + (p.x * 50);
+
+      const x = centerX + Math.cos(p.angle * p.speed) * radius;
+      const y = centerY + Math.sin(p.angle * p.speed) * radius;
+
+      const hue = this.baseHue + (p.angle * 20) % 360; // Colorful
+      const alpha = 0.6 + Math.min(1, this.energy) * 0.4;
+
+      // Draw particle
+      this.ctx.fillStyle = `hsla(${hue}, 90%, 70%, ${alpha})`;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, p.size * (1 + this.energy), 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+  }
+
+  /**
+   * Spectrum visualizer - circular frequency bars
+   */
+  drawSpectrum(w, h, centerX, centerY) {
+    const barCount = 64;
+    const minRadius = w * 0.15;
+    const maxBarLength = w * 0.25;
+
+    for (let i = 0; i < barCount; i++) {
+      const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
+      const freq = (Math.sin(this.pulse * 3 + i * 0.3) + 1) * 0.5;
+      const barLength = (0.3 + freq * 0.7) * maxBarLength * this.energy;
+
+      const x1 = centerX + Math.cos(angle) * minRadius;
+      const y1 = centerY + Math.sin(angle) * minRadius;
+      const x2 = centerX + Math.cos(angle) * (minRadius + barLength);
+      const y2 = centerY + Math.sin(angle) * (minRadius + barLength);
+
+      const hue = this.baseHue + (i / barCount) * 60;
+      const alpha = 0.6 + freq * 0.4;
+
+      this.ctx.strokeStyle = `hsla(${hue}, 80%, 60%, ${alpha})`;
+      this.ctx.lineWidth = 3;
+      this.ctx.lineCap = 'round';
+      this.ctx.beginPath();
+      this.ctx.moveTo(x1, y1);
+      this.ctx.lineTo(x2, y2);
+      this.ctx.stroke();
+    }
+
+    // Center glow
+    const centerGlow = this.ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, minRadius);
+    centerGlow.addColorStop(0, `hsla(${this.baseHue}, 70%, 60%, ${0.4 * this.energy})`);
+    centerGlow.addColorStop(1, `hsla(${this.baseHue}, 70%, 60%, 0)`);
+    this.ctx.fillStyle = centerGlow;
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, minRadius, 0, Math.PI * 2);
+    this.ctx.fill();
+  }
+
+  /**
+   * Orbit visualizer - orbiting energy rings
+   */
+  drawOrbit(w, h, centerX, centerY) {
+    const orbits = 4;
+    const baseRadius = w * 0.12;
+    const maxRadius = w * 0.4;
+
+    // Draw orbital rings
+    for (let i = 0; i < orbits; i++) {
+      const radius = baseRadius + ((maxRadius - baseRadius) / orbits) * i;
+      const speed = 0.5 + i * 0.3;
+      const alpha = (0.3 + this.energy * 0.3) * (1 - i / orbits * 0.5);
+
+      this.ctx.strokeStyle = `hsla(${this.baseHue + i * 25}, 70%, 60%, ${alpha * 0.5})`;
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      this.ctx.stroke();
+
+      // Orbiting dots
+      const dotCount = 3 + i;
+      for (let d = 0; d < dotCount; d++) {
+        const dotAngle = this.pulse * speed + (d / dotCount) * Math.PI * 2;
+        const wobble = Math.sin(this.pulse * 2 + d) * 5 * this.energy;
+        const dx = centerX + Math.cos(dotAngle) * (radius + wobble);
+        const dy = centerY + Math.sin(dotAngle) * (radius + wobble);
+        const dotSize = 4 + this.energy * 3;
+
+        const dotGradient = this.ctx.createRadialGradient(dx, dy, 0, dx, dy, dotSize * 3);
+        dotGradient.addColorStop(0, `hsla(${this.baseHue + i * 25 + d * 10}, 80%, 70%, ${0.8 * this.energy})`);
+        dotGradient.addColorStop(1, `hsla(${this.baseHue + i * 25}, 70%, 60%, 0)`);
+
+        this.ctx.fillStyle = dotGradient;
+        this.ctx.beginPath();
+        this.ctx.arc(dx, dy, dotSize * 3, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.ctx.fillStyle = `hsla(${this.baseHue + i * 25 + d * 10}, 80%, 80%, ${0.9})`;
+        this.ctx.beginPath();
+        this.ctx.arc(dx, dy, dotSize, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+    }
+
+    // Center pulse
+    const pulseSize = w * 0.08 + Math.sin(this.pulse * 3) * 5 * this.energy;
+    const centerPulse = this.ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, pulseSize);
+    centerPulse.addColorStop(0, `hsla(${this.baseHue}, 80%, 70%, ${0.6 * this.energy})`);
+    centerPulse.addColorStop(0.5, `hsla(${this.baseHue + 20}, 70%, 60%, ${0.3 * this.energy})`);
+    centerPulse.addColorStop(1, `hsla(${this.baseHue}, 70%, 60%, 0)`);
+    this.ctx.fillStyle = centerPulse;
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, pulseSize, 0, Math.PI * 2);
+    this.ctx.fill();
+  }
+
+}
+
+
 document.addEventListener("DOMContentLoaded", () => {
   console.log("=== DOMContentLoaded - Creating Dashboard ===");
   try {

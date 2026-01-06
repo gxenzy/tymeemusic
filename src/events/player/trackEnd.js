@@ -1,6 +1,7 @@
 import { logger } from "#utils/logger";
 import { EventUtils } from "#utils/EventUtils";
 import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
+import { db } from "#database/DatabaseManager";
 
 export default {
   name: "trackEnd",
@@ -27,59 +28,13 @@ export default {
 
       EventUtils.clearPlayerTimeout(player, 'stuckTimeoutId');
 
-      if (messageId && channelId) {
-        try {
-          const channel = client.channels.cache.get(channelId);
-          const message = await channel?.messages.fetch(messageId).catch(() => null);
+      // ⚠️ CRITICAL: Handle the 'Hanging Embed' at the end of the queue.
+      // If this is the last track and autoplay is OFF, we MUST force a deep cleanup.
+      const isQueueEmpty = player.queue.tracks.length === 0;
+      const isAutoplayOff = !player.get('autoplayEnabled');
 
-          if (message) {
-            switch (endReason) {
-              case 'FINISHED':
-                await message.edit({
-                  content: `✅ **Finished:** ~~${EventUtils.formatTrackInfo(track)}~~`,
-                  files: []
-                });
-
-                setTimeout(async () => {
-                  try {
-                    await message.delete().catch(() => {});
-                  } catch (deleteError) {
-                    logger.debug('TrackEnd', 'Could not delete finished message:', deleteError);
-                  }
-                }, 5000);
-                break;
-
-              case 'REPLACED':
-                await message.delete().catch(() => {});
-                break;
-
-              case 'STOPPED':
-                await message.edit({
-                  content: `⏹️ **Stopped:** ~~${EventUtils.formatTrackInfo(track)}~~`,
-                  files: []
-                });
-
-                setTimeout(async () => {
-                  try {
-                    await message.delete().catch(() => {});
-                  } catch (deleteError) {
-                    logger.debug('TrackEnd', 'Could not delete stopped message:', deleteError);
-                  }
-                }, 8000);
-                break;
-
-              case 'CLEANUP':
-                await message.delete().catch(() => {});
-                break;
-
-              default:
-                await message.delete().catch(() => {});
-                break;
-            }
-          }
-        } catch (messageError) {
-          logger.debug('TrackEnd', 'Error handling now playing message cleanup:', messageError);
-        }
+      if (endReason === 'STOPPED' || endReason === 'CLEANUP' || (isQueueEmpty && isAutoplayOff && endReason === 'FINISHED')) {
+        await EventUtils.forceCleanupPlayerUI(client, player);
       }
 
       if (stuckWarningId && channelId) {
@@ -87,7 +42,7 @@ export default {
           const channel = client.channels.cache.get(channelId);
           const warningMessage = await channel?.messages.fetch(stuckWarningId).catch(() => null);
           if (warningMessage) {
-            await warningMessage.delete().catch(() => {});
+            await warningMessage.delete().catch(() => { });
           }
         } catch (cleanupError) {
           logger.debug('TrackEnd', 'Error cleaning up stuck warning message:', cleanupError);
@@ -99,28 +54,38 @@ export default {
           const channel = client.channels.cache.get(channelId);
           const errorMessage = await channel?.messages.fetch(errorMessageId).catch(() => null);
           if (errorMessage) {
-            await errorMessage.delete().catch(() => {});
+            await errorMessage.delete().catch(() => { });
           }
         } catch (cleanupError) {
           logger.debug('TrackEnd', 'Error cleaning up error message:', cleanupError);
         }
       }
 
-      // Clear update interval
-      const updateIntervalId = player.get('updateIntervalId');
-      if (updateIntervalId) {
-        clearInterval(updateIntervalId);
-        player.set('updateIntervalId', null);
-      }
-      
-      player.set('nowPlayingMessageId', null);
-      player.set('nowPlayingChannelId', null);
+      // 🛑 HARD RESET: Kill the UI heartbeat from physical memory
+      EventUtils.clearHeartbeat(player.guildId);
+
       player.set('stuckWarningMessageId', null);
       player.set('errorMessageId', null);
       player.set('stuckTimeoutId', null);
 
       if (endReason === 'FINISHED' && track?.info) {
         logger.info('TrackEnd', `Track completed: "${track.info.title}" by ${track.info.author} in guild ${player.guildId}`);
+
+        // Log to history
+        try {
+          // track.requester might be object or ID.
+          const requester = track.requester;
+          const userId = (typeof requester === 'string') ? requester : (requester?.id || null);
+
+          if (userId) {
+            // Async log (fire and forget)
+            db.playlistsV2.logPlay(track, userId, player.guildId);
+          } else {
+            logger.debug('TrackEnd', 'Skipping history log - no requester ID');
+          }
+        } catch (dbError) {
+          logger.error('PlaylistsV2', 'Failed to log play history', dbError);
+        }
       }
 
       // Update web dashboard

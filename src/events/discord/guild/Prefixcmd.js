@@ -56,7 +56,7 @@ async function _sendError(message, title, description) {
     } else {
       await message.reply(reply);
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 async function _sendPremiumError(message, type) {
@@ -135,7 +135,7 @@ async function _sendCooldownError(message, cooldownTime, command) {
       flags: MessageFlags.IsComponentsV2,
       ephemeral: true,
     });
-  } catch (e) {}
+  } catch (e) { }
 }
 
 async function _handleExpiredUserPerks(userId, author) {
@@ -174,7 +174,7 @@ async function _handleExpiredUserPerks(userId, author) {
             .addTextDisplayComponents(
               new TextDisplayBuilder().setContent(
                 "Your subscription has ended. The following perks have been disabled:\n• " +
-                  perksRemoved.join("\n• "),
+                perksRemoved.join("\n• "),
               ),
             )
             .setButtonAccessory(button),
@@ -185,7 +185,7 @@ async function _handleExpiredUserPerks(userId, author) {
           components: [container],
           flags: MessageFlags.IsComponentsV2,
         });
-      } catch {}
+      } catch { }
     }
   }
 }
@@ -225,7 +225,7 @@ async function _handleExpiredGuildPerks(guildId, channel) {
         components: [container],
         flags: MessageFlags.IsComponentsV2,
       });
-    } catch {}
+    } catch { }
   }
 }
 
@@ -313,11 +313,10 @@ export default {
         .setURL(config.links.supportServer)
         .setStyle(ButtonStyle.Link);
 
-      let content = `Hello! I'm **${
-        client.user.username
-      }**\n\nMy prefix in this server is: ${guildPrefixes
-        .map((p) => `\`${p}\``)
-        .join(" ")}`;
+      let content = `Hello! I'm **${client.user.username
+        }**\n\nMy prefix in this server is: ${guildPrefixes
+          .map((p) => `\`${p}\``)
+          .join(" ")}`;
       if (userPrefixes.length > 0)
         content += `\nYour personal prefixes are: ${userPrefixes
           .map((p) => `\`${p}\``)
@@ -361,7 +360,7 @@ export default {
     if (!command) return;
 
     try {
-      const cooldownTime = antiAbuse.checkCooldown(message.author.id, command,message);
+      const cooldownTime = antiAbuse.checkCooldown(message.author.id, command, message);
       if (cooldownTime) {
         return _sendCooldownError(message, cooldownTime, command);
       }
@@ -411,10 +410,10 @@ export default {
 
       // Tier-based permission check
       const { canUseCommandByTier, getUserTier, getTierDisplayName, getRequiredTier } = await import('#utils/permissionUtil');
-      
+
       const userTier = await getUserTier(message.author.id, message.guild);
       const requiredTier = getRequiredTier(command);
-      
+
       if (userTier === 'denied') {
         return _sendError(
           message,
@@ -425,7 +424,7 @@ export default {
           `Contact a server admin to get access.`
         );
       }
-      
+
       if (!await canUseCommandByTier(message.author.id, message.guild, command)) {
         return _sendError(
           message,
@@ -476,6 +475,29 @@ export default {
           "Nothing Is Playing",
           "There is no track currently playing.",
         );
+      }
+
+      // Player Permission Check
+      if (player && (command.playerRequired || command.playingRequired)) {
+        const { PlayerPermissionManager } = await import('#managers/PlayerPermissionManager');
+        const permCheck = PlayerPermissionManager.canControl(message.guild.id, message.author, message.member, command.name);
+
+        if (!permCheck.allowed) {
+          if (permCheck.requiresPermission) {
+            return _sendError(
+              message,
+              "Permission Required",
+              `❌ You need permission from **${permCheck.sessionOwner.tag}** to use this command.\n` +
+              `*Role owners (Owner/VIP/Premium) bypass this check.*`
+            );
+          } else {
+            return _sendError(
+              message,
+              "Access Denied",
+              permCheck.reason || "You do not have permission to control the player."
+            );
+          }
+        }
       }
 
       const executionContext = { client, message, args };

@@ -38,6 +38,12 @@ process.on('uncaughtException', (error, origin) => {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
+process.on('message', async (message) => {
+	if (message.type === 'shutdown') {
+		await shutdown('ShardManager Shutdown');
+	}
+});
+
 main();
 
 export default client;

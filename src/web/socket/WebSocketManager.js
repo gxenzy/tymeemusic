@@ -21,7 +21,7 @@ class WebSocketManager {
 
         this.io.use(async (socket, next) => {
             const token = socket.handshake.auth.token || socket.handshake.query.token;
-            
+
             if (!token) {
                 return next(new Error('Authentication required'));
             }
@@ -45,7 +45,7 @@ class WebSocketManager {
 
             socket.on('guild:join', (guildId) => {
                 socket.join(`guild:${guildId}`);
-                
+
                 if (!this.rooms.has(guildId)) {
                     this.rooms.set(guildId, new Set());
                 }
@@ -118,7 +118,7 @@ class WebSocketManager {
             socket.on('disconnect', () => {
                 console.log(`WebSocket user disconnected: ${socket.user?.username || 'Unknown'}`);
                 this.userSockets.get(socket.user.id)?.delete(socket.id);
-                
+
                 for (const [guildId, sockets] of this.rooms) {
                     sockets.delete(socket.id);
                     if (sockets.size === 0) {
@@ -131,8 +131,24 @@ class WebSocketManager {
 
     async sendGuildState(socket, guildId) {
         const player = this.bot.players?.get(guildId);
-        
+
         if (player) {
+            try {
+                // Unified state generation using the WebServer's logic
+                if (this.bot.webServer && typeof this.bot.webServer.getPlayerState === 'function') {
+                    // Dynamically import PlayerManager to ensure we can wrap the player
+                    const { PlayerManager } = await import('../../managers/PlayerManager.js');
+                    const pm = new PlayerManager(player);
+
+                    const state = this.bot.webServer.getPlayerState(pm, guildId);
+                    socket.emit('player:state', state);
+                    return;
+                }
+            } catch (error) {
+                console.error("Error generating unified player state:", error);
+            }
+
+            // Fallback if WebServer method fails or isn't available
             socket.emit('player:state', {
                 isPlaying: player.playing,
                 isPaused: player.paused,
@@ -141,7 +157,13 @@ class WebSocketManager {
                 currentTrack: player.current,
                 repeat: player.repeat,
                 shuffle: player.shuffle,
-                queue: player.queue || []
+                queue: player.queue || [],
+                activeFilterName: player.lastFilterName || null,
+                timescale: (() => {
+                    const fm = player.filterManager;
+                    const ts = fm?.timescale || fm?.filters?.timescale || fm?.data?.timescale || {};
+                    return (ts.speed || 1.0) * (ts.rate || 1.0);
+                })()
             });
         } else {
             socket.emit('player:state', { active: false });
@@ -150,7 +172,7 @@ class WebSocketManager {
 
     async handlePlayerControl(socket, action, data) {
         const { guildId } = data;
-        
+
         if (!await this.checkPermission(socket.user.id, guildId)) {
             socket.emit('error', { message: 'Insufficient permissions' });
             return;
@@ -204,7 +226,7 @@ class WebSocketManager {
 
     async handleQueueAction(socket, action, data) {
         const { guildId } = data;
-        
+
         if (!await this.checkPermission(socket.user.id, guildId)) {
             socket.emit('error', { message: 'Insufficient permissions' });
             return;
@@ -250,7 +272,7 @@ class WebSocketManager {
 
     async handlePlaylistAction(socket, action, data) {
         const { guildId } = data;
-        
+
         if (!await this.checkPermission(socket.user.id, guildId)) {
             socket.emit('error', { message: 'Insufficient permissions' });
             return;

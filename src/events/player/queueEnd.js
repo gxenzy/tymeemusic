@@ -17,33 +17,11 @@ export default {
 
       await VoiceChannelStatus.clearStatus(client, player.voiceChannelId);
 
-      const messageId = player.get('nowPlayingMessageId');
-      const channelId = player.get('nowPlayingChannelId');
       EventUtils.clearPlayerTimeout(player, 'stuckTimeoutId');
 
-      if (messageId && channelId) {
-        try {
-          const channel = client.channels.cache.get(channelId);
-          const message = await channel?.messages.fetch(messageId).catch(() => null);
-
-          if (message) {
-            await message.edit({
-              content: `🏁 **Queue Complete** - All songs have finished playing.`,
-              files: []
-            });
-
-            setTimeout(async () => {
-              try {
-                await message.delete().catch(() => {});
-              } catch (deleteError) {
-                logger.debug('QueueEnd', 'Could not delete queue end message:', deleteError);
-              }
-            }, 10000);
-          }
-        } catch (messageError) {
-          logger.debug('QueueEnd', 'Error handling queue end message:', messageError);
-        }
-      }
+      // 🧹 NEW FORCE CLEANUP: Effectively kill all ghosts at the end of a queue
+      EventUtils.clearHeartbeat(player.guildId);
+      await EventUtils.forceCleanupPlayerUI(client, player);
 
       const autoplayEnabled = player.get('autoplayEnabled') || false;
       const lastTrack = player.get('lastPlayedTrack') || track;
@@ -65,28 +43,19 @@ export default {
 
       let shouldDisconnect = true;
       let is247Mode = false;
-      
+
       try {
         const guild247Settings = db.guild.get247Settings(player.guildId);
         is247Mode = guild247Settings.enabled;
         shouldDisconnect = !is247Mode && guild247Settings.autoDisconnect;
-        
+
         logger.debug('QueueEnd', `Guild ${player.guildId} settings: 24/7 = ${is247Mode}, autoDisconnect = ${guild247Settings.autoDisconnect}`);
       } catch (dbError) {
         logger.debug('QueueEnd', 'Could not check guild disconnect settings:', dbError);
       }
 
-      const completionMessage = await EventUtils.sendPlayerMessage(client, player, {
-        content: is247Mode
-          ? `🏁 **Queue Complete!** All songs have finished playing.\n♾️ **24/7 Mode:** Bot will stay connected.`
-          : shouldDisconnect
-          ? `🏁 **Queue Complete!** All songs have finished playing.\n⏰ Disconnecting in 60 seconds...`
-          : `🏁 **Queue Complete!** All songs have finished playing.`
-      });
-
-      if (completionMessage?.id) {
-        player.set('queueEndMessageId', completionMessage.id);
-      }
+      // Log completion to console but avoid sending more chat messages
+      logger.info('QueueEnd', `Queue ended in guild ${player.guildId}. Disconnect status: ${shouldDisconnect}`);
 
       clearStoredMessageIds(player);
 
@@ -97,11 +66,7 @@ export default {
               const current247Settings = db.guild.get247Settings(player.guildId);
               if (!current247Settings.enabled) {
                 logger.info('QueueEnd', `Auto-disconnecting from guild ${player.guildId} after queue completion`);
-
-                await EventUtils.sendPlayerMessage(client, player, {
-                  content: `👋 **Disconnected** - Thanks for listening!`
-                });
-
+                // No need to send a message to general channels, VoiceChannelStatus handles it or we just leave silently
                 await player.destroy();
               } else {
                 logger.info('QueueEnd', `24/7 mode enabled - cancelling auto-disconnect for guild ${player.guildId}`);
@@ -116,12 +81,12 @@ export default {
       } else if (is247Mode) {
         logger.info('QueueEnd', `24/7 mode active - keeping connection for guild ${player.guildId}`);
         player.set('247Mode', true);
-        
+
         EventUtils.clearPlayerTimeout(player, 'disconnectTimeoutId');
       }
 
       logSessionStats(player);
-      
+
       // Notify web dashboard about state change
       if (client.webServer) {
         client.webServer.updatePlayerState(player.guildId);
@@ -146,34 +111,41 @@ async function handleAutoplay(player, lastTrack, client) {
     throw new Error('No valid last track for autoplay');
   }
 
+  // 📡 SMART DISCOVERY: Use session history for better recommendations
+  const history = player.get('trackHistory') || [lastTrack];
+  const historyTitles = history.slice(0, 3).map(t => `"${t.info.title}"`).join(', ');
+
   const autoplayMessage = await EventUtils.sendPlayerMessage(client, player, {
-    content: `🔄 **Autoplay activated** - Finding similar songs to "${lastTrack.info.title}" by ${lastTrack.info.author}...`
+    content: `📻 **Smart Radio Activated**\nAnalyzing your session vibes (${historyTitles}) to find similar tracks...`
   });
 
-  let targetTrack = lastTrack;
+  // Perform discovery across multiple history seeds for variety
+  let allRecommendations = [];
+  const seeds = history.slice(0, 3); // Use up to 3 most recent tracks as seeds
 
-  if (!isSpotifySource(lastTrack)) {
+  for (const seedTrack of seeds) {
     try {
-      const searchQuery = `${lastTrack.info.author} ${lastTrack.info.title}`;
-      const spotifyResult = await client.music.search(searchQuery, {
-        source: "spsearch"
-      });
-
-      if (spotifyResult?.tracks?.length > 0) {
-        targetTrack = spotifyResult.tracks[0];
-        const originalSource = getTrackSource(lastTrack);
-        logger.debug('QueueEnd', `Found Spotify version for autoplay (original: ${originalSource}): ${targetTrack.info.title}`);
-      } else {
-        logger.debug('QueueEnd', `No Spotify version found for ${lastTrack.info.title}, using original track from ${getTrackSource(lastTrack)}`);
+      let targetSeed = seedTrack;
+      // If not Spotify, try to resolve to Spotify for better recommendations
+      if (!isSpotifySource(seedTrack)) {
+        const searchQuery = `${seedTrack.info.author} ${seedTrack.info.title}`;
+        const spotifyResult = await client.music.search(searchQuery, { source: "spsearch" }).catch(() => null);
+        if (spotifyResult?.tracks?.length > 0) targetSeed = spotifyResult.tracks[0];
       }
-    } catch (spotifyError) {
-      logger.warn('QueueEnd', `Could not find Spotify version for ${getTrackSource(lastTrack)} track, using original:`, spotifyError);
+
+      const recs = await fetchRecommendations(targetSeed, client);
+      if (recs?.length > 0) {
+        allRecommendations.push(...recs);
+      }
+    } catch (e) {
+      logger.debug('QueueEnd', `Seed discovery failed for ${seedTrack.info.title}`);
     }
-  } else {
-    logger.debug('QueueEnd', 'Track is already from Spotify, using original for autoplay');
   }
 
-  const recommendations = await fetchRecommendations(targetTrack, client);
+  // Deduplicate and prioritize high-match tracks
+  const recommendations = allRecommendations
+    .filter((v, i, a) => a.findIndex(t => t.name === v.name && t.artist === v.artist) === i)
+    .sort((a, b) => b.match - a.match);
 
   if (!recommendations?.length) {
     throw new Error('No recommendations found for autoplay');
@@ -222,12 +194,13 @@ async function handleAutoplay(player, lastTrack, client) {
 
   if (autoplayMessage) {
     try {
-      const successContent = `✅ **Autoplay Success!** Added ${addedCount} similar songs:\n${addedTracks.slice(0, 3).map((track, i) => `${i + 1}. ${track}`).join('\n')}${addedCount > 3 ? `\n+${addedCount - 3} more...` : ''}`;
+      const trackList = addedTracks.slice(0, 5).map((track, i) => `\`${i + 1}.\` ${track}`).join('\n');
+      const successContent = `✅ **Smart Radio Success!**\nQueued some fresh tracks for your session:\n${trackList}${addedCount > 5 ? `\n*+ ${addedCount - 5} more similar tracks*` : ''}`;
       await autoplayMessage.edit({ content: successContent });
 
       setTimeout(async () => {
         try {
-          await autoplayMessage.delete().catch(() => {});
+          await autoplayMessage.delete().catch(() => { });
         } catch (deleteError) {
           logger.debug('QueueEnd', 'Could not delete autoplay success message:', deleteError);
         }
@@ -245,9 +218,9 @@ function isSpotifySource(track) {
   const sourceName = track.info.sourceName?.toLowerCase() || '';
 
   return uri.includes('spotify.com') ||
-         uri.includes('open.spotify.com') ||
-         sourceName.includes('spotify') ||
-         sourceName.includes('sp');
+    uri.includes('open.spotify.com') ||
+    sourceName.includes('spotify') ||
+    sourceName.includes('sp');
 }
 
 function isYouTubeSource(track) {
@@ -255,9 +228,9 @@ function isYouTubeSource(track) {
   const sourceName = track.info.sourceName?.toLowerCase() || '';
 
   return uri.includes('youtube.com') ||
-         uri.includes('youtu.be') ||
-         sourceName.includes('youtube') ||
-         sourceName.includes('yt');
+    uri.includes('youtu.be') ||
+    sourceName.includes('youtube') ||
+    sourceName.includes('yt');
 }
 
 function getTrackSource(track) {

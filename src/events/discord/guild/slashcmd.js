@@ -296,10 +296,10 @@ async function handleChatInputCommand(interaction, client) {
 
     // Tier-based permission check
     const { canUseCommandByTier, getUserTier, getTierDisplayName, getRequiredTier } = await import('#utils/permissionUtil');
-    
+
     const userTier = await getUserTier(interaction.user.id, interaction.guild);
     const requiredTier = getRequiredTier(commandToExecute);
-    
+
     if (userTier === 'denied') {
       return _sendError(
         interaction,
@@ -310,7 +310,7 @@ async function handleChatInputCommand(interaction, client) {
         `Contact a server admin to get access.`
       );
     }
-    
+
     if (!await canUseCommandByTier(interaction.user.id, interaction.guild, commandToExecute)) {
       return _sendError(
         interaction,
@@ -376,6 +376,29 @@ async function handleChatInputCommand(interaction, client) {
         "Nothing Playing",
         "There is no track currently playing.\nUse `/play` to start a song.",
       );
+    }
+
+    // Player Permission Check
+    if (player && (commandToExecute.playerRequired || commandToExecute.playingRequired)) {
+      const { PlayerPermissionManager } = await import('#managers/PlayerPermissionManager');
+      const permCheck = PlayerPermissionManager.canControl(interaction.guild.id, interaction.user, interaction.member, commandToExecute.name);
+
+      if (!permCheck.allowed) {
+        if (permCheck.requiresPermission) {
+          return _sendError(
+            interaction,
+            "Permission Required",
+            `❌ You need permission from **${permCheck.sessionOwner.tag}** to use this command.\n` +
+            `*Role owners (Owner/VIP/Premium) bypass this check.*`
+          );
+        } else {
+          return _sendError(
+            interaction,
+            "Access Denied",
+            permCheck.reason || "You do not have permission to control the player."
+          );
+        }
+      }
     }
 
     const executionContext = { interaction, client };

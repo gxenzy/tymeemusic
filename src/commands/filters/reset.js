@@ -43,7 +43,33 @@ class ResetFilterCommand extends Command {
 
 	async _handleResetFilter(context, pm) {
 		try {
-			await pm.player.filterManager.clearEQ();
+			// Super Nuclear Reset: Wipe every piece of internal state
+			if (pm.player.filterManager) {
+				const fm = pm.player.filterManager;
+				const props = ['equalizer', 'timescale', 'karaoke', 'tremolo', 'vibrato', 'distortion', 'rotation', 'channelMix', 'lowPass'];
+				props.forEach(p => {
+					try {
+						if (p === 'equalizer') fm[p] = [];
+						else fm[p] = null;
+					} catch (e) { }
+				});
+				if (fm.data) fm.data = {};
+				// THIS IS THE KEY FIX: Clear the separate equalizerBands array!
+				if (fm.equalizerBands) fm.equalizerBands = [];
+
+				if (fm.setSpeed) await fm.setSpeed(1.0);
+				if (fm.setPitch) await fm.setPitch(1.0);
+				if (fm.setRate) await fm.setRate(1.0);
+			}
+
+			// Send clear packet to Lavalink
+			if (typeof pm.player.setFilters === "function") {
+				await pm.player.setFilters({});
+			} else if (pm.player.filterManager) {
+				await pm.player.filterManager.resetFilters();
+			}
+
+			pm.player.lastFilterName = null;
 
 			return this._reply(context, this._createSuccessContainer());
 		} catch (error) {
@@ -80,7 +106,7 @@ class ResetFilterCommand extends Command {
 				.setThumbnailAccessory(
 					new ThumbnailBuilder().setURL(
 						config.assets?.defaultThumbnail ||
-							config.assets?.defaultTrackArtwork,
+						config.assets?.defaultTrackArtwork,
 					),
 				),
 		);
@@ -111,7 +137,7 @@ class ResetFilterCommand extends Command {
 				.setThumbnailAccessory(
 					new ThumbnailBuilder().setURL(
 						config.assets?.defaultThumbnail ||
-							config.assets?.defaultTrackArtwork,
+						config.assets?.defaultTrackArtwork,
 					),
 				),
 		);

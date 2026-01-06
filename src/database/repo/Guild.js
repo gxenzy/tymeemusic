@@ -90,6 +90,15 @@ export class Guild extends Database {
     return config.clientId ? `${guildId}_${config.clientId}` : guildId;
   }
 
+  // Extract pure guild ID from a storage ID (removes the _clientId suffix)
+  getGuildIdFromStorageId(storageId) {
+    if (!storageId) return null;
+    if (config.clientId && storageId.endsWith(`_${config.clientId}`)) {
+      return storageId.slice(0, -(config.clientId.length + 1));
+    }
+    return storageId;
+  }
+
   getGuild(guildId) {
     if (!guildId) return null;
     const storageId = this.getStorageId(guildId);
@@ -289,7 +298,12 @@ export class Guild extends Database {
   }
 
   getAll247Guilds() {
-    return this.all("SELECT * FROM guilds WHERE stay_247   =1 AND stay_247_voice_channel IS NOT NULL");
+    const guilds = this.all("SELECT * FROM guilds WHERE stay_247 = 1 AND stay_247_voice_channel IS NOT NULL");
+    // Map storage IDs to pure Discord guild IDs
+    return guilds.map(guild => ({
+      ...guild,
+      id: this.getGuildIdFromStorageId(guild.id)
+    }));
   }
 
   setAutoDisconnect(guildId, enabled) {
@@ -309,9 +323,13 @@ export class Guild extends Database {
       AND stay_247_voice_channel   !=''
     `);
 
-    return guilds.filter(guild => {
-      return guild.stay_247_voice_channel && guild.stay_247_voice_channel.length > 0;
-    });
+    // Map storage IDs to pure Discord guild IDs and filter valid entries
+    return guilds
+      .filter(guild => guild.stay_247_voice_channel && guild.stay_247_voice_channel.length > 0)
+      .map(guild => ({
+        ...guild,
+        id: this.getGuildIdFromStorageId(guild.id) // Convert storage ID back to pure guild ID
+      }));
   }
 
   getMusicCardSettings(guildId) {
@@ -346,9 +364,10 @@ export class Guild extends Database {
     this.ensureGuild(guildId);
     const validTiers = ['free', 'vip', 'premium', 'owner'];
     const sanitizedTier = validTiers.includes(tier) ? tier : 'free';
+    const storageId = this.getStorageId(guildId);
     return this.exec(
       "UPDATE guilds SET tier = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [sanitizedTier, guildId]
+      [sanitizedTier, storageId]
     );
   }
 
@@ -364,9 +383,10 @@ export class Guild extends Database {
   setDjRoles(guildId, roles) {
     this.ensureGuild(guildId);
     const rolesJson = JSON.stringify(Array.isArray(roles) ? roles : []);
+    const storageId = this.getStorageId(guildId);
     return this.exec(
       "UPDATE guilds SET dj_roles = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [rolesJson, guildId]
+      [rolesJson, storageId]
     );
   }
 
@@ -382,9 +402,10 @@ export class Guild extends Database {
   setAllowedRoles(guildId, roles) {
     this.ensureGuild(guildId);
     const rolesJson = JSON.stringify(Array.isArray(roles) ? roles : []);
+    const storageId = this.getStorageId(guildId);
     return this.exec(
       "UPDATE guilds SET allowed_roles = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [rolesJson, guildId]
+      [rolesJson, storageId]
     );
   }
 
@@ -400,9 +421,10 @@ export class Guild extends Database {
   setVipRoles(guildId, roles) {
     this.ensureGuild(guildId);
     const rolesJson = JSON.stringify(Array.isArray(roles) ? roles : []);
+    const storageId = this.getStorageId(guildId);
     return this.exec(
       "UPDATE guilds SET vip_roles = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [rolesJson, guildId]
+      [rolesJson, storageId]
     );
   }
 
@@ -418,9 +440,10 @@ export class Guild extends Database {
   setPremiumRoles(guildId, roles) {
     this.ensureGuild(guildId);
     const rolesJson = JSON.stringify(Array.isArray(roles) ? roles : []);
+    const storageId = this.getStorageId(guildId);
     return this.exec(
       "UPDATE guilds SET premium_roles = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [rolesJson, guildId]
+      [rolesJson, storageId]
     );
   }
 
@@ -445,9 +468,10 @@ export class Guild extends Database {
     const premiumRoles = JSON.stringify(Array.isArray(roles?.premium) ? roles.premium : []);
     const premiumUsers = JSON.stringify(Array.isArray(roles?.premiumUsers) ? roles.premiumUsers : []);
 
+    const storageId = this.getStorageId(guildId);
     return this.exec(
       "UPDATE guilds SET allowed_roles = ?, allowed_users = ?, vip_roles = ?, vip_users = ?, premium_roles = ?, premium_users = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [allowedRoles, allowedUsers, vipRoles, vipUsers, premiumRoles, premiumUsers, guildId]
+      [allowedRoles, allowedUsers, vipRoles, vipUsers, premiumRoles, premiumUsers, storageId]
     );
   }
 
@@ -465,9 +489,10 @@ export class Guild extends Database {
   setAllowedUsers(guildId, users) {
     this.ensureGuild(guildId);
     const usersJson = JSON.stringify(Array.isArray(users) ? users : []);
+    const storageId = this.getStorageId(guildId);
     return this.exec(
       "UPDATE guilds SET allowed_users = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [usersJson, guildId]
+      [usersJson, storageId]
     );
   }
 
@@ -483,9 +508,10 @@ export class Guild extends Database {
   setVipUsers(guildId, users) {
     this.ensureGuild(guildId);
     const usersJson = JSON.stringify(Array.isArray(users) ? users : []);
+    const storageId = this.getStorageId(guildId);
     return this.exec(
       "UPDATE guilds SET vip_users = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [usersJson, guildId]
+      [usersJson, storageId]
     );
   }
 
@@ -501,9 +527,10 @@ export class Guild extends Database {
   setPremiumUsers(guildId, users) {
     this.ensureGuild(guildId);
     const usersJson = JSON.stringify(Array.isArray(users) ? users : []);
+    const storageId = this.getStorageId(guildId);
     return this.exec(
       "UPDATE guilds SET premium_users = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [usersJson, guildId]
+      [usersJson, storageId]
     );
   }
 

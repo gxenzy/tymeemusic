@@ -12,6 +12,14 @@ export class VoiceChannelStatus {
    * @returns {string} - The emoji key (sp, yt, am, sc, dz)
    */
   static getSourceKey(track) {
+    const userData = track?.userData || track?.requester || {};
+    const originalSource = userData.originalSource?.toLowerCase() || '';
+    const originalUri = userData.originalUri?.toLowerCase() || '';
+
+    if (originalSource.includes('spotify') || originalUri.includes('spotify.com')) {
+      return 'sp';
+    }
+
     const uri = track?.info?.uri?.toLowerCase() || '';
     const sourceName = track?.info?.sourceName?.toLowerCase() || '';
 
@@ -55,20 +63,20 @@ export class VoiceChannelStatus {
     // Fallback: Check if custom emoji exists in guild
     if (guild) {
       // Try finding by exact name match
-      let serverEmoji = guild.emojis.cache.find(e => 
+      let serverEmoji = guild.emojis.cache.find(e =>
         e.name.toLowerCase() === emojiKey.toLowerCase()
       );
-      
+
       if (serverEmoji) {
         return serverEmoji.toString();
       }
 
       // Try finding by partial name match
-      serverEmoji = guild.emojis.cache.find(e => 
+      serverEmoji = guild.emojis.cache.find(e =>
         e.name.toLowerCase().includes(emojiKey.toLowerCase()) ||
         emojiKey.toLowerCase().includes(e.name.toLowerCase())
       );
-      
+
       if (serverEmoji) {
         return serverEmoji.toString();
       }
