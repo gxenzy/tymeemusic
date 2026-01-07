@@ -58,9 +58,24 @@ async function _sendError(interaction, title, description) {
       await interaction.reply(reply);
     }
   } catch (error) {
-    logger.error("InteractionCreate", "Failed to send error reply.", error);
+    logger.error("InteractionCreate", "Failed to send Components V2 error reply, trying fallback.", error);
+    // Fallback to plain text if Components V2 fails
+    try {
+      const fallbackReply = {
+        content: `❌ **${title}**\n${description}`,
+        ephemeral: true,
+      };
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(fallbackReply);
+      } else {
+        await interaction.reply(fallbackReply);
+      }
+    } catch (fallbackError) {
+      logger.error("InteractionCreate", "Fallback error reply also failed.", fallbackError);
+    }
   }
 }
+
 
 async function _sendPremiumError(interaction, type) {
   const button = new ButtonBuilder()
@@ -102,11 +117,26 @@ async function _sendPremiumError(interaction, type) {
   } catch (error) {
     logger.error(
       "InteractionCreate",
-      "Failed to send premium error reply.",
+      "Failed to send premium error reply, trying fallback.",
       error,
     );
+    // Fallback to plain text
+    try {
+      const fallbackReply = {
+        content: `ℹ️ **${type} Required**\nThis command requires a **${type}** subscription. Contact the bot owner for access.`,
+        ephemeral: true,
+      };
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(fallbackReply);
+      } else {
+        await interaction.reply(fallbackReply);
+      }
+    } catch (fallbackError) {
+      logger.error("InteractionCreate", "Fallback premium error also failed.", fallbackError);
+    }
   }
 }
+
 
 async function _sendCooldownError(interaction, cooldownTime, command) {
   if (!antiAbuse.shouldShowCooldownNotification(interaction.user.id, command.name)) {
@@ -294,6 +324,32 @@ async function handleChatInputCommand(interaction, client) {
       }
     }
 
+    // Tier-based permission check
+    const { canUseCommandByTier, getUserTier, getTierDisplayName, getRequiredTier } = await import('#utils/permissionUtil');
+
+    const userTier = await getUserTier(interaction.user.id, interaction.guild);
+    const requiredTier = getRequiredTier(commandToExecute);
+
+    if (userTier === 'denied') {
+      return _sendError(
+        interaction,
+        "Access Denied",
+        `You don't have permission to use this command in this server.\n` +
+        `Required tier: **${getTierDisplayName(requiredTier)}**\n` +
+        `Your tier: **${getTierDisplayName(userTier)}**\n\n` +
+        `Contact a server admin to get access.`
+      );
+    }
+
+    if (!await canUseCommandByTier(interaction.user.id, interaction.guild, commandToExecute)) {
+      return _sendError(
+        interaction,
+        "Insufficient Tier",
+        `This command requires **${getTierDisplayName(requiredTier)}** tier.\n` +
+        `Your current tier: **${getTierDisplayName(userTier)}**`
+      );
+    }
+
     if (
       commandToExecute.userPrem &&
       !hasPremiumAccess(interaction.user.id, interaction.guild.id, "user")
@@ -350,6 +406,29 @@ async function handleChatInputCommand(interaction, client) {
         "Nothing Playing",
         "There is no track currently playing.\nUse `/play` to start a song.",
       );
+    }
+
+    // Player Permission Check
+    if (player && (commandToExecute.playerRequired || commandToExecute.playingRequired)) {
+      const { PlayerPermissionManager } = await import('#managers/PlayerPermissionManager');
+      const permCheck = PlayerPermissionManager.canControl(interaction.guild.id, interaction.user, interaction.member, commandToExecute.name);
+
+      if (!permCheck.allowed) {
+        if (permCheck.requiresPermission) {
+          return _sendError(
+            interaction,
+            "Permission Required",
+            `❌ You need permission from **${permCheck.sessionOwner.tag}** to use this command.\n` +
+            `*Role owners (Owner/VIP/Premium) bypass this check.*`
+          );
+        } else {
+          return _sendError(
+            interaction,
+            "Access Denied",
+            permCheck.reason || "You do not have permission to control the player."
+          );
+        }
+      }
     }
 
     const executionContext = { interaction, client };

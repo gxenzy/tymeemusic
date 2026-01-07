@@ -2,6 +2,10 @@ import { PlayerManager } from '#managers/PlayerManager';
 import { logger } from '#utils/logger';
 import { DiscordPlayerEmbed } from '#utils/DiscordPlayerEmbed';
 import { EventUtils } from '#utils/EventUtils';
+import { db } from '#database/DatabaseManager';
+import { config } from '#config/config';
+import { ActionRowBuilder, StringSelectMenuBuilder } from 'discord.js';
+import filters from '#config/filters';
 
 export default {
 	name: "interactionCreate",
@@ -15,9 +19,29 @@ export default {
 			const musicControlIds = [
 				'music_previous',
 				'music_pause',
-				'music_skip', 
+				'music_skip',
 				'music_stop',
-				'music_controls_select'
+				'music_controls_select',
+				'music_similar_select',
+				'music_similar_results',
+				'music_shuffle',
+				'music_repeat',
+				'music_volume_down',
+				'music_volume_up',
+				'music_seek_back',
+				'music_seek_forward',
+				'music_favorite',
+				'music_effects',
+				'music_filter',
+				'music_move',
+				'music_misc',
+				'music_lyrics',
+				'music_more_menu',
+				'music_sleep_timer_select',
+				'music_queue_info',
+				'music_filters_select',
+				'music_move_select',
+				'music_effects_select',
 			];
 
 			if (!musicControlIds.includes(interaction.customId)) {
@@ -27,7 +51,7 @@ export default {
 			if (!interaction.member?.voice?.channel) {
 				return interaction.reply({
 					content: '❌ You must be in a voice channel to use music controls.',
-					ephemeral: true
+					ephemeral: true,
 				});
 			}
 
@@ -35,13 +59,15 @@ export default {
 			if (!player) {
 				return interaction.reply({
 					content: '❌ No music player found for this server.',
-					ephemeral: true
+					ephemeral: true,
 				});
 			}
 
 			const pm = new PlayerManager(player);
 
-			if (pm.voiceChannelId && interaction.member.voice.channelId !== pm.voiceChannelId) {
+			// Ensure user is in same voice channel as the bot
+			const botVoiceChannelId = pm.voiceChannelId || pm.player?.voiceChannelId;
+			if (botVoiceChannelId && interaction.member.voice.channel && interaction.member.voice.channel.id !== botVoiceChannelId) {
 				return interaction.reply({
 					content: '❌ You must be in the same voice channel as the bot to use controls.',
 					ephemeral: true
@@ -58,11 +84,9 @@ export default {
 			await interaction.deferReply({ ephemeral: true });
 
 			if (interaction.isButton()) {
-				await handleButtonInteraction(interaction, pm, client);
-			}
-
-			if (interaction.isStringSelectMenu()) {
-				await handleSelectMenuInteraction(interaction, pm, client);
+				await import('./PlayerbuttonsHandler.js').then(m => m.handleButtonInteraction(interaction, pm, client));
+			} else if (interaction.isStringSelectMenu()) {
+				await import('./PlayerbuttonsHandler.js').then(m => m.handleSelectMenuInteraction(interaction, pm, client));
 			}
 
 		} catch (error) {
@@ -82,210 +106,31 @@ export default {
 	},
 };
 
-async function handleButtonInteraction(interaction, pm, client) {
-	const { customId } = interaction;
-	let response = '';
-
-	try {
-		switch (customId) {
-			case 'music_previous':
-				const hasPrevious = await pm.playPrevious();
-				if (hasPrevious) {
-					response = '⏮️ Playing previous track.';
-				} else {
-					response = '❌ No previous track available.';
-				}
-				break;
-
-			case 'music_pause':
-				if (pm.isPaused) {
-					await pm.resume();
-					response = '▶️ Music resumed.';
-				} else {
-					await pm.pause();
-					response = '⏸️ Music paused.';
-				}
-				break;
-
-			case 'music_skip':
-				const currentTrack = pm.currentTrack;
-				const trackTitle = currentTrack?.info?.title || 'Unknown Track';
-				await pm.skip();
-				response = `⏭️ Skipped: ${trackTitle}`;
-				break;
-
-			case 'music_stop':
-				await pm.stop();
-				response = '⏹️ Music stopped and queue cleared.';
-				break;
-
-			default:
-				response = '❌ Unknown action.';
-				break;
-		}
-
-		await interaction.editReply({ content: response });
-
-		// Small delay to ensure player state is updated before updating embed
-		setTimeout(async () => {
-			try {
-				// Update player message embed
-				await updatePlayerMessageEmbed(client, pm);
-
-				// Update web dashboard
-				if (client.webServer) {
-					client.webServer.updatePlayerState(pm.guildId);
-				}
-			} catch (updateError) {
-				logger.error('Playerbuttons', 'Error updating after button interaction:', updateError);
-			}
-		}, 500);
-
-	} catch (error) {
-		logger.error('Playerbuttons', `Error handling button interaction ${customId}:`, error);
-		await interaction.editReply({ content: '❌ An error occurred while processing your request.' });
-	}
-}
-
-async function updatePlayerMessageEmbed(client, pm) {
+export async function updatePlayerMessageEmbed(client, pm) {
 	try {
 		const player = pm.player;
 		const messageId = player.get('nowPlayingMessageId');
 		const channelId = player.get('nowPlayingChannelId');
-		
+
 		if (messageId && channelId) {
 			const guild = client.guilds.cache.get(pm.guildId);
 			// Get fresh position from player
 			const currentPosition = pm.player?.position ?? pm.position ?? 0;
-			const embed = DiscordPlayerEmbed.createPlayerEmbed(pm, guild, currentPosition);
-			
-			// Try to get existing message to preserve components
-			const channel = client.guilds.cache.get(pm.guildId)?.channels.cache.get(channelId);
+			const embed = await DiscordPlayerEmbed.createPlayerEmbedAsync(pm, guild, currentPosition, client);
+
+			const channel = guild?.channels.cache.get(channelId);
 			if (channel) {
 				const message = await channel.messages.fetch(messageId).catch(() => null);
 				if (message && message.embeds.length > 0) {
-					// Update embed while preserving components
-					await message.edit({
-						embeds: [embed],
-					});
+					await message.edit({ embeds: [embed] });
 				}
 			}
 		}
-	} catch (error) {
-		// Silently fail - message might not exist or use image card
+	} catch (err) {
+		// ignore
 	}
 }
 
-async function handleSelectMenuInteraction(interaction, pm, client) {
-	const selectedValue = interaction.values[0];
-	let response = '';
-
-	switch (selectedValue) {
-		case 'shuffle':
-			const queueSize = pm.queueSize;
-			if (queueSize === 0) {
-				response = '❌ Queue is empty, nothing to shuffle.';
-			} else {
-				await pm.shuffleQueue();
-				response = `🔀 Shuffled ${queueSize} tracks in the queue.`;
-			}
-			break;
-
-		case 'loop_off':
-			await pm.setRepeatMode('off');
-			response = '🔁 Loop disabled.';
-			break;
-
-		case 'loop_track':
-			await pm.setRepeatMode('track');
-			response = '🔂 Looping current track.';
-			break;
-
-		case 'loop_queue':
-			await pm.setRepeatMode('queue');
-			response = '🔁 Looping entire queue.';
-			break;
-
-		case 'volume_down':
-			const currentVolumeDown = pm.volume;
-			const newVolumeDown = Math.max(0, currentVolumeDown - 20);
-			await pm.setVolume(newVolumeDown);
-			response = `🔉 Volume decreased to ${newVolumeDown}%`;
-			break;
-
-		case 'volume_up':
-			const currentVolumeUp = pm.volume;
-			const newVolumeUp = Math.min(100, currentVolumeUp + 20);
-			await pm.setVolume(newVolumeUp);
-			response = `🔊 Volume increased to ${newVolumeUp}%`;
-			break;
-
-		default:
-			response = '❌ Unknown option selected.';
-			break;
-	}
-
-	await interaction.editReply({ content: response });
-
-	if (selectedValue.startsWith('loop_')) {
-		await updateSelectMenuOptions(interaction, pm);
-	}
-	
-	// Update player message embed
-	updatePlayerMessageEmbed(client, pm);
-	
-	// Update web dashboard
-	if (client.webServer) {
-		client.webServer.updatePlayerState(pm.guildId);
-	}
-}
-
-async function updateSelectMenuOptions(interaction, pm) {
-	try {
-		const originalMessage = await interaction.fetchReply();
-		if (!originalMessage?.components?.length) return;
-
-		const actionRow = originalMessage.components.find(row => 
-			row.components?.some(component => component.customId === 'music_controls_select')
-		);
-
-		if (!actionRow) return;
-
-		const selectMenu = actionRow.components.find(component => 
-			component.customId === 'music_controls_select'
-		);
-
-		if (!selectMenu) return;
-
-		const currentMode = pm.repeatMode;
-		const updatedOptions = selectMenu.options.map(option => {
-			if (option.value === 'loop_off') {
-				return {
-					...option,
-					label: currentMode === 'off' ? 'Loop: Off ✓' : 'Loop: Off',
-					description: currentMode === 'off' ? 'Currently active' : 'No repeat'
-				};
-			} else if (option.value === 'loop_track') {
-				return {
-					...option,
-					label: currentMode === 'track' ? 'Loop: Track ✓' : 'Loop: Track',
-					description: currentMode === 'track' ? 'Currently active' : 'Repeat current song'
-				};
-			} else if (option.value === 'loop_queue') {
-				return {
-					...option,
-					label: currentMode === 'queue' ? 'Loop: Queue ✓' : 'Loop: Queue',
-					description: currentMode === 'queue' ? 'Currently active' : 'Repeat entire queue'
-				};
-			}
-			return option;
-		});
-
-		selectMenu.options = updatedOptions;
-
-		await originalMessage.edit({ components: originalMessage.components });
-
-	} catch (error) {
-		logger.error('InteractionCreate', 'Error updating select menu options:', error);
-	}
+export async function updateSelectMenuOptions(interaction, pm) {
+	return import('./PlayerbuttonsHandler.js').then(m => (typeof m.updateSelectMenuOptions === 'function' ? m.updateSelectMenuOptions(interaction, pm) : undefined));
 }

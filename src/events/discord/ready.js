@@ -17,20 +17,31 @@ export default {
     logger.success("Bot", `Logged in as ${user.tag}`);
     logger.info("Bot", `Serving ${guilds.cache.size} guilds`);
 
-    if (config.features.stay247) {
-      logger.info(
-        "Bot",
-        "Waiting 10 seconds for Lavalink to be ready before initializing 24/7 mode...",
-      );
-      setTimeout(async () => {
-        await initialize247Mode(client);
+    logger.info(
+      "Bot",
+      "Waiting 5 seconds for Lavalink to be ready before initializing music services...",
+    );
+    setTimeout(async () => {
+      // Ensure Lavalink is ready
+      const lavalinkReady = await waitForLavalink(client);
+      if (lavalinkReady) {
+        // 1. Restore previous sessions (resuming playback)
+        if (client.music) {
+          await client.music.restorePlayerSessions();
+        }
 
-        setInterval(
-          () => check247Connections(client),
-          config.player.stay247.checkInterval,
-        );
-      }, 10000);
-    }
+        // 2. Initialize 24/7 Mode if enabled
+        if (config.features.stay247) {
+          // Note: initialize247Mode checks waitForLavalink again internally, which is fine
+          await initialize247Mode(client);
+
+          setInterval(
+            () => check247Connections(client),
+            config.player.stay247.checkInterval,
+          );
+        }
+      }
+    }, 5000);
 
     const updateStatus = () => {
       user.setActivity({
@@ -42,6 +53,9 @@ export default {
     updateStatus();
     setInterval(updateStatus, 10 * 60 * 1000);
     user.setStatus(config.status.status || "dnd");
+
+    // Start dynamic status updates showing current playing track
+    startChannelStatusUpdate(client);
 
   },
 };
@@ -204,7 +218,7 @@ async function connect247Guild(client, guildData) {
       `Connecting to 24/7 channel ${voiceChannel.name} in guild ${guild.name}`,
     );
 
-    const player = client.music.createPlayer({
+    const player = await client.music.createPlayer({
       guildId: guild.id,
       textChannelId: textChannel.id,
       voiceChannelId: voiceChannel.id,
@@ -214,19 +228,10 @@ async function connect247Guild(client, guildData) {
     });
 
     if (player) {
-      // Wait for player to be fully connected before setting properties
-      setTimeout(() => {
-        try {
-          if (player && typeof player.set === 'function') {
-            player.set("247Mode", true);
-            player.set("247VoiceChannel", voiceChannel.id);
-            player.set("247TextChannel", textChannel.id);
-            player.set("247LastConnected", Date.now());
-          }
-        } catch (error) {
-          logger.warn("247Mode", `Failed to set player properties for guild ${guild.name}: ${error.message}`);
-        }
-      }, 1000);
+      player.set("247Mode", true);
+      player.set("247VoiceChannel", voiceChannel.id);
+      player.set("247TextChannel", textChannel.id);
+      player.set("247LastConnected", Date.now());
     }
 
     logger.success(
@@ -309,7 +314,7 @@ async function checkSingle247Connection(client, guildData) {
         textChannel = voiceChannel;
       }
 
-      const newPlayer = client.music.createPlayer({
+      const newPlayer = await client.music.createPlayer({
         guildId: guild.id,
         textChannelId: textChannel.id,
         voiceChannelId: voiceChannel.id,
@@ -317,9 +322,12 @@ async function checkSingle247Connection(client, guildData) {
         selfDeaf: true,
         volume: db.guild.getDefaultVolume(guild.id),
       });
-      if (!newPlayer.connected) {
-        await newPlayer.connect();
+
+      if (!newPlayer) {
+        logger.error("247Mode", `Failed to create player for guild ${guild.name}`);
+        return;
       }
+
       newPlayer.set("247Mode", true);
       newPlayer.set("247VoiceChannel", voiceChannel.id);
       newPlayer.set("247TextChannel", textChannel.id);
@@ -422,6 +430,14 @@ function startChannelStatusUpdate(client) {
         ? fullText.substring(0, maxLength - 3) + '...'
         : fullText;
 
+      // Actually set the activity to show the current track
+      const statusText = `${platformEmoji} ${truncatedText}`;
+      client.user.setActivity({
+        name: statusText,
+        type: ActivityType.Listening,
+      });
+
+      logger.debug('ChannelStatus', `Updated status to: ${statusText}`);
 
       // Move to next player for next update
       currentPlayerIndex = (currentPlayerIndex + 1) % activePlayers.length;

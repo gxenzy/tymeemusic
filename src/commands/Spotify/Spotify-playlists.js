@@ -776,9 +776,10 @@ class PlaylistsCommand extends Command {
         await pm.connect();
       }
 
-      // Set "Requested by" voice channel status
+      // Set "Requested by" voice channel status with custom emoji support
       const user = client.users.cache.get(userId);
-      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, user?.username || 'Unknown');
+      const emojiManager = client.emojiManager || null;
+      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, user?.username || 'Unknown', guild, emojiManager);
 
       const tracksToProcess = queueCheck.canAddAll ? tracks : tracks.slice(0, queueCheck.tracksToAdd);
       let addedCount = 0;

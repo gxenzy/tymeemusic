@@ -1,3 +1,6 @@
+// V8 compile cache - speeds up module loading
+import 'v8-compile-cache-lib';
+
 import { Tymee } from '#structures/classes/Yukihana';
 import { logger } from '#utils/logger';
 
@@ -37,6 +40,12 @@ process.on('uncaughtException', (error, origin) => {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+process.on('message', async (message) => {
+	if (message.type === 'shutdown') {
+		await shutdown('ShardManager Shutdown');
+	}
+});
 
 main();
 

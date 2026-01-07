@@ -44,64 +44,28 @@ class VaporwaveFilterCommand extends Command {
 
 	async _handleFilter(context, pm) {
 		try {
-			await pm.player.filterManager.setEQ([
-   {
-      band: 0,
-      gain: 0.6
-   },
-   {
-      band: 1,
-      gain: 0.4
-   },
-   {
-      band: 2,
-      gain: 0.2
-   },
-   {
-      band: 3,
-      gain: -0.1
-   },
-   {
-      band: 4,
-      gain: -0.3
-   },
-   {
-      band: 5,
-      gain: -0.2
-   },
-   {
-      band: 6,
-      gain: 0
-   },
-   {
-      band: 7,
-      gain: 0.2
-   },
-   {
-      band: 8,
-      gain: 0.1
-   },
-   {
-      band: 9,
-      gain: -0.1
-   },
-   {
-      band: 10,
-      gain: -0.2
-   },
-   {
-      band: 11,
-      gain: -0.1
-   },
-   {
-      band: 12,
-      gain: 0
-   },
-   {
-      band: 13,
-      gain: 0.1
-   }
-]);
+			// Super Nuclear Reset before applying new timescale
+			if (pm.player.filterManager) {
+				const fm = pm.player.filterManager;
+				const props = ['equalizer', 'timescale', 'karaoke', 'tremolo', 'vibrato', 'distortion', 'rotation', 'channelMix', 'lowPass'];
+				props.forEach(p => {
+					try {
+						if (p === 'equalizer') fm[p] = [];
+						else fm[p] = null;
+					} catch (e) { }
+				});
+				if (fm.data) fm.data = {};
+				// THIS IS THE KEY FIX: Clear the separate equalizerBands array!
+				if (fm.equalizerBands) fm.equalizerBands = [];
+			}
+
+			if (typeof pm.player.setFilters === "function") {
+				await pm.player.setFilters({});
+			}
+
+			if (pm.player.filterManager && pm.player.filterManager.setRate) {
+				await pm.player.filterManager.setRate(0.8);
+			}
 
 			return this._reply(context, this._createSuccessContainer("Vaporwave"));
 		} catch (error) {
@@ -138,7 +102,7 @@ class VaporwaveFilterCommand extends Command {
 				.setThumbnailAccessory(
 					new ThumbnailBuilder().setURL(
 						config.assets?.defaultThumbnail ||
-							config.assets?.defaultTrackArtwork,
+						config.assets?.defaultTrackArtwork,
 					),
 				),
 		);
@@ -169,7 +133,7 @@ class VaporwaveFilterCommand extends Command {
 				.setThumbnailAccessory(
 					new ThumbnailBuilder().setURL(
 						config.assets?.defaultThumbnail ||
-							config.assets?.defaultTrackArtwork,
+						config.assets?.defaultTrackArtwork,
 					),
 				),
 		);

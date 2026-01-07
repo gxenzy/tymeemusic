@@ -50,7 +50,9 @@ export class PlayerManager {
   }
 
   async playPrevious() {
-    const previousTrack = await this.player.queue.shiftPrevious()
+    const { player } = this;
+
+    const previousTrack = await player.queue.shiftPrevious();
     if (!previousTrack) {
       logger?.warn(
         `[PlayerManager] No previous track to play for guild ${this.guildId}.`,
@@ -58,9 +60,15 @@ export class PlayerManager {
       return false;
     }
 
-    
-    await this.player.play({ clientTrack: previousTrack });
-    await this.player.queue.utils.save();
+    // If we have a current track, prepend it back to the queue before going back
+    // This allows "Next" to return to it naturally.
+    if (player.queue.current) {
+      // Use unshift to put it at the very top of the queue
+      player.queue.tracks.unshift(player.queue.current);
+    }
+
+    await player.play({ clientTrack: previousTrack });
+    await player.queue.utils.save();
     return true;
   }
 
@@ -70,11 +78,16 @@ export class PlayerManager {
   }
 
   async resume() {
-    await this.player.resume();
+    if (this.player.paused) {
+      await this.player.resume();
+    }
     return this;
   }
 
   async stop() {
+    // DEBUG: Trace who is calling stop() causing player destruction
+    console.trace(`[PlayerManager] stop() called for guild ${this.player.guildId}`);
+
     const { guildId } = this.player;
     const is247ModeEnabled = await this.is247ModeEnabled(guildId);
 
@@ -92,24 +105,17 @@ export class PlayerManager {
     return this;
   }
 
-  async skip(amount) {
+  async skip(amount = 1) {
     const { player } = this;
-    const { current } = player.queue;
-    const duration = current?.info?.duration ?? 0;
 
-    if (player.repeatMode === "track" && duration > 0) {
-      await player.seek(duration);
-    } else if (
-      player.repeatMode === "queue" &&
-      player.queue.length === 0 &&
-      duration > 0
-    ) {
-      await player.seek(duration);
-    } else if (this.queueSize > 0) {
-      await player.skip(amount);
-    } else {
-      await this.stop();
+    // Disable track repeat so we actually skip instead of replaying
+    if (player.repeatMode === 'track') {
+      await player.setRepeatMode('off');
     }
+
+    // Use lavalink-client's built-in skip method which properly advances the queue
+    // This method handles: stopping current track, shifting queue, and playing next
+    await player.skip(amount);
 
     return this;
   }
@@ -182,19 +188,62 @@ export class PlayerManager {
   get previousTracks() {
     return this.player.queue.previous;
   }
-  get isEmpty(){
-    if(this.queueSize === 0 && !this.currentTrack){
+  get isEmpty() {
+    if (this.queueSize === 0 && !this.currentTrack) {
       return true;
-    }else{
+    } else {
       return false;
     }
   }
 
-  async addTracks(tracks, position) {
-    if (position !== undefined && position !== null) {
-      return await this.queue.add(tracks, position);
+  async addTracks(tracks, position, options = {}) {
+    const { skipDuplicates = false, warnDuplicates = true } = options;
+
+    // Normalize to array
+    const trackArray = Array.isArray(tracks) ? tracks : [tracks];
+    const existingTracks = this.player.queue.tracks;
+    const currentTrack = this.player.queue.current;
+
+    // Build a fast lookup set of existing track identifiers
+    const existingIds = new Set();
+    if (currentTrack?.info?.identifier) {
+      existingIds.add(currentTrack.info.identifier);
     }
-    return await this.queue.add(tracks);
+    existingTracks.forEach(t => {
+      if (t.info?.identifier) existingIds.add(t.info.identifier);
+    });
+
+    // Filter duplicates if requested
+    let duplicatesFound = [];
+    let tracksToAdd = trackArray;
+
+    if (skipDuplicates || warnDuplicates) {
+      tracksToAdd = [];
+      for (const track of trackArray) {
+        const id = track.info?.identifier;
+        if (id && existingIds.has(id)) {
+          duplicatesFound.push(track);
+        } else {
+          tracksToAdd.push(track);
+          if (id) existingIds.add(id); // Prevent duplicates within the batch
+        }
+      }
+    }
+
+    // Add the non-duplicate tracks
+    let result;
+    if (position !== undefined && position !== null) {
+      result = await this.queue.add(tracksToAdd.length === 1 ? tracksToAdd[0] : tracksToAdd, position);
+    } else {
+      result = await this.queue.add(tracksToAdd.length === 1 ? tracksToAdd[0] : tracksToAdd);
+    }
+
+    return {
+      added: tracksToAdd.length,
+      duplicates: duplicatesFound.length,
+      duplicateTracks: warnDuplicates ? duplicatesFound : [],
+      result
+    };
   }
 
   async removeTrack(position) {
@@ -210,7 +259,7 @@ export class PlayerManager {
   }
 
   async clearQueue() {
-   return await this.player.queue.tracks.splice(0, this.player.queue.tracks.length);
+    return await this.player.queue.tracks.splice(0, this.player.queue.tracks.length);
   }
 
   async forward(amount = 10000) {
@@ -463,5 +512,13 @@ export class PlayerManager {
       );
       return null;
     }
+  }
+
+  async getCurrentLyrics() {
+    return this.player.getCurrentLyrics();
+  }
+
+  setSleepTimer(minutes, client) {
+    return this.player.setSleepTimer(minutes, client);
   }
 }

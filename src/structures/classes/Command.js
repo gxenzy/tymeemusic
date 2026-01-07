@@ -12,9 +12,15 @@ export class Command {
 		this.userPermissions = options.userPermissions || [];
 		this.ownerOnly = options.ownerOnly || false;
 
+		// Premium tiers (legacy - for display purposes)
 		this.userPrem = options.userPrem || false;
 		this.guildPrem = options.guildPrem || false;
 		this.anyPrem = options.anyPrem || false;
+
+		// New tier-based permission system
+		// Tier levels: 'free' (default), 'vip', 'premium', 'owner'
+		this.tier = options.tier || 'free';
+		this.vipOnly = options.vipOnly || false;
 
 		this.voiceRequired = options.voiceRequired || false;
 		this.sameVoiceRequired = options.sameVoiceRequired || false;

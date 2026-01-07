@@ -142,7 +142,7 @@ class PlayCommand extends Command {
       logger.error("PlayCommand", "Autocomplete error:", error);
       try {
         await interaction.respond([]);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -205,8 +205,15 @@ class PlayCommand extends Command {
 
       const pm = new PlayerManager(player);
 
-      // Set "Requested by" voice channel status
-      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, message.author.username);
+      // Set "Requested by" voice channel status with custom emoji support
+      const emojiManager = client.emojiManager || null;
+      VoiceChannelStatus.setRequestedBy(
+        client,
+        voiceChannel.id,
+        message.author.username,
+        message.guild,
+        emojiManager,
+      );
 
       const result = await this._handlePlayRequest({
         client,
@@ -240,7 +247,7 @@ class PlayCommand extends Command {
             components: [errorContainer],
             flags: MessageFlags.IsComponentsV2,
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     }
   }
@@ -287,7 +294,7 @@ class PlayCommand extends Command {
         });
       }
 
-       await interaction.reply({
+      await interaction.reply({
         components: [this._createLoadingContainer(query)],
         flags: MessageFlags.IsComponentsV2,
         fetchReply: true,
@@ -303,8 +310,15 @@ class PlayCommand extends Command {
 
       const pm = new PlayerManager(player);
 
-      // Set "Requested by" voice channel status
-      VoiceChannelStatus.setRequestedBy(client, voiceChannel.id, interaction.user.username);
+      // Set "Requested by" voice channel status with custom emoji support
+      const emojiManager = client.emojiManager || null;
+      VoiceChannelStatus.setRequestedBy(
+        client,
+        voiceChannel.id,
+        interaction.user.username,
+        interaction.guild,
+        emojiManager,
+      );
 
       const result = await this._handlePlayRequest({
         client,
@@ -341,7 +355,7 @@ class PlayCommand extends Command {
             ephemeral: true,
           });
         }
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -371,25 +385,145 @@ class PlayCommand extends Command {
         }
         // Otherwise, leave source undefined so lavasrc can handle the URL directly
       } else {
-        // For search queries, use manual source or default
-        options.source = this._normalizeSource(source);
+        // For search queries:
+        // - If the user explicitly provided a source, respect it.
+        // - Otherwise: try ytsearch first, then fall back to ytmsearch.
+        const normalized = source ? this._normalizeSource(source) : null;
+
+        // If user specified a source (e.g., sp/yt/sc), use it directly.
+        if (normalized) {
+          options.source = normalized;
+          const searchResult = await client.music.search(finalquery, options);
+
+          if (!searchResult) {
+            client.logger?.error(
+              "PlayCommand",
+              `Search returned null for query: ${query}`,
+            );
+            return {
+              success: false,
+              message:
+                `Failed to process your request. Please check if:\n` +
+                `• Lavalink server is running\n` +
+                `• Spotify credentials are configured (if using Spotify)\n` +
+                `• The URL/query is valid`,
+            };
+          }
+
+          if (!searchResult.tracks?.length) {
+            client.logger?.warn(
+              "PlayCommand",
+              `No tracks found for query: ${query}, loadType: ${searchResult.loadType}`,
+            );
+            return {
+              success: false,
+              message: `No results found for: ${query}`,
+            };
+          }
+
+          // Continue with existing flow below (playlist vs single track)
+          if (searchResult.loadType === "playlist") {
+            return this._handlePlaylist(
+              pm,
+              searchResult,
+              position,
+              guildId,
+              requester.id,
+            );
+          } else {
+            return this._handleSingleTrack(
+              pm,
+              searchResult.tracks[0],
+              position,
+              guildId,
+              requester.id,
+            );
+          }
+        }
+
+        // No source specified: ytsearch -> ytmsearch fallback
+        const sourcesToTry = ["ytsearch", "ytmsearch"];
+        let lastSearchResult = null;
+
+        for (const src of sourcesToTry) {
+          try {
+            const attemptOptions = { ...options, source: src };
+            const sr = await client.music.search(finalquery, attemptOptions);
+            lastSearchResult = sr;
+
+            if (sr?.tracks?.length) {
+              // Found something; continue with existing flow below (playlist vs single track)
+              if (sr.loadType === "playlist") {
+                return this._handlePlaylist(
+                  pm,
+                  sr,
+                  position,
+                  guildId,
+                  requester.id,
+                );
+              } else {
+                return this._handleSingleTrack(
+                  pm,
+                  sr.tracks[0],
+                  position,
+                  guildId,
+                  requester.id,
+                );
+              }
+            }
+          } catch (e) {
+            client.logger?.warn(
+              "PlayCommand",
+              `Search failed for query "${query}" using source "${src}": ${e?.message || e}`,
+            );
+          }
+        }
+
+        // If we got here, both attempts failed or returned no tracks
+        if (!lastSearchResult) {
+          client.logger?.error(
+            "PlayCommand",
+            `Search returned null for query: ${query}`,
+          );
+          return {
+            success: false,
+            message:
+              `Failed to process your request. Please check if:\n` +
+              `• Lavalink server is running\n` +
+              `• Spotify credentials are configured (if using Spotify)\n` +
+              `• The URL/query is valid`,
+          };
+        }
+
+        client.logger?.warn(
+          "PlayCommand",
+          `No tracks found for query: ${query}, last loadType: ${lastSearchResult.loadType}`,
+        );
+        return { success: false, message: `No results found for: ${query}` };
       }
 
       const searchResult = await client.music.search(finalquery, options);
 
       if (!searchResult) {
-        client.logger?.error("PlayCommand", `Search returned null for query: ${query}`);
-        return { 
-          success: false, 
-          message: `Failed to process your request. Please check if:\n` +
-                   `• Lavalink server is running\n` +
-                   `• Spotify credentials are configured (if using Spotify)\n` +
-                   `• The URL/query is valid`
+        client.logger?.error(
+          "PlayCommand",
+          `Search returned null for query: ${query}`,
+        );
+        return {
+          success: false,
+          message:
+            `Failed to process your request. Please check if:\n` +
+            `• Lavalink server is running\n` +
+            `• Spotify credentials are configured (if using Spotify)\n` +
+            `• The URL/query is valid`,
         };
       }
 
       if (!searchResult.tracks?.length) {
-        client.logger?.warn("PlayCommand", `No tracks found for query: ${query}, loadType: ${searchResult.loadType}`);
+        client.logger?.warn(
+          "PlayCommand",
+          `No tracks found for query: ${query}, loadType: ${searchResult.loadType}`,
+        );
         return { success: false, message: `No results found for: ${query}` };
       }
 
@@ -470,6 +604,11 @@ class PlayCommand extends Command {
     userId,
   ) {
     const tracks = searchResult.tracks;
+    // Provide fallback for undefined playlist info
+    const playlist = searchResult.playlist || {
+      name: searchResult.pluginInfo?.name || "Playlist",
+      url: searchResult.pluginInfo?.url || null
+    };
     const wasEmpty =
       playerManager.queue.tracks.length === 0 && !playerManager.isPlaying;
 
@@ -506,7 +645,7 @@ class PlayCommand extends Command {
         return {
           success: true,
           type: "playlist_playing_partial",
-          playlist: searchResult.playlist,
+          playlist: playlist,
           tracks: tracksToAdd,
           totalTracks: tracks.length,
           limitWarning,
@@ -516,7 +655,7 @@ class PlayCommand extends Command {
         return {
           success: true,
           type: "playlist_queued_partial",
-          playlist: searchResult.playlist,
+          playlist: playlist,
           tracks: tracksToAdd,
           totalTracks: tracks.length,
           limitWarning,
@@ -532,7 +671,7 @@ class PlayCommand extends Command {
       return {
         success: true,
         type: "playlist_playing",
-        playlist: searchResult.playlist,
+        playlist: playlist,
         tracks: tracks,
       };
     } else {
@@ -540,7 +679,7 @@ class PlayCommand extends Command {
       return {
         success: true,
         type: "playlist_queued",
-        playlist: searchResult.playlist,
+        playlist: playlist,
         tracks: tracks,
         premiumStatus,
       };
@@ -748,9 +887,11 @@ class PlayCommand extends Command {
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
       );
 
+      const playlistName = playlist?.name || playlist?.info?.name || "Unknown Playlist";
+
       const content =
         `**Playlist Information**\n\n` +
-        `├─ **${emoji.get("check")} Name:** ${playlist.name}\n` +
+        `├─ **${emoji.get("check")} Name:** ${playlistName}\n` +
         `├─ **${emoji.get("add")} Tracks Added:** ${trackCount}\n` +
         `├─ **${emoji.get("info")} Total Tracks:** ${totalTracks || trackCount}\n` +
         `└─ **${emoji.get("folder")} Status:** ${description}\n\n` +
@@ -937,7 +1078,7 @@ class PlayCommand extends Command {
               content: "You must be in a voice channel to use this action.",
               ephemeral: true,
             })
-            .catch(() => {});
+            .catch(() => { });
           return;
         }
 
@@ -948,7 +1089,7 @@ class PlayCommand extends Command {
               content: "No active music player found.",
               ephemeral: true,
             })
-            .catch(() => {});
+            .catch(() => { });
           return;
         }
 
@@ -960,7 +1101,7 @@ class PlayCommand extends Command {
               content: "Track no longer exists in queue.",
               ephemeral: true,
             })
-            .catch(() => {});
+            .catch(() => { });
           return;
         }
 
@@ -1007,7 +1148,7 @@ class PlayCommand extends Command {
                 content: "Unknown action requested.",
                 ephemeral: true,
               })
-              .catch(() => {});
+              .catch(() => { });
             return;
         }
 
@@ -1334,33 +1475,39 @@ class PlayCommand extends Command {
       const urlObj = new URL(url.toLowerCase());
 
       // YouTube
-      if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
-        return 'ytsearch';
+      if (
+        urlObj.hostname.includes("youtube.com") ||
+        urlObj.hostname.includes("youtu.be")
+      ) {
+        return "ytsearch";
       }
 
       // Spotify
-      if (urlObj.hostname.includes('spotify.com')) {
-        return 'spsearch';
+      if (urlObj.hostname.includes("spotify.com")) {
+        return "spsearch";
       }
 
       // Apple Music
-      if (urlObj.hostname.includes('music.apple.com')) {
-        return 'amsearch';
+      if (urlObj.hostname.includes("music.apple.com")) {
+        return "amsearch";
       }
 
       // SoundCloud
-      if (urlObj.hostname.includes('soundcloud.com')) {
-        return 'scsearch';
+      if (urlObj.hostname.includes("soundcloud.com")) {
+        return "scsearch";
       }
 
       // Deezer
-      if (urlObj.hostname.includes('deezer.com')) {
-        return 'dzsearch';
+      if (urlObj.hostname.includes("deezer.com")) {
+        return "dzsearch";
       }
 
       // JioSaavn
-      if (urlObj.hostname.includes('jiosaavn.com') || urlObj.hostname.includes('saavn.com')) {
-        return 'jssearch';
+      if (
+        urlObj.hostname.includes("jiosaavn.com") ||
+        urlObj.hostname.includes("saavn.com")
+      ) {
+        return "jssearch";
       }
 
       // Default fallback
@@ -1396,8 +1543,7 @@ class PlayCommand extends Command {
     } catch {
       return false;
     }
-      }
-  
+  }
 
   _formatDuration(ms) {
     if (!ms || ms < 0) return "Live";

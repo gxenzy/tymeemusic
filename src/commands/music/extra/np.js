@@ -49,7 +49,7 @@ class NowPlayingCommand extends Command {
     try {
       const track   =player.queue.current;
 
-      const buffer   =await this.musicCard.createMusicCard(track, player.position, guildId);
+      const buffer   =await this.musicCard.createMusicCard(track, player.position, guildId, { requester: track.requester, queueSize: player.queue?.length ?? 0 });
       const attachment   =new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
 
       await this._reply(context, { files: [attachment] });

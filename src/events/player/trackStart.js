@@ -1,10 +1,11 @@
-  
+
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from "discord.js";
 import { logger } from "#utils/logger";
 import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
 import { EventUtils } from "#utils/EventUtils";
 import { PlayerManager } from "#managers/PlayerManager";
 import { DiscordPlayerEmbed } from "#utils/DiscordPlayerEmbed";
+import { updatePlayerMessageEmbed } from "#events/discord/music/Playerbuttons";
 import { db } from "#database/DatabaseManager";
 import MusicCard from "#structures/classes/MusicCard";
 
@@ -12,18 +13,48 @@ export default {
   name: "trackStart",
   once: false,
   async execute(player, track, payload, musicManager, client) {
+    // 🆔 EXECUTION SEQUENCE: Ensure only the latest track start event for this guild is processed
+    const trackExecutionId = Math.random().toString(36).substring(7);
+    player.set('latestTrackExecutionId', trackExecutionId);
+
+    // 🛑 HARD RESET: Kill all memory-resident heartbeats for this guild
+    EventUtils.clearHeartbeat(player.guildId);
+
     try {
       if (!track || !track.info) {
         logger.error('TrackStart', 'Invalid track data received:', track);
       }
 
-      await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track);
+      // Get guild and emoji manager for custom emoji support
+      const currentGuild = player.guildId ? client.guilds.cache.get(player.guildId) : null;
+      const emojiManager = client.emojiManager || null;
 
+      // Pass guild and emojiManager for custom emoji resolution
+      await VoiceChannelStatus.setNowPlaying(client, player.voiceChannelId, track, currentGuild, emojiManager);
+
+      // 📚 HISTORY TRACKING: Maintain a rolling history for Smart Discovery
+      const history = player.get('trackHistory') || [];
+      if (!history.find(t => t.info?.identifier === track.info?.identifier)) {
+        history.unshift(track);
+        if (history.length > 5) history.pop();
+        player.set('trackHistory', history);
+      }
       player.set('lastPlayedTrack', track);
 
       if (!player.get('sessionStartTime')) {
         player.set('sessionStartTime', Date.now());
         player.set('totalTracksPlayed', 0);
+
+        // Set session owner for permission system
+        if (track.requester?.id) {
+          try {
+            const { PlayerPermissionManager } = await import("#managers/PlayerPermissionManager");
+            PlayerPermissionManager.startSession(player.guildId, track.requester);
+            logger.debug('TrackStart', `Session owner set to ${track.requester.tag || track.requester.id}`);
+          } catch (permError) {
+            logger.debug('TrackStart', 'Error setting session owner:', permError.message);
+          }
+        }
       }
 
       const currentCount = player.get('totalTracksPlayed') || 0;
@@ -31,263 +62,338 @@ export default {
 
       if (track.requester?.id && track.info?.identifier) {
         try {
-          logger.debug('TrackStart', `Adding to history: ${JSON.stringify({
-            userId: track.requester.id,
-            trackInfo: {
-              identifier: track.info.identifier,
-              title: track.info.title,
-              author: track.info.author,
-              uri: track.info.uri,
-           },
-          })}`);
-
           db.user.addTrackToHistory(track.requester.id, track.info);
+          if (db.stats) {
+            db.stats.addTrackPlay(player.guildId, track.requester.id, track.info);
+          }
+
+          // Log to playlist system history for "Recently Played" and "Top Tracks"
+          if (client.playlistManager) {
+            client.playlistManager.db.logPlay(track, track.requester.id, player.guildId);
+          }
         } catch (historyError) {
           logger.error('TrackStart', 'Error adding track to history:', historyError);
         }
       }
 
-      let message;
+      // 1. PERSISTENT MESSAGE PATTERN (Anti-Spam)
+      const oldMessageId = player.get('nowPlayingMessageId');
+      const oldChannelId = player.get('nowPlayingChannelId');
 
-      // Use embed-based player for interactive dashboard-like experience
-      const useEmbedPlayer = process.env.USE_EMBED_PLAYER !== 'false'; // Default to true
-      
+      let message;
+      let existingMessage = null;
+
+      if (oldMessageId && oldChannelId) {
+        try {
+          // AGGRESSIVE FETCH: Don't rely on cache as it causes duplicate embeds
+          const oldChannel = client.channels.cache.get(oldChannelId) || await client.channels.fetch(oldChannelId).catch(() => null);
+          if (oldChannel) {
+            existingMessage = await oldChannel.messages.fetch(oldMessageId).catch(() => null);
+          }
+        } catch (e) {
+          logger.debug('TrackStart', 'Failed to fetch existing message by ID');
+        }
+      }
+
+      // 🕵️ GHOST HUNTER: Scan channel pins or recent messages for any leftover player embeds to adopt
+      if (!existingMessage) {
+        try {
+          const voiceId = player.voiceChannelId;
+          const targetChannelId = voiceId || player.textChannelId;
+          const targetChannel = client.channels.cache.get(targetChannelId) || await client.channels.fetch(targetChannelId).catch(() => null);
+
+          if (targetChannel && targetChannel.isTextBased()) {
+            // Priority 1: Check Pinned Messages (the standard for our player)
+            const pins = await targetChannel.messages.fetchPinned().catch(() => []);
+            let ghostPin = pins.find(m => m.author.id === client.user.id && (m.embeds.length > 0 || m.attachments.size > 0));
+
+            // Priority 2: Check Recent Messages (scan deeper - 20 messages)
+            if (!ghostPin) {
+              const recent = await targetChannel.messages.fetch({ limit: 20 }).catch(() => []);
+              ghostPin = recent.find(m => m.author.id === client.user.id && (m.embeds.length > 0 || m.attachments.size > 0));
+            }
+
+            if (ghostPin) {
+              logger.debug('TrackStart', `Adopting ghost embed for session: ${ghostPin.id}`);
+              existingMessage = ghostPin;
+              player.set('nowPlayingMessageId', ghostPin.id);
+              player.set('nowPlayingChannelId', ghostPin.channel.id);
+            } else {
+              // 🧹 PRE-EMPTIVE CLEANUP: If we can't find one to adopt, sweep ANY leftovers before sending new
+              // This acts as a physical barrier against double-embeds
+              await EventUtils.forceCleanupPlayerUI(client, player, targetChannelId);
+            }
+          }
+        } catch (pinError) {
+          logger.debug('TrackStart', 'Error searching for ghost pins');
+        }
+      }
+
+      const useEmbedPlayer = process.env.USE_EMBED_PLAYER !== 'false';
+      const pm = new PlayerManager(player);
+
+      let messageOptions = {};
+
       if (useEmbedPlayer) {
         try {
-          const pm = new PlayerManager(player);
-          const guild = client.guilds.cache.get(player.guildId);
-          const embed = DiscordPlayerEmbed.createPlayerEmbed(pm, guild);
-          const components = createControlComponents(player.guildId, client);
-
-          message = await EventUtils.sendPlayerMessage(client, player, {
-            embeds: [embed],
-            components,
-          });
-          
-          // Start update interval for progress bar
-          startPlayerUpdateInterval(client, player);
+          // FIX: Pass the fresh 'track' from the event directly to avoid metadata mismatch
+          const embed = await DiscordPlayerEmbed.createPlayerEmbedAsync(pm, currentGuild, null, client, track);
+          const components = await createControlComponents(player.guildId, client);
+          messageOptions = { embeds: [embed], components, files: [], content: null };
         } catch (embedError) {
           logger.error('TrackStart', 'Error creating embed player:', embedError);
-          // Fallback to image card
-          try {
-            const musicCard = new MusicCard();
-            const buffer = await musicCard.createMusicCard(track, player.position, player.guildId);
-            const attachment = new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
-            const components = createControlComponents(player.guildId, client);
-
-            message = await EventUtils.sendPlayerMessage(client, player, {
-              files: [attachment],
-              components,
-            });
-          } catch (cardError) {
-            logger.error('TrackStart', 'Error creating music card:', cardError);
-            const components = createControlComponents(player.guildId, client);
-            message = await EventUtils.sendPlayerMessage(client, player, {
-              content: `🎵 **Now Playing**\n**${track.info.title}** by **${track.info.author}**`,
-              components,
-            });
-          }
+          const musicCard = new MusicCard();
+          const buffer = await musicCard.createMusicCard(track, player.position, player.guildId, { requester: track.requester, queueSize: player.queue?.length ?? player.queueSize ?? 0 });
+          const attachment = new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
+          const components = await createControlComponents(player.guildId, client);
+          messageOptions = { files: [attachment], components, embeds: [], content: null };
         }
       } else {
-        // Original image card method
-        try {
-          const musicCard = new MusicCard();
-          const buffer = await musicCard.createMusicCard(track, player.position, player.guildId);
-          const attachment = new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
-          const components = createControlComponents(player.guildId, client);
+        const musicCard = new MusicCard();
+        const buffer = await musicCard.createMusicCard(track, player.position, player.guildId, { requester: track.requester, queueSize: player.queue?.length ?? player.queueSize ?? 0 });
+        const attachment = new AttachmentBuilder(buffer, { name: 'tymee-nowplaying.png' });
+        const components = await createControlComponents(player.guildId, client);
+        messageOptions = { files: [attachment], components, embeds: [], content: null };
+      }
 
-          message = await EventUtils.sendPlayerMessage(client, player, {
-            files: [attachment],
-            components,
-          });
-        } catch (cardError) {
-          logger.error('TrackStart', 'Error creating music card:', cardError);
-          const components = createControlComponents(player.guildId, client);
-          message = await EventUtils.sendPlayerMessage(client, player, {
-            content: `🎵 **Now Playing**\n**${track.info.title}** by **${track.info.author}**`,
-            components,
-          });
+      // 🔄 FORCE RESEND: Always delete old message and send a new one
+      // This ensures the player stays at the bottom of the chat as requested
+      if (existingMessage) {
+        try {
+          if (existingMessage.pinned) await existingMessage.unpin().catch(() => { });
+          await existingMessage.delete().catch(() => { });
+        } catch (cleanupError) {
+          // Ignore delete errors (msg might already be gone)
+        }
+        existingMessage = null;
+      }
+
+      if (!existingMessage) {
+        message = await EventUtils.sendPlayerMessage(client, player, messageOptions);
+
+        if (message?.id) {
+          // IMMEDIATELY SAVE to prevent race condition
+          player.set('nowPlayingMessageId', message.id);
+          player.set('nowPlayingChannelId', message.channel.id);
+
+          // Pin it and delete the system "pinned a message" notification
+          if (message.pinnable) {
+            await message.pin().catch(() => { });
+
+            // Aggressive cleanup of the "pinned a message" notification
+            setTimeout(async () => {
+              try {
+                const messages = await message.channel.messages.fetch({ limit: 10 });
+                const systemMsg = messages.find(m => (m.type === 6 || m.type === 21) && m.author.id === client.user.id);
+                if (systemMsg) await systemMsg.delete().catch(() => { });
+              } catch (e) { }
+            }, 1500);
+          }
         }
       }
 
-      if (message?.id) {
-        player.set('nowPlayingMessageId', message.id);
-        player.set('nowPlayingChannelId', player.textChannelId);
+      // 🛡️ LATEST CHECK: If a newer track has already taken over, STOP here
+      if (player.get('latestTrackExecutionId') !== trackExecutionId) {
+        logger.debug('TrackStart', `Skipping metadata update - trackExecutionId mismatch for guild ${player.guildId}`);
+        return;
       }
 
-      logger.info('TrackStart', `Track started: "${track.info.title}" by ${track.info.author} in guild ${player.guildId} (Autoplay: ${player.get('autoplayEnabled') ? 'ON' : 'OFF'})`);
-      
-      // Update web dashboard
+      // Start the update interval only if a message was successfully sent/edited
+      if (message?.id) {
+        startPlayerUpdateInterval(client, player);
+      }
+
+      logger.info('TrackStart', `Track started: "${track.info.title}" by ${track.info.author} in guild ${player.guildId}`);
+
       if (client.webServer) {
         client.webServer.updatePlayerState(player.guildId);
       }
     } catch (error) {
       logger.error('TrackStart', 'Error in trackStart event:', error);
-
-      const title = track?.info?.title || track?.title || 'Unknown Track';
-      const author = track?.info?.author || track?.author || 'Unknown Artist';
-
-      try {
-        if (track) {
-          player.set('lastPlayedTrack', track);
-        }
-
-        const message = await EventUtils.sendPlayerMessage(client, player, {
-          content: `🎵 **Now Playing**\n**${title}** by **${author}**`,
-          components: createControlComponents(player.guildId, client),
-        });
-
-        if (message?.id) {
-          player.set('nowPlayingMessageId', message.id);
-          player.set('nowPlayingChannelId', player.textChannelId);
-        }
-      } catch (fallbackError) {
-        logger.error('TrackStart', 'Even fallback message failed:', fallbackError);
-      }
     }
   }
 };
 
-export function createControlComponents(guildId, client) {
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId('music_controls_select')
-    .setPlaceholder('Select an option...')
+export async function createControlComponents(guildId, client) {
+  const guild = client.guilds.cache.get(guildId);
+  const playerObj = client.music?.getPlayer(guildId);
+  const pm = playerObj ? new PlayerManager(playerObj) : null;
+  const emojiManager = client.emojiManager;
+
+  const resolveEmoji = async (name, fallback) => {
+    if (!emojiManager || !guildId) return fallback;
+    return await emojiManager.resolveButtonEmoji(guildId, name);
+  };
+
+  const similarMenu = new StringSelectMenuBuilder()
+    .setCustomId('music_similar_select')
+    .setPlaceholder('🎵 Similar songs selection menu')
+    .setMaxValues(1)
     .addOptions([
       {
-        label: 'Shuffle Queue',
-        description: 'Randomize the order of songs',
-        value: 'shuffle',
-      },
-      {
-        label: 'Loop: Off',
-        description: 'No repeat',
-        value: 'loop_off',
-      },
-      {
-        label: 'Loop: Track',
-        description: 'Repeat current song',
-        value: 'loop_track',
-      },
-      {
-        label: 'Loop: Queue',
-        description: 'Repeat entire queue',
-        value: 'loop_queue',
-      },
-      {
-        label: 'Volume -20%',
-        description: 'Decrease volume',
-        value: 'volume_down',
-      },
-      {
-        label: 'Volume +20%',
-        description: 'Increase volume',
-        value: 'volume_up',
+        label: 'Find similar songs',
+        description: 'Suggest similar songs for current track',
+        value: 'similar_search',
+        emoji: '🔍'
       },
     ]);
 
-  // Get web server URL for dashboard button
   const protocol = client.webServer?.secure ? 'https' : 'http';
   const webPort = client.webServer?.port || 3000;
   const apiKey = client.webServer?.apiKey || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ';
-  const defaultGuildId = '1386498859471077426';
-  const dashboardUrl = `${protocol}://localhost:${webPort}?apiKey=${apiKey}&guildId=${guildId || defaultGuildId}`;
+  const webHost = client.webServer?.host || 'localhost';
+  const dashboardUrl = `${protocol}://${webHost}:${webPort}?apiKey=${apiKey}&guildId=${guildId}`;
 
-  const controlButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('music_previous')
-        .setEmoji('⏮️')
-        .setLabel('Previous')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('music_pause')
-        .setEmoji('⏸️')
-        .setLabel('Pause')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('music_skip')
-        .setEmoji('⏭️')
-        .setLabel('Next')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('music_stop')
-        .setEmoji('⏹️')
-        .setLabel('Stop')
-        .setStyle(ButtonStyle.Danger),
-    );
+  const infoBtnLabel = pm ? `Queue: ${pm.queueSize} tracks` : 'Queue is empty';
+  const infoButton = new ButtonBuilder()
+    .setCustomId('music_queue_info')
+    .setLabel(infoBtnLabel)
+    .setEmoji('📋')
+    .setStyle(ButtonStyle.Secondary);
 
-  // Add dashboard button row
-  const dashboardButton = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setLabel('🎛️ Open Dashboard')
-        .setStyle(ButtonStyle.Link)
-        .setURL(dashboardUrl),
-    );
+  const dashboardButton = new ButtonBuilder()
+    .setLabel('Dashboard')
+    .setEmoji('🌐')
+    .setStyle(ButtonStyle.Link)
+    .setURL(dashboardUrl);
+
+  const playEmoji = pm?.isPaused ? await resolveEmoji('play', '▶️') : await resolveEmoji('pause', '⏸️');
+  const playLabel = pm?.isPaused ? 'Play' : 'Pause';
+  const repeatActive = pm && pm.repeatMode && pm.repeatMode !== 'off';
+  const repeatStyle = repeatActive ? ButtonStyle.Danger : ButtonStyle.Secondary;
+
+  // Primary Controls
+  const controlRow1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('music_previous')
+      .setEmoji(await resolveEmoji('previous', '⏮️'))
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_pause')
+      .setEmoji(playEmoji)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('music_skip')
+      .setEmoji(await resolveEmoji('skip', '⏭️'))
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_stop')
+      .setEmoji(await resolveEmoji('stop', '⏹️'))
+      .setStyle(ButtonStyle.Danger),
+  );
+
+  // Volume & Sync
+  const controlRow2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('music_shuffle')
+      .setEmoji(await resolveEmoji('shuffle', '🔀'))
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_repeat')
+      .setEmoji(await resolveEmoji('loop', '🔁'))
+      .setStyle(repeatStyle),
+    new ButtonBuilder()
+      .setCustomId('music_volume_down')
+      .setEmoji(await resolveEmoji('volume_down', '🔉'))
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_volume_up')
+      .setEmoji(await resolveEmoji('volume_up', '🔊'))
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  // Tools & More
+  const controlRow3 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('music_favorite')
+      .setEmoji(await resolveEmoji('heart', '❤️'))
+      .setLabel('Save')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_effects')
+      .setEmoji(await resolveEmoji('fx', '🎛️'))
+      .setLabel('FX')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_lyrics')
+      .setEmoji('📝')
+      .setLabel('Lyrics')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('music_misc')
+      .setEmoji('⚙️')
+      .setLabel('More')
+      .setStyle(ButtonStyle.Secondary),
+  );
 
   return [
-    new ActionRowBuilder().addComponents(selectMenu),
-    controlButtons,
-    dashboardButton,
+    new ActionRowBuilder().addComponents(similarMenu),
+    new ActionRowBuilder().addComponents(infoButton, dashboardButton),
+    controlRow1,
+    controlRow2,
+    controlRow3,
   ];
 }
 
-// Function to update player embed periodically
 function startPlayerUpdateInterval(client, player) {
-  // Clear any existing interval
-  const existingInterval = player.get('updateIntervalId');
-  if (existingInterval) {
-    clearInterval(existingInterval);
-  }
+  // 🎟️ HEARTBEAT TOKEN: Unique identifier for this specific interval session
+  const heartbeatToken = Math.random().toString(36).substring(7);
+  player.set('activeHeartbeatToken', heartbeatToken);
 
   const messageId = player.get('nowPlayingMessageId');
   const channelId = player.get('nowPlayingChannelId');
+  const trackId = player.queue?.current?.info?.identifier || player.queue?.current?.identifier;
 
-  if (!messageId || !channelId) return;
+  if (!messageId || !channelId || !trackId) return;
 
-  // Update every 3 seconds for smoother progress updates
+  let lastPosition = -1;
+  const UPDATE_FREQ = 1500;
+
   const intervalId = setInterval(async () => {
     try {
-      const currentPlayer = client.music?.getPlayer(player.guildId);
-      if (!currentPlayer) {
-        clearInterval(intervalId);
-        player.set('updateIntervalId', null);
+      // 🛡️ HEARTBEAT TOKEN CHECK: If a newer heartbeat was issued (new track), kill this one.
+      if (player.get('activeHeartbeatToken') !== heartbeatToken) {
+        EventUtils.clearHeartbeat(player.guildId);
         return;
       }
 
-      const pm = new PlayerManager(currentPlayer);
-      const guild = client.guilds.cache.get(player.guildId);
+      // 🛡️ REUSE PROTECTION: If a different message is now active, die.
+      if (player.get('nowPlayingMessageId') !== messageId) {
+        EventUtils.clearHeartbeat(player.guildId);
+        return;
+      }
 
-      // Update if there's a current track (even if paused, to show correct time)
-      if (pm.currentTrack) {
-        // Get fresh position directly from Lavalink player with better fallback
-        const freshPosition = currentPlayer.position ?? pm.position ?? 0;
-        const freshPm = new PlayerManager(currentPlayer);
+      const currentTrackId = player.queue?.current?.info?.identifier || player.queue?.current?.identifier;
+      if (trackId !== currentTrackId) {
+        EventUtils.clearHeartbeat(player.guildId);
+        return;
+      }
 
-        // Create embed with current position
-        const embed = DiscordPlayerEmbed.createPlayerEmbed(freshPm, guild, freshPosition);
-        const components = createControlComponents(player.guildId, client);
+      const currentPos = player.position || 0;
+      const duration = player.queue?.current?.info?.duration || 0;
 
-        await EventUtils.editMessage(client, channelId, messageId, {
-          embeds: [embed],
-          components,
-        });
-      } else {
-        // No track playing, stop updating
-        clearInterval(intervalId);
-        player.set('updateIntervalId', null);
+      // SAFETY: Don't update if we've exceeded the track duration (prevents ghost playing)
+      if (duration > 0 && currentPos > duration + 5000) {
+        EventUtils.clearHeartbeat(player.guildId);
+        return;
+      }
+
+      // Optimization: Only update UI every 1.5s
+      const pm = new PlayerManager(player);
+      if (!player.paused && Math.abs(currentPos - lastPosition) >= UPDATE_FREQ) {
+        await updatePlayerMessageEmbed(client, pm);
+        lastPosition = currentPos;
+      } else if (player.paused && lastPosition !== -2) {
+        await updatePlayerMessageEmbed(client, pm);
+        lastPosition = -2;
       }
     } catch (error) {
-      // Message might be deleted or inaccessible
       if (error.code === 10008 || error.code === 10003) {
-        clearInterval(intervalId);
-        player.set('updateIntervalId', null);
-      } else {
-        // Log other errors but continue
-        logger.debug('TrackStart', `Error updating player embed: ${error.message}`);
+        EventUtils.clearHeartbeat(player.guildId);
       }
     }
-  }, 3000); // Update every 3 seconds for smoother progress
+  }, UPDATE_FREQ);
 
-  player.set('updateIntervalId', intervalId);
+  // 📦 REGISTER: Store in physical memory map
+  EventUtils.registerHeartbeat(player.guildId, intervalId);
 }

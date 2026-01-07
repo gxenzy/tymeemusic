@@ -1,8 +1,9 @@
 import { PermissionFlagsBits } from 'discord.js';
 import { config } from '#config/config';
 import { db } from '#database/DatabaseManager';
+import { logger } from '#utils/logger';
 
-const ownerSet = new Set(config.ownerIds || []);
+// Removed static ownerSet - now using dynamic check in isOwner()
 const permissionNames = new Map();
 
 for (const [name, value] of Object.entries(PermissionFlagsBits)) {
@@ -16,8 +17,10 @@ for (const [name, value] of Object.entries(PermissionFlagsBits)) {
 }
 
 export function isOwner(userId) {
-	return ownerSet.has(userId);
+	// Always check config dynamically to ensure owner IDs are current
+	return config.ownerIds?.includes(userId) || false;
 }
+
 
 export function canUseCommand(member, command) {
 	if (command.ownerOnly && !isOwner(member.id)) return false;
@@ -97,4 +100,168 @@ export function formatPremiumExpiry(expiresAt) {
 
 	const minutes = Math.floor(timeLeft / 60000);
 	return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+}
+
+// ============ TIER-BASED PERMISSION SYSTEM ============
+
+const tierHierarchy = {
+	denied: 0,
+	free: 1,
+	vip: 2,
+	premium: 3,
+	owner: 4
+};
+
+export function hasDjRole(userId, guild) {
+	if (!guild || !userId) return false;
+
+	const guildDb = db.guild;
+	const djRoles = guildDb.getDjRoles(guild.id);
+	if (!djRoles || djRoles.length === 0) return false;
+
+	const member = guild.members.cache.get(userId);
+	if (!member) return false;
+
+	return djRoles.some(roleId => member.roles.cache.has(roleId));
+}
+
+export async function getUserTier(userId, guild) {
+	if (!guild || !userId) return 'denied';
+
+	// Dynamic import to ensure DB is ready and consistent with HelpCommand
+	// This import is duplicated from the top of the file, but kept here for the specific context of this function
+	// where the DB might not be initialized yet in certain execution paths or for consistency with other dynamic imports.
+	const { db } = await import('#database/DatabaseManager');
+
+	const guildDb = db.guild;
+	const tier = guildDb.getTier(guild.id) || 'free';
+
+	// owner check (bypass)
+	// This import is duplicated from the top of the file, but kept here for the specific context of this function
+	// where the config might not be initialized yet in certain execution paths or for consistency with other dynamic imports.
+	const { config } = await import('#config/config');
+	logger.debug('PermissionUtil', `Checking tier for user ${userId} in guild ${guild.name} (${guild.id})`);
+	logger.debug('PermissionUtil', `Config ownerIds: ${JSON.stringify(config.ownerIds)}`);
+
+	if (config.ownerIds?.includes(userId)) {
+		logger.success('PermissionUtil', `User ${userId} identified as BOT OWNER`);
+		return 'owner';
+	}
+
+	if (tier === 'owner') {
+		const isOwner = config.ownerIds?.includes(userId);
+		logger.debug('PermissionUtil', `Guild tier is 'owner'. User isOwner: ${isOwner}`);
+		return isOwner ? 'owner' : 'free';
+	}
+
+	let member = guild.members.cache.get(userId);
+	if (!member) {
+		try {
+			member = await guild.members.fetch(userId);
+		} catch (e) {
+			// Ignore fetch errors
+		}
+	}
+
+	if (!member) {
+		return 'denied';
+	}
+
+	// Get all tier data (roles and users)
+	const tierData = guildDb.getAllTierData(guild.id);
+
+	// Check premium users first (highest tier after owner)
+	if (tierData.users.premium.includes(userId)) {
+		return 'premium';
+	}
+
+	// Check premium roles
+	if (tierData.roles.premium.some(roleId => member.roles.cache.has(roleId))) {
+		return 'premium';
+	}
+
+	// Check VIP users
+	if (tierData.users.vip.includes(userId)) {
+		return 'vip';
+	}
+
+	// Check VIP roles
+	if (tierData.roles.vip.some(roleId => member.roles.cache.has(roleId))) {
+		return 'vip';
+	}
+
+	// Check allowed users
+	if (tierData.users.allowed.includes(userId)) {
+		return 'free';
+	}
+
+	// Check allowed roles for free tier
+	if (tierData.roles.allowed.some(roleId => member.roles.cache.has(roleId))) {
+		return 'free';
+	}
+
+	// No matching users or roles - check server tier setting
+	if (tier === 'free' || tier === 'vip' || tier === 'premium') {
+		return tier;
+	}
+
+	return 'denied';
+}
+
+export function getRequiredTier(command) {
+	// Check new tier property first
+	if (command.tier) {
+		const validTiers = ['free', 'vip', 'premium', 'owner'];
+		if (validTiers.includes(command.tier)) {
+			return command.tier;
+		}
+	}
+
+	// Check legacy vipOnly flag
+	if (command.vipOnly) return 'vip';
+
+	// Check legacy ownerOnly flag
+	if (command.ownerOnly) return 'owner';
+
+	// Check legacy premium flags
+	if (command.userPrem || command.guildPrem || command.anyPrem) return 'premium';
+
+	return 'free';
+}
+
+export async function canUseCommandByTier(userId, guild, command) {
+	const userTier = await getUserTier(userId, guild);
+	const requiredTier = getRequiredTier(command);
+
+	const userTierLevel = tierHierarchy[userTier] || 0;
+	const requiredTierLevel = tierHierarchy[requiredTier] || 0;
+
+	return userTierLevel >= requiredTierLevel;
+}
+
+export function getTierDisplayName(tier) {
+	const displayNames = {
+		owner: 'Owner',
+		premium: 'Premium',
+		vip: 'VIP',
+		free: 'Free',
+		denied: 'Denied'
+	};
+	return displayNames[tier] || tier;
+}
+
+export function getTierInfo(guildId) {
+	const guildDb = db.guild;
+	const tier = guildDb.getTier(guildId) || 'free';
+	const tierRoles = guildDb.getTierRoles(guildId);
+
+	return {
+		tier,
+		displayName: getTierDisplayName(tier),
+		roles: {
+			allowed: tierRoles.allowed,
+			vip: tierRoles.vip,
+			premium: tierRoles.premium
+		}
+	};
 }

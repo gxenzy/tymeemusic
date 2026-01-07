@@ -13,6 +13,7 @@ import { db } from '#database/DatabaseManager';
 import { CommandHandler } from '#handlers/CommandHandler';
 import { EventLoader } from '#handlers/EventLoader';
 import { MusicManager } from '#managers/MusicManager';
+import { PlaylistManager } from '#managers/PlaylistManager';
 import { logger } from '#utils/logger';
 import { WebServer } from '#web/server';
 
@@ -41,11 +42,34 @@ export class Tymee extends Client {
 				Partials.Message,
 				Partials.User,
 			],
+			// Aggressive cache limits for reduced memory
 			makeCache: Options.cacheWithLimits({
-				MessageManager: 100,
-				PresenceManager: 0,
-				UserManager: 100,
+				MessageManager: 50, // Reduced from 100
+				PresenceManager: 0, // Disable presence caching
+				UserManager: 50, // Reduced from 100
+				GuildMemberManager: 50, // Limit guild member cache
+				ReactionManager: 0, // Disable reaction caching
+				ReactionUserManager: 0, // Disable reaction user caching
+				ThreadManager: 0, // Disable thread caching
+				ThreadMemberManager: 0, // Disable thread member caching
+				StageInstanceManager: 0, // Disable stage caching
+				VoiceStateManager: Infinity, // Keep voice states (needed for music)
+				GuildBanManager: 0, // Disable ban caching
+				GuildInviteManager: 0, // Disable invite caching
+				GuildScheduledEventManager: 0, // Disable event caching
 			}),
+			// Auto-sweep old cached data
+			sweepers: {
+				...Options.DefaultSweeperSettings,
+				messages: {
+					interval: 300, // Every 5 minutes
+					lifetime: 600, // Delete messages older than 10 minutes
+				},
+				users: {
+					interval: 600, // Every 10 minutes
+					filter: () => user => user.bot && user.id !== user.client.user?.id, // Remove cached bots
+				},
+			},
 			failIfNotExists: false,
 			allowedMentions: { parse: ['users', 'roles'], repliedUser: false },
 		};
@@ -54,6 +78,7 @@ export class Tymee extends Client {
 			clientOptions.shards = shardInfo.SHARD_LIST;
 			clientOptions.shardCount = shardInfo.TOTAL_SHARDS;
 		}
+
 
 		super(clientOptions);
 
@@ -64,13 +89,14 @@ export class Tymee extends Client {
 		this.db = db;
 		this.music = new MusicManager(this);
 		this.lavalink = this.music.lavalink;
+		this.playlistManager = new PlaylistManager(this);
 
 		this.commandHandler = new CommandHandler(this);
 		this.eventHandler = new EventLoader(this);
 
 		this.startTime = Date.now();
 		this.rest = new REST({ version: '10' }).setToken(config.token);
-		
+
 		// Initialize web server
 		this.webServer = new WebServer(this);
 	}
@@ -105,8 +131,14 @@ export class Tymee extends Client {
 	async cleanup() {
 		this.logger.warn('Tymee', `❄️ Starting cleanup for bot...`);
 		try {
+			if (this.music) {
+				await this.music.saveAllPlayerSessions();
+			}
 			if (this.webServer) {
-				await this.webServer.stop();
+				// Prevent web server hang from blocking shutdown (max 2 seconds)
+				const stopPromise = this.webServer.stop();
+				const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
+				await Promise.race([stopPromise, timeoutPromise]);
 			}
 			await this.db.closeAll();
 			this.destroy();

@@ -1,118 +1,2103 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tymee Music Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Cache Control: Prevent caching -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>Tymee Music - Premium Dashboard</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <!-- CRITICAL: Mobile Scroll Fix - Remove ALL scroll blocking -->
+    <style>
+        @media (max-width: 768px) {
+
+            html,
+            body,
+            #app,
+            .app {
+                height: auto !important;
+                min-height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                position: static !important;
+            }
+        }
+    </style>
+    <!-- Dynamic cache-busting with timestamp -->
+    <script>
+        (function () {
+            var ts = Date.now();
+            document.write('<link rel="stylesheet" href="styles.css?v=' + ts + '" />');
+        })();
+    </script>
+    <noscript>
+        <link rel="stylesheet" href="styles.css?v=2026.103" />
+    </noscript>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        // Immediate auth check on page load - just set localStorage if auth works
+        (async function () {
+            console.log("=== INLINE AUTH CHECK ===");
+            try {
+                const response = await fetch("/auth/check");
+                const data = await response.json();
+                if (data.authenticated && data.user) {
+                    console.log("Inline: Auth succeeded for user:", data.user.username);
+                    localStorage.setItem("dashboard_user", JSON.stringify(data.user));
+                    localStorage.setItem("dashboard_user_id", data.user.id);
+                    localStorage.setItem("dashboard_auth", "true");
+                } else {
+                    console.log("Inline: Auth failed, keeping existing localStorage");
+                    // Don't clear localStorage here - let MusicDashboard handle it
+                }
+            } catch (e) {
+                console.error("Inline auth check failed:", e);
+                // Don't clear localStorage on network error
+            }
+        })();
+    </script>
+    <!-- Socket.IO client (served automatically by the Socket.IO server at /socket.io/socket.io.js) -->
+    <script src="/socket.io/socket.io.js"></script>
 </head>
+
 <body>
-    <div class="container">
+    <!-- Minimalist Chip Loader (Mintone Style) -->
+    <div id="appLoader" class="app-loader">
+        <div class="loader-chip">
+            <div class="corner-mark top-left"></div>
+            <div class="corner-mark top-right"></div>
+            <div class="corner-mark bottom-right"></div>
+            <div class="corner-mark bottom-left"></div>
+
+            <div class="chip-glow"></div>
+            <img src="logo.png" alt="Tymee" class="chip-logo">
+        </div>
+
+        <div class="loader-status">
+            <div class="dots-loader">
+                <span></span><span></span><span></span>
+            </div>
+            <div class="loading-line"></div>
+        </div>
+    </div>
+
+    <!-- Global Noise Overlay -->
+    <!-- Noise overlay removed -->
+
+    <!-- Smooth Scrolling (Lenis) -->
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js"></script>
+    <script>
+        // Initialize Smooth Scroll (DESKTOP ONLY - breaks mobile touch scrolling)
+        let lenis = null;
+
+        function initLenis() {
+            // Only enable Lenis on desktop (> 768px width)
+            if (window.innerWidth > 768) {
+                lenis = new Lenis({
+                    duration: 1.2,
+                    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+                    direction: 'vertical',
+                    gestureDirection: 'vertical',
+                    smooth: true,
+                    mouseMultiplier: 1,
+                    smoothTouch: false,
+                    touchMultiplier: 2,
+                });
+
+                function raf(time) {
+                    if (lenis) lenis.raf(time);
+                    requestAnimationFrame(raf);
+                }
+                requestAnimationFrame(raf);
+            }
+        }
+
+        // Initialize on load
+        initLenis();
+
+        // Re-check on resize (in case user rotates device)
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768 && lenis) {
+                lenis.destroy();
+                lenis = null;
+            } else if (window.innerWidth > 768 && !lenis) {
+                initLenis();
+            }
+        });
+
+        // Magnetic Button Effect
+        document.querySelectorAll('.cta-btn').forEach(btn => {
+            btn.addEventListener('mousemove', (e) => {
+                const rect = btn.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+
+                // Strength of magnetism
+                btn.style.transform = `translate(${x * 0.2}px, ${y * 0.2}px) scale(1.05)`;
+            });
+
+            btn.addEventListener('mouseleave', () => {
+                btn.style.transform = 'translate(0, 0) scale(1)';
+            });
+        });
+    </script>
+
+    <!-- App Container -->
+    <div id="app" class="app reveal">
         <!-- Header -->
-        <header class="header">
+        <header class="header reveal">
             <div class="header-content">
-                <h1>🎵 Tymee Music Dashboard</h1>
-                <div class="auth-section">
-                    <input type="text" id="apiKeyInput" placeholder="Enter API Key" class="api-key-input">
-                    <input type="text" id="guildIdInput" placeholder="Enter Guild ID" class="guild-id-input">
-                    <button id="connectBtn" class="connect-btn">Connect</button>
+                <div class="logo-wrapper">
+                    <img src="logo.png" alt="Tymee Music Logo" class="header-logo">
+                    <h1 class="header-title">Tymee Music</h1>
+                </div>
+                <!-- Theme controls (local only; saved in your browser) -->
+                <!-- Theme controls moved to User Dropdown -->
+                <div class="auth-section" id="authSection">
+                    <button id="loginBtn" class="login-btn" onclick="
+                this.disabled = true;
+                this.textContent = 'Logging in...';
+                window.location.href = '/auth/discord';
+              ">
+                        Login with Discord
+                    </button>
+                </div>
+                <div class="user-section hidden" id="userSection">
+                    <div class="user-dropdown-container" id="userDropdownContainer">
+                        <div class="user-trigger" id="userDropdownTrigger">
+                            <img id="userAvatar" class="user-avatar" src="" alt="User Avatar" />
+                            <span id="userName" class="user-name"></span>
+                            <span class="dropdown-arrow"><i class="ph ph-caret-down"></i></span>
+                        </div>
+                        <div class="user-dropdown-menu hidden" id="userDropdownMenu">
+                            <div class="user-menu-header">
+                                Signed in as <strong id="userDropdownName">User</strong>
+                            </div>
+                            <div class="theme-picker-section">
+                                <h4>Theme</h4>
+                                <div class="theme-grid">
+                                    <div class="theme-swatch default" data-theme="default" title="Default"></div>
+                                    <div class="theme-swatch peach" data-theme="peach" title="Peach"></div>
+                                    <div class="theme-swatch nebula" data-theme="nebula" title="Nebula"></div>
+                                    <div class="theme-swatch ocean" data-theme="ocean" title="Ocean"></div>
+                                    <div class="theme-swatch synthwave" data-theme="synthwave" title="Synthwave"></div>
+                                    <div class="theme-swatch aurora" data-theme="aurora" title="Aurora"></div>
+                                    <div class="theme-swatch emerald" data-theme="emerald" title="Emerald"></div>
+                                    <div class="theme-swatch midnight" data-theme="midnight" title="Midnight"></div>
+                                    <div class="theme-swatch sunset" data-theme="sunset" title="Sunset"></div>
+                                    <div class="theme-swatch rose" data-theme="rose" title="Rose"></div>
+                                    <div class="theme-swatch cyberpunk" data-theme="cyberpunk" title="Cyberpunk"></div>
+                                    <div class="theme-swatch dracula" data-theme="dracula" title="Dracula"></div>
+                                    <div class="theme-swatch forest" data-theme="forest" title="Forest"></div>
+                                    <div class="theme-swatch royal" data-theme="royal" title="Royal"></div>
+                                </div>
+                            </div>
+                            <div class="menu-divider"></div>
+                            <button id="logoutBtn" class="menu-item danger">Sign Out</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>
-
+        <!-- Server Selector -->
+        <div id="serverSelector" class="server-selector hidden">
+            <h3 class="text-gradient">Select a Server</h3>
+            <div id="serverList" class="server-list"></div>
+        </div>
+        <nav id="navBar" class="nav-bar hidden">
+            <button class="nav-btn" data-page="servers" onclick="dashboard.showServerSelector()"><i
+                    class="ph ph-hard-drive"></i> Servers</button>
+            <button class="nav-btn" data-page="player"><i class="ph ph-play-circle"></i> Player</button>
+            <button class="nav-btn" data-page="search"><i class="ph ph-magnifying-glass"></i> Search</button>
+            <button class="nav-btn" data-page="queue"><i class="ph ph-list-numbers"></i> Queue</button>
+            <button class="nav-btn" data-page="radio"><i class="ph ph-radio"></i> Radio</button>
+            <button class="nav-btn" data-page="playlists"><i class="ph ph-music-notes"></i> Playlists</button>
+            <button class="nav-btn" data-page="emojis"><i class="ph ph-smiley"></i> Emojis</button>
+            <button class="nav-btn" data-page="settings"><i class="ph ph-gear"></i> Settings</button>
+            <button class="nav-btn" data-page="stats"><i class="ph ph-chart-bar"></i> Stats</button>
+        </nav>
         <!-- Connection Status -->
         <div id="connectionStatus" class="status-bar hidden">
             <span id="statusText">Disconnected</span>
         </div>
-
         <!-- Main Content -->
-        <div id="mainContent" class="main-content hidden">
-            <!-- Player Section -->
-            <div class="player-section">
-                <div class="now-playing">
-                    <div class="album-art">
-                        <img id="albumArt" src="" alt="Album Art" class="album-image">
-                        <div id="noArtwork" class="no-artwork">♪</div>
-                    </div>
-                    <div class="track-info">
-                        <h2 id="trackTitle" class="track-title">No track playing</h2>
-                        <p id="trackArtist" class="track-artist">Unknown Artist</p>
-                        <p id="guildName" class="guild-name"></p>
-                    </div>
-                </div>
+        <main id="mainContent" class="main-content">
+            <!-- Homepage (MiTone Style) -->
+            <div id="homePage" class="page">
+                <section class="hero" style="position: relative; background: none !important;">
+                    <!-- 3D Visualizer Canvas (Particles & Aura) - Contained within hero only -->
+                    <canvas id="hero-visualizer"
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0.8;"></canvas>
+                    <div class="hero-grid-overlay" style="z-index: 2; opacity: 0.3;"></div>
+                    <div class="hero-content" style="position: relative; z-index: 10;">
+                        <div class="status-pill">
+                            <div class="status-dot"></div>
+                            <span>Tymee Music v1.4 Is Now Live!</span>
+                        </div>
+                        <h1 class="hero-title">Experience Music Like <span class="text-gradient">Never Before</span>
+                        </h1>
+                        <p class="hero-subtitle">The most advanced Discord music bot with a premium web dashboard,
+                            custom animated
+                            emojis, and crystal clear audio.</p>
+                        <div class="hero-btns">
+                            <button class="cta-btn primary"
+                                onclick="window.open('https://discord.com/api/oauth2/authorize?client_id=1140026214515327006&permissions=8&scope=bot%20applications.commands')"><i
+                                    class="ph ph-plus-circle"></i> Add
+                                to Discord</button>
+                            <button class="cta-btn secondary" onclick="dashboard.showPage('player')"><i
+                                    class="ph ph-layout"></i> Open
+                                Dashboard</button>
+                        </div>
 
-                <!-- Progress Bar -->
-                <div class="progress-section">
-                    <div class="progress-bar-container">
-                        <div id="progressBar" class="progress-bar">
-                            <div id="progressFill" class="progress-fill"></div>
-                            <div id="progressHandle" class="progress-handle"></div>
+                        <!-- Discord Mockup (Exact Replica - Fixed Row 3 & Icons) -->
+                        <div class="discord-mockup-wrapper"
+                            style="transform: scale(0.9); transform-origin: top center; margin-bottom: 250px; position: relative; z-index: 50; font-family: 'gg sans', 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+
+                            <!-- Message Container -->
+                            <div style="display: flex; align-items: flex-start; gap: 16px;">
+                                <img src="logo.png"
+                                    style="width: 40px; height: 40px; border-radius: 50%; margin-top: 2px; cursor: pointer;">
+
+                                <div style="flex: 1; max-width: 432px;">
+                                    <!-- Header -->
+                                    <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
+                                        <span style="font-weight: 500; color: #f2f3f5; font-size: 1rem;">TymeeMusic
+                                            Bot</span>
+                                        <span
+                                            style="background: #5865F2; color: #fff; font-size: 0.625rem; padding: 1px 4px; border-radius: 3px; font-weight: 500; line-height: 1.3; vertical-align: baseline; display: flex; align-items: center; gap: 2px;"><svg
+                                                xmlns="http://www.w3.org/2000/svg" width="8" height="8"
+                                                viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+                                            </svg>APP</span>
+                                        <span style="color: #949BA4; font-size: 0.75rem; margin-left: 4px;">6:00
+                                            AM</span>
+                                    </div>
+
+                                    <!-- EMBED (Dark Theme, Slight Glass) -->
+                                    <div
+                                        style="background: #2B2D31; border-left: 4px solid #1DB954; border-radius: 4px; padding: 12px 16px; margin-bottom: 8px;">
+
+                                        <!-- Embed Body -->
+                                        <div style="display: flex; gap: 16px;">
+                                            <div style="flex: 1;">
+                                                <div
+                                                    style="color: #f2f3f5; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px;">
+                                                    NOW PLAYING</div>
+                                                <div
+                                                    style="color: #00A8FC; font-size: 1rem; font-weight: 600; margin-bottom: 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px;">
+                                                    Uhaw (Tayong Lahat)</div>
+                                                <div style="font-size: 0.875rem; line-height: 1.25rem; color: #dbdee1;">
+                                                    <span style="font-weight: 600;">Artist:</span> Dilaw<br>
+                                                    <span style="font-weight: 600;">Requested by:</span> <span
+                                                        style="background: #3f4147; color: #f2f3f5; border-radius: 3px; padding: 0 4px; display: inline-block;">@ZenIX
+                                                        (G)/^..^ \</span>
+                                                </div>
+                                            </div>
+                                            <!-- Album Art -->
+                                            <img src="https://i.scdn.co/image/ab67616d0000b273440e53a31c50e26d03222da1"
+                                                style="width: 80px; height: 80px; border-radius: 4px; object-fit: cover;"
+                                                onerror="this.src='https://placehold.co/80x80/2B2D31/FFFFFF?text=Music'">
+                                        </div>
+
+                                        <!-- Progress Bar -->
+                                        <div
+                                            style="margin-top: 12px; font-family: monospace; color: #dbdee1; font-size: 0.9rem; display: flex; align-items: center; gap: 4px;">
+                                            <span
+                                                style="background: #1e1f22; padding: 2px 4px; border-radius: 3px;">0:12</span>
+                                            <span>🔶⬜⬜⬜⬜⬜⬜⬜⬜</span>
+                                            <span
+                                                style="background: #1e1f22; padding: 2px 4px; border-radius: 3px;">4:01</span>
+                                        </div>
+
+                                        <!-- Status Fields -->
+                                        <div
+                                            style="margin-top: 8px; font-size: 0.875rem; line-height: 1.25rem; color: #dbdee1;">
+                                            ▶️ Playing • 🔊 100% • ❌ Off •<br>📋 0 tracks
+                                        </div>
+                                        <div
+                                            style="margin-top: 8px; font-size: 0.875rem; line-height: 1.25rem; color: #dbdee1;">
+                                            📻 Radio: ❌
+                                        </div>
+
+                                        <!-- Footer -->
+                                        <div
+                                            style="margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: #949BA4; font-weight: 500;">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/1024px-Spotify_logo_without_text.svg.png"
+                                                style="width: 16px; height: 16px; border-radius: 50%;">
+                                            <span>SPOTIFY • TymeeMusic • Today at 6:00 AM</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- COMPONENTS STACK -->
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+
+                                        <!-- Select Menu -->
+                                        <div
+                                            style="background: #2B2D31; padding: 10px 12px; border-radius: 3px; display: flex; justify-content: space-between; align-items: center; color: #dbdee1; font-size: 0.875rem; cursor: pointer;">
+                                            <span style="display: flex; align-items: center; gap: 8px;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="#dbdee1" viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                                                </svg>
+                                                Similar songs selection menu
+                                            </span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                fill="#dbdee1" viewBox="0 0 24 24">
+                                                <path d="M7 10l5 5 5-5z" />
+                                            </svg>
+                                        </div>
+
+                                        <!-- Row 1 -->
+                                        <div style="display: flex; gap: 8px;">
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>📋</span> Queue: 0 tracks
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>🌐</span> Dashboard ↗
+                                            </button>
+                                        </div>
+
+                                        <!-- Row 2 (Blue Controls + Red Stop) -->
+                                        <div style="display: flex; gap: 8px;">
+                                            <!-- Prev -->
+                                            <button
+                                                style="flex: 1; background: #5865F2; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                                                </svg>
+                                            </button>
+                                            <!-- Pause -->
+                                            <button
+                                                style="flex: 1; background: #5865F2; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                                                </svg>
+                                            </button>
+                                            <!-- Next -->
+                                            <button
+                                                style="flex: 1; background: #5865F2; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                                                </svg>
+                                            </button>
+                                            <!-- Stop -->
+                                            <button
+                                                style="flex: 1; background: #DA373C; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <rect width="18" height="18" x="3" y="3" rx="2" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        <!-- Row 3 (Shuffle, Loop, Vol-, Vol+) -->
+                                        <div style="display: flex; gap: 8px;">
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M7 9v6h4l5 5V4l-5 5H7z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        <!-- Row 4 -->
+                                        <div style="display: flex; gap: 8px;">
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>❤️</span> Save
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>🎛️</span> FX
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>📝</span> Lyrics
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>⚙️</span> More
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="time-display">
-                        <span id="currentTime">0:00</span>
-                        <span id="totalTime">0:00</span>
+
+                    <div class="scroll-indicator">
+                        <i class="ph ph-caret-double-down"></i>
+                    </div>
+                </section>
+                <section class="stats-grid reveal reveal-stagger">
+                    <div class="stat-card reveal">
+                        <h3 id="stat-servers" data-target="150">0+</h3>
+                        <p>Servers</p>
+                    </div>
+                    <div class="stat-card reveal">
+                        <h3 id="stat-users" data-target="25000">0+</h3>
+                        <p>Users</p>
+                    </div>
+                    <div class="stat-card reveal">
+                        <h3 id="stat-tracks" data-target="500000">0+</h3>
+                        <p>Tracks Played</p>
+                    </div>
+                </section>
+                <section class="features reveal">
+                    <h2 class="section-title reveal">Why Choose <span class="text-gradient">TymeeMusic</span>?</h2>
+                    <div class="features-grid reveal-stagger">
+                        <div class="feature-card reveal">
+                            <div class="feature-icon"><i class="ph ph-sparkle"></i></div>
+                            <h3>Animated Progress Bars</h3>
+                            <p>Exclusive custom GIF emojis for a truly unique music player experience.</p>
+                        </div>
+                        <div class="feature-card reveal">
+                            <div class="feature-icon"><i class="ph ph-speaker-high"></i></div>
+                            <h3>Lossless Audio</h3>
+                            <p>High-fidelity audio streaming with support for Spotify, YouTube, and more.</p>
+                        </div>
+                        <div class="feature-card reveal">
+                            <div class="feature-icon"><i class="ph ph-sliders"></i></div>
+                            <h3>Advanced Filters</h3>
+                            <p>Apply 8D, Bass Boost, Nightcore, and many other filters with one click.</p>
+                        </div>
+                        <div class="feature-card reveal">
+                            <div class="feature-icon"><i class="ph ph-globe"></i></div>
+                            <h3>Rich Dashboard</h3>
+                            <p>Control your music, manage playlists, and sync emojis in real-time from the web.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <!-- Login Required Message -->
+            <div id="loginRequired" class="login-required">
+                <h2><i class="ph ph-lock-key"></i> Login Required</h2>
+                <p>Please login with Discord to access the dashboard.</p>
+                <button id="loginRequiredBtn" class="login-btn" onclick="
+              this.disabled = true;
+              this.textContent = 'Logging in...';
+              window.location.href = '/auth/discord';
+            ">
+                    Login with Discord
+                </button>
+            </div>
+            <!-- Error Display -->
+            <div id="errorDisplay" class="login-required hidden" style="background: #ed4245; color: white">
+                <h2><i class="ph ph-x-circle"></i> Error</h2>
+                <p id="errorMessage">An error occurred</p>
+            </div>
+            <!-- Player Page -->
+            <div id="playerPage" class="page hidden">
+                <div class="player-section">
+                    <div class="now-playing">
+                        <div class="album-art-wrapper">
+                            <canvas id="visualizerCanvas" class="visualizer-canvas"></canvas>
+                            <div class="album-art">
+                                <img id="albumArt" src="" alt="Album Art" class="album-image hidden" />
+                                <div id="noArtwork" class="no-artwork"><i class="ph ph-music-note"></i></div>
+                            </div>
+                        </div>
+                        <div class="track-info">
+                            <h2 id="trackTitle" class="track-title">No track playing</h2>
+                            <p id="trackArtist" class="track-artist">Unknown Artist</p>
+                            <p id="guildName" class="guild-name"></p>
+                        </div>
+                    </div>
+                    <!-- Idle View -->
+                    <div id="idlePlayerView" class="idle-player-view hidden">
+                        <div class="idle-content">
+                            <div class="idle-icon"><i class="ph ph-music-notes-plus"></i></div>
+                            <h3>Nothing's playing right now</h3>
+                            <p>Choose a radio station to get started or use the search bar.</p>
+                            <div class="quick-start-grid">
+                                <div class="quick-card" onclick="dashboard.startRadio('personalized')">
+                                    <div class="quick-icon"><i class="ph ph-sparkle"></i></div>
+                                    <span>For You</span>
+                                </div>
+                                <div class="quick-card" onclick="dashboard.startRadio('lofi')">
+                                    <div class="quick-icon"><i class="ph ph-coffee"></i></div>
+                                    <span>Lofi</span>
+                                </div>
+                                <div class="quick-card" onclick="dashboard.startRadio('pop')">
+                                    <div class="quick-icon"><i class="ph ph-star"></i></div>
+                                    <span>Pop</span>
+                                </div>
+                                <div class="quick-card" onclick="dashboard.showPage('search')">
+                                    <div class="quick-icon"><i class="ph ph-magnifying-glass"></i></div>
+                                    <span>Search</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Progress Bar -->
+                    <div class="progress-section">
+                        <div class="progress-bar-container">
+                            <div id="progressBar" class="progress-bar">
+                                <div id="progressFill" class="progress-fill"></div>
+                            </div>
+                        </div>
+                        <div class="time-display">
+                            <span id="currentTime">0:00</span>
+                            <span class="time-separator"> / </span>
+                            <span id="totalTime">0:00</span>
+                        </div>
+                    </div>
+                    <!-- Controls -->
+                    <div class="controls">
+                        <button id="shuffleBtn" class="control-btn" title="Shuffle">
+                            <i class="ph ph-shuffle"></i>
+                        </button>
+                        <button id="previousBtn" class="control-btn" title="Previous">
+                            <i class="ph ph-skip-back"></i>
+                        </button>
+                        <button id="playPauseBtn" class="control-btn play-pause" title="Play/Pause">
+                            <i class="ph ph-play"></i>
+                        </button>
+                        <button id="nextBtn" class="control-btn" title="Next"><i
+                                class="ph ph-skip-forward"></i></button>
+                        <button id="repeatBtn" class="control-btn" title="Repeat">
+                            <i class="ph ph-repeat"></i>
+                        </button>
+                    </div>
+                    <!-- Volume Control -->
+                    <div class="volume-section">
+                        <span id="volumeIcon"><i class="ph ph-speaker-high"></i></span>
+                        <input type="range" id="volumeSlider" min="0" max="100" value="100" class="volume-slider" />
+                        <span id="volumeValue" class="volume-value">100%</span>
+                    </div>
+                    <!-- Utility Controls (Premium) -->
+                    <div class="utility-controls">
+                        <button id="likeBtn" class="utility-btn like-btn" title="Like this song"
+                            onclick="dashboard.toggleLikeCurrentTrack()">
+                            <span id="likeIcon"><i class="ph ph-heart"></i></span>
+                        </button>
+                        <div class="sleep-timer-container">
+                            <button id="sleepTimerBtn" class="utility-btn" title="Sleep Timer"
+                                onclick="dashboard.toggleSleepMenu()">
+                                <i class="ph ph-moon-stars"></i> <span id="sleepTimerStatus">Off</span>
+                            </button>
+                            <div id="sleepTimerMenu" class="dropdown-menu hidden">
+                                <div class="dropdown-item" onclick="dashboard.setSleepTimer(0)">Cancel</div>
+                                <div class="dropdown-item" onclick="dashboard.setSleepTimer(5)">5 Minutes</div>
+                                <div class="dropdown-item" onclick="dashboard.setSleepTimer(15)">15 Minutes</div>
+                                <div class="dropdown-item" onclick="dashboard.setSleepTimer(30)">30 Minutes</div>
+                                <div class="dropdown-item" onclick="dashboard.setSleepTimer(60)">1 Hour</div>
+                            </div>
+                        </div>
+                        <button id="lyricsBtn" class="utility-btn" title="View Lyrics" onclick="dashboard.showLyrics()">
+                            <i class="ph ph-note-pencil"></i> Lyrics
+                        </button>
+                        <button id="addToPlaylistBtn" class="utility-btn" title="Add to Playlist"
+                            onclick="dashboard.openAddToPlaylistModal()">
+                            <i class="ph ph-plus-circle"></i> Add
+                        </button>
+                        <button id="shareTrackBtn" class="utility-btn" title="Share Track"
+                            onclick="dashboard.shareCurrentTrack()">
+                            <i class="ph ph-share-network"></i> Share
+                        </button>
+                        <button id="historyBtn" class="utility-btn" title="Recently Played"
+                            onclick="dashboard.toggleHistoryPanel()">
+                            <i class="ph ph-clock-counter-clockwise"></i> History
+                        </button>
+                        <button id="shortcutsBtn" class="utility-btn" title="Keyboard Shortcuts"
+                            onclick="dashboard.showShortcutsHelp()">
+                            <i class="ph ph-keyboard"></i>
+                        </button>
+                        <button id="visualizerModeBtn" class="utility-btn" title="Change Visualizer Style"
+                            onclick="dashboard.cycleVisualizerMode()">
+                            <i class="ph ph-waveform"></i>
+                        </button>
+                    </div>
+
+                    <!-- Audio Filters Section -->
+                    <div class="filters-section">
+                        <div class="section-header">
+                            <h4><i class="ph ph-sliders"></i> Audio Filters</h4>
+                            <button class="action-btn small" onclick="dashboard.resetFilters()">Reset All</button>
+                        </div>
+                        <div class="filters-grid" id="filtersGrid">
+                            <!-- Populated by JS -->
+                            <div class="loading-state">
+                                <div class="spinner-small"></div>
+                                <span>Loading filters...</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <!-- Controls -->
-                <div class="controls">
-                    <button id="shuffleBtn" class="control-btn" title="Shuffle">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 3h5v5M4 20l5-5M21 3l-5 5M21 16v5h-5M4 20l-5-5M9 3l5 5"/>
-                        </svg>
-                    </button>
-                    <button id="previousBtn" class="control-btn" title="Previous">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-                        </svg>
-                    </button>
-                    <button id="playPauseBtn" class="control-btn play-pause" title="Play/Pause">
-                        <svg id="playIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
-                        <svg id="pauseIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="hidden">
-                            <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
-                        </svg>
-                    </button>
-                    <button id="nextBtn" class="control-btn" title="Next">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-                        </svg>
-                    </button>
-                    <button id="repeatBtn" class="control-btn" title="Repeat">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <!-- Volume Control -->
-                <div class="volume-section">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                    </svg>
-                    <div class="volume-slider-container">
-                        <input type="range" id="volumeSlider" min="0" max="100" value="100" class="volume-slider">
+            </div>
+            <!-- Queue Page -->
+            <div id="queuePage" class="page hidden">
+                <div class="queue-section">
+                    <div class="queue-header">
+                        <h3>Queue (<span id="queueCount">0</span>)</h3>
+                        <div class="queue-actions">
+                            <button id="shuffleQueueBtn" class="action-btn" title="Shuffle">
+                                <i class="ph ph-shuffle"></i> Shuffle
+                            </button>
+                            <button id="saveQueueBtn" class="action-btn primary" title="Save Queue to Playlist"
+                                onclick="dashboard.saveQueueToPlaylist()">
+                                <i class="ph ph-floppy-disk"></i> Save Queue
+                            </button>
+                            <button id="clearQueueBtn" class="action-btn danger" title="Clear">
+                                <i class="ph ph-trash"></i> Clear
+                            </button>
+                        </div>
                     </div>
-                    <span id="volumeValue" class="volume-value">100%</span>
+                    <div id="queueList" class="queue-list">
+                        <p class="empty-queue">No tracks in queue</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Search Page -->
+            <div id="searchPage" class="page hidden">
+                <div class="search-section">
+                    <div class="search-header-container">
+                        <div class="search-input-wrapper">
+                            <input type="text" id="unifiedSearchInput"
+                                placeholder="Search for songs, artists, or albums..." class="main-search-input"
+                                onkeypress="if(event.key === 'Enter') dashboard.performUnifiedSearch()"
+                                oninput="dashboard.handleSearchInput(event)">
+                            <button class="search-action-btn" onclick="dashboard.performUnifiedSearch()">
+                                <i class="ph ph-magnifying-glass"></i>
+                            </button>
+                            <div id="searchSuggestions" class="search-suggestions hidden"></div>
+                        </div>
+                        <div class="search-filters">
+                            <div class="search-filter-group">
+                                <span class="filter-label">Source:</span>
+                                <button class="filter-tag active" data-source="all"
+                                    onclick="dashboard.setSearchSource('all')">All</button>
+                                <button class="filter-tag" data-source="youtube"
+                                    onclick="dashboard.setSearchSource('youtube')">YouTube</button>
+                                <button class="filter-tag" data-source="spotify"
+                                    onclick="dashboard.setSearchSource('spotify')">Spotify</button>
+                            </div>
+                            <div class="search-divider"></div>
+                            <div class="search-filter-group">
+                                <span class="filter-label">Type:</span>
+                                <button class="filter-tag active" data-type="track"
+                                    onclick="dashboard.setSearchType('track')">Songs</button>
+                                <button class="filter-tag" data-type="playlist"
+                                    onclick="dashboard.setSearchType('playlist')">Playlists</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="searchResultsContainer" class="search-results-container">
+                        <div class="empty-search-state">
+                            <div class="search-icon-large"><i class="ph ph-magnifying-glass"></i></div>
+                            <h3>Search for Music</h3>
+                            <p>Find your favorite tracks from YouTube, Spotify, and more.</p>
+                        </div>
+                        <!-- Results will be injected here -->
+                    </div>
+                </div>
+            </div>
+            <!-- Radio Page -->
+            <div id="radioPage" class="page hidden">
+                <div class="radio-section">
+                    <div class="section-header">
+                        <h3><i class="ph ph-radio"></i> Radio Stations</h3>
+                        <p>Select a themed station to start an endless music stream</p>
+                    </div>
+                    <div class="radio-grid">
+                        <div class="radio-card personalized" onclick="dashboard.startRadio('personalized')">
+                            <div class="radio-icon"><i class="ph ph-sparkle"></i></div>
+                            <div class="radio-info">
+                                <h4>Mixed for You</h4>
+                                <p>Personalized mix based on your history</p>
+                            </div>
+                        </div>
+                        <div class="radio-card" onclick="dashboard.startRadio('lofi')">
+                            <div class="radio-icon"><i class="ph ph-coffee"></i></div>
+                            <div class="radio-info">
+                                <h4>Lofi / Chill</h4>
+                                <p>Perfect for study and relaxation</p>
+                            </div>
+                        </div>
+                        <div class="radio-card" onclick="dashboard.startRadio('rock')">
+                            <div class="radio-icon"><i class="ph ph-guitar"></i></div>
+                            <div class="radio-info">
+                                <h4>Rock Classic</h4>
+                                <p>The greatest rock hits of all time</p>
+                            </div>
+                        </div>
+                        <div class="radio-card" onclick="dashboard.startRadio('pop')">
+                            <div class="radio-icon"><i class="ph ph-star"></i></div>
+                            <div class="radio-info">
+                                <h4>Pop Hits</h4>
+                                <p>Today's top charts and dance tracks</p>
+                            </div>
+                        </div>
+                        <div class="radio-card" onclick="dashboard.startRadio('edm')">
+                            <div class="radio-icon"><i class="ph ph-headphones"></i></div>
+                            <div class="radio-info">
+                                <h4>Electronic / EDM</h4>
+                                <p>Upbeat beats and dance floor energy</p>
+                            </div>
+                        </div>
+                        <div class="radio-card" onclick="dashboard.startRadio('jazz')">
+                            <div class="radio-icon"><i class="ph ph-piano-keys"></i></div>
+                            <div class="radio-info">
+                                <h4>Jazz / Study</h4>
+                                <p>Smooth jazz and coffee shop vibes</p>
+                            </div>
+                        </div>
+                        <div class="radio-card" onclick="dashboard.startRadio('hiphop')">
+                            <div class="radio-icon"><i class="ph ph-fire"></i></div>
+                            <div class="radio-info">
+                                <h4>Hip Hop</h4>
+                                <p>Golden era and modern hip hop bangers</p>
+                            </div>
+                        </div>
+                        <div class="radio-card" onclick="dashboard.startRadio('gaming')">
+                            <div class="radio-icon"><i class="ph ph-game-controller"></i></div>
+                            <div class="radio-info">
+                                <h4>Gaming / Phonk</h4>
+                                <p>High energy tracks for your gaming session</p>
+                            </div>
+                        </div>
+                        <div class="radio-card" onclick="dashboard.startRadio('kpop')">
+                            <div class="radio-icon"><i class="ph ph-rainbow"></i></div>
+                            <div class="radio-info">
+                                <h4>K-Pop</h4>
+                                <p>The best of Korean pop music</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Playlists Page -->
+            <div id="playlistsPage" class="page hidden">
+                <div class="playlists-section">
+                    <div class="playlists-header">
+                        <button id="backToPlaylistsBtn" class="action-btn secondary hidden"
+                            onclick="dashboard.showPlaylistsList()">
+                            ← Back
+                        </button>
+                        <h3 id="playlistsPageTitle" class="hidden">My Playlists</h3>
+                        <div class="playlists-actions">
+                            <button id="refreshPlaylistsBtn" class="action-btn" onclick="dashboard.loadPlaylists()">
+                                <i class="ph ph-arrows-clockwise"></i>
+                            </button>
+                            <button id="createPlaylistBtn" class="action-btn primary">
+                                <i class="ph ph-plus-circle"></i> Create Playlist
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Unified Create/Import Playlist Modal -->
+                    <div id="createPlaylistModal" class="modal hidden">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4>Manage Playlists</h4>
+                                <button class="modal-close"
+                                    onclick="dashboard.closeModal('createPlaylistModal')">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="modal-tabs">
+                                    <button class="modal-tab active" data-tab="create"
+                                        onclick="dashboard.switchPlaylistTab('create')">Create New</button>
+                                    <button class="modal-tab" data-tab="import"
+                                        onclick="dashboard.switchPlaylistTab('import')">Import</button>
+                                </div>
+
+                                <!-- Create Tab -->
+                                <div id="playlist-tab-create" class="playlist-tab-content">
+                                    <div class="form-group">
+                                        <label>Playlist Name</label>
+                                        <input type="text" id="newPlaylistName" placeholder="My Awesome Playlist"
+                                            class="setting-input" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Description (optional)</label>
+                                        <textarea id="newPlaylistDescription" placeholder="What's this playlist about?"
+                                            class="setting-input"></textarea>
+                                    </div>
+                                    <div class="form-group playlist-toggle-group">
+                                        <label class="toggle-label">
+                                            <span class="toggle-text">Make Public</span>
+                                            <div class="toggle-switch">
+                                                <input type="checkbox" id="newPlaylistPublic" />
+                                                <span class="toggle-slider"></span>
+                                            </div>
+                                        </label>
+                                        <span class="setting-help">Public playlists are visible to everyone in the
+                                            server</span>
+                                    </div>
+                                </div>
+
+                                <!-- Import Tab -->
+                                <div id="playlist-tab-import" class="playlist-tab-content hidden">
+                                    <div class="form-group">
+                                        <label>Playlist URL</label>
+                                        <input type="text" id="importPlaylistUrl"
+                                            placeholder="Spotify or YouTube playlist URL" class="setting-input" />
+                                        <span class="setting-help">Supported: Spotify Playlists, YouTube
+                                            Playlists</span>
+                                    </div>
+                                    <div class="import-info">
+                                        <p>ℹ️ Importing tracks from source URL...</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button onclick="dashboard.closeModal('createPlaylistModal')"
+                                    class="action-btn secondary">Cancel</button>
+                                <button id="createPlaylistConfirmBtn" onclick="dashboard.handlePlaylistSubmit()"
+                                    class="action-btn primary">Create Playlist</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Add to Playlist Modal -->
+                    <div id="addToPlaylistModal" class="modal hidden">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4>Add to Playlist</h4>
+                                <button class="modal-close"
+                                    onclick="dashboard.closeModal('addToPlaylistModal')">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="modal-subtitle">Select a playlist to add this track to:</p>
+                                <div id="addToPlaylistList" class="add-to-playlist-list">
+                                    <!-- Populated by JS -->
+                                    <div class="loader-spinner"></div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button onclick="dashboard.closeModal('addToPlaylistModal')"
+                                    class="action-btn secondary">Cancel</button>
+                                <button
+                                    onclick="dashboard.openCreatePlaylistModal(); dashboard.closeModal('addToPlaylistModal')"
+                                    class="action-btn">Create New Playlist</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Playlist Details View REMOVED/MOVED -->
+
+                    <!-- System Playlists Section -->
+                    <div class="system-playlists-section">
+                        <h4 class="section-subtitle"><i class="ph ph-sparkle"></i> Your Library</h4>
+                        <div class="system-playlists-grid">
+                            <div class="system-playlist-card liked" onclick="dashboard.openSystemPlaylist('liked')">
+                                <div class="system-playlist-icon"><i class="ph ph-heart"></i></div>
+                                <div class="system-playlist-info">
+                                    <h5>Liked Songs</h5>
+                                    <p id="likedSongsCount">0 songs</p>
+                                </div>
+                            </div>
+                            <div class="system-playlist-card recent" onclick="dashboard.openSystemPlaylist('recent')">
+                                <div class="system-playlist-icon"><i class="ph ph-clock"></i></div>
+                                <div class="system-playlist-info">
+                                    <h5>Recently Played</h5>
+                                    <p>Your history</p>
+                                </div>
+                            </div>
+                            <div class="system-playlist-card top" onclick="dashboard.openSystemPlaylist('top')">
+                                <div class="system-playlist-icon"><i class="ph ph-fire"></i></div>
+                                <div class="system-playlist-info">
+                                    <h5>Your Top Tracks</h5>
+                                    <p>Most played</p>
+                                </div>
+                            </div>
+                            <div class="system-playlist-card discover"
+                                onclick="dashboard.openSystemPlaylist('discover')">
+                                <div class="system-playlist-icon"><i class="ph ph-sparkle"></i></div>
+                                <div class="system-playlist-info">
+                                    <h5>Discover Weekly</h5>
+                                    <p>Made for you</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Playlists Grid View -->
+                    <div class="playlist-tabs-container mb-4">
+                        <div class="playlist-tabs-main">
+                            <button id="pl-tab-my" class="playlist-tab-btn active"
+                                onclick="dashboard.switchPlaylistViewTab('my')"><i class="ph ph-user"></i> My
+                                Playlists</button>
+                            <button id="pl-tab-public" class="playlist-tab-btn"
+                                onclick="dashboard.switchPlaylistViewTab('public')"><i class="ph ph-globe"></i> Public
+                                Playlists</button>
+                        </div>
+                        <div class="playlist-search-mini">
+                            <input type="text" id="playlistsFilterInput" placeholder="Filter playlists..."
+                                oninput="dashboard.filterPlaylistsDebounced()" class="mini-search-input">
+                        </div>
+                    </div>
+
+
+                    <div id="playlistsList" class="playlists-list">
+                        <p class="empty-playlists">
+                            No playlists found. Create your first playlist!
+                        </p>
+                    </div>
                 </div>
             </div>
 
-            <!-- Queue Section -->
-            <div class="queue-section">
-                <div class="queue-header">
-                    <h3>Queue (<span id="queueCount">0</span>)</h3>
-                    <button id="refreshQueueBtn" class="refresh-btn" title="Refresh Queue">↻</button>
+            <!-- Playlist Details Page (Moved out to be a top-level page) -->
+            <div id="playlistDetailsView" class="page hidden">
+                <div class="playlists-section">
+                    <button class="action-btn secondary mb-4" onclick="dashboard.showPage('playlists')">← Back to
+                        Playlists</button>
+                    <div class="playlist-header">
+                        <div id="playlistCover" class="playlist-cover">
+                            <span class="playlist-cover-placeholder">♪</span>
+                        </div>
+                        <div class="playlist-header-info">
+                            <p class="playlist-type">Playlist</p>
+                            <h1 id="playlistTitle" class="playlist-title">
+                                Playlist Name
+                            </h1>
+                            <p id="playlistDescription" class="playlist-description"></p>
+                            <div class="playlist-meta">
+                                <span id="playlistCreator" class="playlist-creator"></span>
+                                <span class="meta-dot">•</span>
+                                <span id="playlistTrackCount"></span>
+                                <span class="meta-dot">•</span>
+                                <span id="playlistDuration"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="playlist-controls">
+                        <button id="playlistPlayBtn" class="playlist-play-btn" onclick="dashboard.playPlaylist()">
+                            <i class="ph ph-play"></i>
+                        </button>
+                        <button id="playlistShuffleBtn" class="playlist-control-btn"
+                            onclick="dashboard.shufflePlaylist()" title="Shuffle">
+                            <i class="ph ph-shuffle"></i>
+                        </button>
+                        <button id="playlistMoreBtn" class="playlist-control-btn"
+                            onclick="dashboard.showPlaylistMoreOptions()">
+                            <i class="ph ph-dots-three-vertical"></i>
+                        </button>
+                    </div>
+                    <!-- Collaborators Section (Owner Only) -->
+                    <div id="collaboratorsSection" class="collaborators-section hidden"></div>
+                    <!-- Search & Add Tracks -->
+                    <div class="playlist-search-section">
+                        <input type="text" id="playlistSearchInput" class="playlist-search-input"
+                            placeholder="Search for songs to add..."
+                            oninput="dashboard.searchTracksForPlaylistDebounced()" />
+                        <select id="playlistSearchSource" class="playlist-search-source">
+                            <option value="all">All Sources</option>
+                            <option value="youtube">YouTube</option>
+                            <option value="spotify">Spotify</option>
+                            <option value="soundcloud">SoundCloud</option>
+                            <option value="apple">Apple Music</option>
+                            <option value="deezer">Deezer</option>
+                        </select>
+                        <button class="action-btn primary" onclick="dashboard.searchTracksForPlaylist()">
+                            <i class="ph ph-magnifying-glass"></i> Search
+                        </button>
+                    </div>
+                    <!-- Search Results -->
+                    <div id="playlistSearchResults" class="playlist-search-results hidden"></div>
+                    <div class="playlist-tracks-header">
+                        <div class="track-col-num">#</div>
+                        <div class="track-col-title">Title</div>
+                        <div class="track-col-album">Album</div>
+                        <div class="track-col-duration"><i class="ph ph-clock"></i></div>
+                        <div class="track-col-actions"></div>
+                    </div>
+                    <div id="playlistTracksList" class="playlist-tracks-list"></div>
                 </div>
-                <div id="queueList" class="queue-list">
-                    <p class="empty-queue">No tracks in queue</p>
+            </div>
+            <!-- Settings Page -->
+            <div id="settingsPage" class="page hidden">
+                <div class="settings-section">
+                    <div class="settings-header">
+                        <h3>Server Settings</h3>
+                        <div class="header-actions">
+                            <button id="refreshSettingsBtn" class="action-btn small"
+                                title="Refresh available roles and channels" onclick="dashboard.loadSettings()"><i
+                                    class="ph ph-arrows-clockwise"></i> Refresh Data</button>
+                        </div>
+                    </div>
+                    <div class="settings-tabs">
+                        <button class="settings-tab active" data-tab="general">
+                            General
+                        </button>
+                        <button class="settings-tab" data-tab="djroles">DJ Roles</button>
+                        <button class="settings-tab" data-tab="permissions">
+                            Permissions
+                        </button>
+                        <button class="settings-tab" data-tab="247">24/7 Mode</button>
+                        <button class="settings-tab" data-tab="premium">Premium</button>
+                        <button id="adminSettingsTab" class="settings-tab hidden" data-tab="admin"><i
+                                class="ph ph-shield-check"></i> Admin</button>
+                    </div>
+                    <!-- General Settings -->
+                    <div id="settings-general" class="settings-tab-content">
+                        <div class="settings-group">
+                            <label>Command Prefix</label>
+                            <input type="text" id="prefixInput" class="setting-input" placeholder="." maxlength="5" />
+                            <span class="setting-help">The character used before commands (e.g., .play)</span>
+                        </div>
+                        <div class="settings-group">
+                            <label>Default Volume:
+                                <span id="defaultVolumeValue">100%</span></label>
+                            <input type="range" id="defaultVolumeSlider" min="0" max="100" value="100"
+                                class="setting-slider" />
+                        </div>
+                        <div class="settings-group checkbox-group">
+                            <label class="toggle-label">
+                                <span class="toggle-text">Auto-play</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="autoPlayCheck"
+                                        onchange="dashboard.updateSetting('autoPlay', this.checked)" />
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                            <span class="setting-help">Automatically play similar songs when queue ends</span>
+                        </div>
+                        <div class="settings-group checkbox-group">
+                            <label class="toggle-label">
+                                <span class="toggle-text">Last Track</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="leaveOnEmptyCheck"
+                                        onchange="dashboard.updateSetting('leaveOnEmpty', this.checked)" />
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                            <span class="setting-help">Bot leaves voice channel when empty</span>
+                        </div>
+                        <div class="settings-group checkbox-group">
+                            <label class="toggle-label">
+                                <span class="toggle-text">Keyboard Shortcuts</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="keyboardShortcutsCheck"
+                                        onchange="dashboard.toggleShortcuts(this.checked)" />
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                            <span class="setting-help">Enable/disable dashboard hotkeys</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- DJ Roles Settings (Multi-Select) -->
+                <div id="settings-djroles" class="settings-tab-content hidden">
+                    <div class="settings-group">
+                        <label>DJ Roles</label>
+                        <p class="setting-description">
+                            Users with any of these roles will have DJ privileges
+                        </p>
+                        <div class="role-multi-select">
+                            <div class="role-tags" id="djRolesTags"></div>
+                            <select id="djRolesSelect" class="setting-select" onchange="dashboard.addDjRole()">
+                                <option value="">Select a role to add...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <!-- Permissions Settings (Tier System) -->
+                <div id="settings-permissions" class="settings-tab-content hidden">
+                    <div class="settings-group">
+                        <label>Access Tier</label>
+                        <p class="setting-description">
+                            Choose which tier of commands users can access based on their
+                            roles or direct user assignment
+                        </p>
+                        <div class="tier-selector">
+                            <!-- Free Tier -->
+                            <div class="tier-option">
+                                <label class="tier-option-label">
+                                    <input type="radio" name="tier" value="free"
+                                        onchange="dashboard.updateTierDisplay()" />
+                                    <span class="tier-name"><i class="ph ph-music-note"></i> Free</span>
+                                    <span class="tier-desc">Basic commands only</span>
+                                </label>
+                                <div class="tier-roles">
+                                    <label class="sub-label">Roles:</label>
+                                    <div class="role-tags" id="allowedRolesTags"></div>
+                                    <select id="allowedRolesSelect" class="setting-select"
+                                        onchange="dashboard.addAllowedRole()">
+                                        <option value="">Select a role...</option>
+                                    </select>
+                                    <label class="sub-label">Users:</label>
+                                    <div class="user-tags" id="allowedUsersTags"></div>
+                                    <select id="allowedUsersSelect" class="setting-select"
+                                        onchange="dashboard.addAllowedUser()">
+                                        <option value="">Select a user...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- VIP Tier -->
+                            <div class="tier-option">
+                                <label class="tier-option-label">
+                                    <input type="radio" name="tier" value="vip"
+                                        onchange="dashboard.updateTierDisplay()" />
+                                    <span class="tier-name"><i class="ph ph-star"></i> VIP</span>
+                                    <span class="tier-desc">Extended features</span>
+                                </label>
+                                <div class="tier-roles">
+                                    <label class="sub-label">Roles:</label>
+                                    <div class="role-tags" id="vipRolesTags"></div>
+                                    <select id="vipRolesSelect" class="setting-select"
+                                        onchange="dashboard.addVipRole()">
+                                        <option value="">Select a role...</option>
+                                    </select>
+                                    <label class="sub-label">Users:</label>
+                                    <div class="user-tags" id="vipUsersTags"></div>
+                                    <select id="vipUsersSelect" class="setting-select"
+                                        onchange="dashboard.addVipUser()">
+                                        <option value="">Select a user...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- Premium Tier -->
+                            <div class="tier-option">
+                                <label class="tier-option-label">
+                                    <input type="radio" name="tier" value="premium"
+                                        onchange="dashboard.updateTierDisplay()" />
+                                    <span class="tier-name"><i class="ph ph-diamond"></i> Premium</span>
+                                    <span class="tier-desc">All features</span>
+                                </label>
+                                <div class="tier-roles">
+                                    <label class="sub-label">Roles:</label>
+                                    <div class="role-tags" id="premiumRolesTags"></div>
+                                    <select id="premiumRolesSelect" class="setting-select"
+                                        onchange="dashboard.addPremiumRole()">
+                                        <option value="">Select a role...</option>
+                                    </select>
+                                    <label class="sub-label">Users:</label>
+                                    <div class="user-tags" id="premiumUsersTags"></div>
+                                    <select id="premiumUsersSelect" class="setting-select"
+                                        onchange="dashboard.addPremiumUser()">
+                                        <option value="">Select a user...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 24/7 Mode Settings -->
+                <div id="settings-247" class="settings-tab-content hidden">
+                    <div class="settings-group">
+                        <label class="big-toggle">
+                            <div>
+                                <span class="toggle-text-main">Enable 24/7 Mode</span>
+                                <span class="toggle-text-sub">The bot will stay in the voice channel even when not
+                                    playing.</span>
+                            </div>
+                            <div class="toggle-switch large">
+                                <input type="checkbox" id="stay247Check" onchange="dashboard.toggle247Channels()" />
+                                <span class="toggle-slider"></span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div id="247ChannelsSection" class="hidden">
+                        <div class="settings-group">
+                            <label>Target Voice Channel</label>
+                            <select id="247VoiceChannelSelect" class="setting-select">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                        <div class="settings-group">
+                            <label>Status Updates Channel</label>
+                            <select id="247TextChannelSelect" class="setting-select">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <!-- Premium Settings -->
+                <div id="settings-premium" class="settings-tab-content hidden">
+                    <div class="premium-banner">
+                        <div class="premium-icon"><i class="ph ph-diamond"></i></div>
+                        <div class="premium-text">
+                            <h3>Upgrade to Premium</h3>
+                            <p>Unlock 24/7 mode, higher quality audio, and more!</p>
+                        </div>
+                        <button class="action-btn primary pulse"
+                            onclick="window.open('https://patreon.com/tymee', '_blank')">Get Premium</button>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3>Active Premium Features</h3>
+                        <div class="feature-list">
+                            <div class="feature-item active">
+                                <span><i class="ph ph-check-circle"></i></span> Unlimited Queue
+                            </div>
+                            <div class="feature-item active">
+                                <span><i class="ph ph-check-circle"></i></span> Higher Quality
+                            </div>
+                            <div class="feature-item inactive" id="feat-247-status">
+                                <span><i class="ph ph-x-circle"></i></span> 24/7 Mode
+                            </div>
+                            <div class="feature-item inactive" id="feat-autoplay-status">
+                                <span><i class="ph ph-x-circle"></i></span> Smart Autoplay
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Admin Settings (Visible to Bot Owners Only) -->
+                <div id="settings-admin" class="settings-tab-content hidden">
+                    <div class="settings-group">
+                        <label>Slash Commands Deployment</label>
+                        <p class="setting-description">
+                            Register all slash-enabled commands with Discord globally.
+                        </p>
+                        <div class="admin-action-container">
+                            <button id="deployCommandsBtn" class="action-btn primary"
+                                onclick="dashboard.deploySlashCommands()">
+                                <i class="ph ph-rocket-launch"></i> Deploy Commands
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <label>Server Data & Debugging</label>
+                        <p class="setting-description">
+                            Reset server-specific data or troubleshoot player issues.
+                        </p>
+                        <div class="admin-action-grid" style="display: grid; gap: 10px; margin-top: 15px;">
+                            <button class="action-btn danger" onclick="dashboard.clearGuildStats()">
+                                <i class="ph ph-trash"></i> Clear Server Statistics
+                            </button>
+                            <button class="action-btn secondary" onclick="dashboard.resetPlayerState()">
+                                <i class="ph ph-arrows-clockwise"></i> Force Player Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <button id="saveSettingsBtn" class="action-btn primary large">
+                    <i class="ph ph-floppy-disk"></i> Save All Settings
+                </button>
+            </div>
+    </div>
+    <!-- Emoji Management Page -->
+    <div id="emojisPage" class="page hidden">
+        <div class="emojis-section">
+            <div class="emoji-management-header">
+                <h3><i class="ph ph-smiley"></i> Emoji Management</h3>
+            </div>
+            <div class="emojis-grid-layout">
+                <div class="emojis-col-left">
+                    <!-- Server Emoji Sync Panel -->
+                    <div class="emoji-sync-panel">
+                        <div class="sync-header">
+                            <h4>🔗 Server Emoji Sync</h4>
+                            <button id="syncPreviewBtn" class="action-btn">
+                                <i class="ph ph-eye"></i> Preview Sync
+                            </button>
+                        </div>
+                        <p class="sync-description">
+                            Auto-detect and match server emojis with bot functions based on
+                            name similarity.
+                        </p>
+                        <div class="sync-actions">
+                            <button id="syncServerBtn" class="action-btn secondary">
+                                <i class="ph ph-arrows-clockwise"></i> Sync Server Emojis
+                            </button>
+                            <button id="autoMatchBtn" class="action-btn primary">
+                                <i class="ph ph-lightning"></i> Auto-Match Emojis
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Live Discord Preview -->
+                    <div class="live-preview-panel section-card">
+                        <div class="panel-header">
+                            <h4><i class="ph ph-device-mobile"></i> Live Discord Preview</h4>
+                            <span class="badge small">Real-time</span>
+                        </div>
+                        <div class="discord-embed-preview">
+                            <div class="discord-embed">
+                                <div class="discord-embed-content">
+                                    <div class="discord-author">
+                                        <img src="https://i.imgur.com/JDkkTEx.png" class="bot-avatar" alt="Bot">
+                                        <span class="bot-name">TymeeMusic</span>
+                                        <span class="bot-tag">BOT</span>
+                                    </div>
+                                    <div class="discord-title">Now Playing</div>
+                                    <div class="discord-description">
+                                        <span id="preview-status-emoji"><i class="ph ph-music-note"></i></span>
+                                        **Never
+                                        Gonna Give You Up**
+                                        <br>
+                                        <small>Rick Astley</small>
+                                    </div>
+                                    <div class="discord-footer">
+                                        <div class="player-controls-preview">
+                                            <span id="preview-prev-btn" class="preview-btn"><i
+                                                    class="ph ph-skip-back"></i></span>
+                                            <span id="preview-play-btn" class="preview-btn"><i
+                                                    class="ph ph-pause"></i></span>
+                                            <span id="preview-skip-btn" class="preview-btn"><i
+                                                    class="ph ph-skip-forward"></i></span>
+                                            <span id="preview-stop-btn" class="preview-btn"><i
+                                                    class="ph ph-stop"></i></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div> <!-- End Left Col -->
+                <div class="emojis-col-right">
+                    <!-- Server Emojis Picker -->
+                    <div class="server-emojis-panel">
+                        <div class="server-emojis-header">
+                            <h4><i class="ph ph-palette"></i> Server Emojis</h4>
+                            <div class="server-emoji-filters">
+                                <button class="filter-btn active" data-filter="all">
+                                    All
+                                </button>
+                                <button class="filter-btn" data-filter="animated">
+                                    Animated
+                                </button>
+                                <button class="filter-btn" data-filter="static">
+                                    Static
+                                </button>
+                                <input type="text" id="emojiSearch" class="emoji-search"
+                                    placeholder="Search emojis..." />
+                            </div>
+                        </div>
+                        <div id="serverEmojisGrid" class="server-emojis-grid">
+                            <p class="loading">Loading server emojis...</p>
+                        </div>
+                    </div>
+                    <!-- Emoji Mappings List -->
+                    <div class="emoji-mappings-panel">
+                        <h4><i class="ph ph-clipboard-text"></i> Emoji Mappings</h4>
+                        <div class="emoji-filters">
+                            <select id="emojiCategoryFilter" class="category-select">
+                                <option value="all">All Categories</option>
+                                <option value="player_controls">Player Controls</option>
+                                <option value="voice_status">Voice Channel Status</option>
+                                <option value="now_playing">Now Playing</option>
+                                <option value="embeds">Embeds</option>
+                                <option value="actions">Actions</option>
+                                <option value="filters">Filters</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                            <input type="text" id="mappingSearch" class="mapping-search"
+                                placeholder="Search mappings..." />
+                        </div>
+                        <div id="emojiMappings" class="emoji-mappings-list">
+                            <p class="loading-emojis">Loading emoji mappings...</p>
+                        </div>
+                    </div>
+                    <!-- Add New Mapping -->
+                    <div class="add-mapping-panel">
+                        <h4><i class="ph ph-plus-circle"></i> Add New Mapping</h4>
+                        <div class="add-mapping-form">
+                            <div class="form-group">
+                                <label>Bot Function Name:</label>
+                                <input type="text" id="newBotName" placeholder="e.g., play, sp, music" />
+                            </div>
+                            <div class="form-group">
+                                <label>Emoji:</label>
+                                <div class="emoji-input-group">
+                                    <input type="text" id="newEmoji" placeholder="Paste emoji or select from server" />
+                                    <button id="selectFromServerBtn" class="action-btn small">
+                                        <i class="ph ph-list"></i> Select
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Category:</label>
+                                <select id="newEmojiCategory">
+                                    <option value="player_controls">Player Controls</option>
+                                    <option value="voice_status">Voice Channel Status</option>
+                                    <option value="now_playing">Now Playing</option>
+                                    <option value="embeds">Embeds</option>
+                                    <option value="actions">Actions</option>
+                                    <option value="filters">Filters</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <button id="addMappingBtn" class="action-btn primary">
+                                <i class="ph ph-check-circle"></i> Add Mapping
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Actions -->
+                    <div class="emoji-actions">
+                        <button id="resetEmojisBtn" class="action-btn danger">
+                            <i class="ph ph-arrows-counter-clockwise"></i> Reset All to Defaults
+                        </button>
+                    </div>
+                </div>
+            </div> <!-- End Right Col -->
+        </div> <!-- End Grid -->
+    </div>
+    <!-- Server Emoji Picker Modal -->
+    <div id="emojiPickerModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Select Server Emoji</h4>
+                <button class="modal-close" onclick="dashboard.closeEmojiPicker()">
+                    &times;
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="modalEmojiGrid" class="server-emojis-grid"></div>
+            </div>
+        </div>
+    </div>
+    <!-- Sync Preview Modal -->
+    <div id="syncPreviewModal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h4><i class="ph ph-arrows-clockwise"></i> Sync Preview</h4>
+                <button class="modal-close" onclick="dashboard.closeSyncPreview()">
+                    &times;
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="sync-info">
+                    The following emojis will be automatically mapped:
+                </p>
+                <div id="syncPreviewList" class="sync-preview-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="dashboard.closeSyncPreview()" class="action-btn">
+                    Cancel
+                </button>
+                <button onclick="dashboard.applySync()" class="action-btn primary">
+                    Apply Sync
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Stats Page -->
+    <div id="statsPage" class="page hidden">
+        <div class="stats-section">
+            <h3><i class="ph ph-chart-bar"></i> Statistics</h3>
+            <!-- Server Stats -->
+            <div class="stats-header">
+                <h4>Server Statistics</h4>
+                <button onclick="dashboard.loadStats()" class="action-btn small">
+                    <i class="ph ph-arrows-clockwise"></i> Refresh
+                </button>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="ph ph-music-notes"></i></div>
+                    <h4>Total Plays</h4>
+                    <span id="totalPlays" class="stat-value">0</span>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="ph ph-users"></i></div>
+                    <h4>Unique Users</h4>
+                    <span id="uniqueUsers" class="stat-value">0</span>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="ph ph-headphones"></i></div>
+                    <h4>Top Source</h4>
+                    <span id="topGenre" class="stat-value">N/A</span>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="ph ph-timer"></i></div>
+                    <h4>Bot Uptime</h4>
+                    <span id="botUptime" class="stat-value">0h</span>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="ph ph-disc"></i></div>
+                    <h4>Tracks Played</h4>
+                    <span id="historyCount" class="stat-value">0</span>
+                </div>
+            </div>
+            <!-- Top Songs -->
+            <div class="stats-section-detailed">
+                <h4><i class="ph ph-trophy"></i> Top Played Songs</h4>
+                <div id="topSongsList" class="top-songs-list">
+                    <p class="loading-stats">Loading statistics...</p>
+                </div>
+            </div>
+            <!-- Source Distribution -->
+            <div class="stats-section-detailed">
+                <h4><i class="ph ph-broadcast"></i> Music Sources</h4>
+                <div id="sourceDistribution" class="source-distribution">
+                    <p class="loading-stats">Loading source data...</p>
+                </div>
+            </div>
+            <!-- Global Bot Stats (if admin) -->
+            <div id="globalStatsSection" class="stats-section-detailed hidden">
+                <h4><i class="ph ph-globe"></i> Global Bot Statistics</h4>
+                <div class="stats-grid">
+                    <div class="stat-card small">
+                        <h4>Total Servers</h4>
+                        <span id="globalGuilds" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-card small">
+                        <h4>Active Players</h4>
+                        <span id="globalPlayers" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-card small">
+                        <h4>Total Plays</h4>
+                        <span id="globalPlays" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-card small">
+                        <h4>Unique Users</h4>
+                        <span id="globalUsers" class="stat-value">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Radio Page -->
+    <section id="radioPage" class="page hidden">
+        <div class="page-header">
+            <div class="header-info">
+                <h1>Radio & Mixes</h1>
+                <p>Endless music based on your taste</p>
+            </div>
+        </div>
+
+        <div class="radio-grid">
+            <div class="radio-card mixed" onclick="dashboard.playRadio('mixed')">
+                <div class="radio-content">
+                    <div class="radio-icon"><i class="ph ph-shuffle"></i></div>
+                    <h3>Mixed For You</h3>
+                    <p>A personalized blend of your favorites and new discoveries.</p>
+                    <button class="radio-play-btn">Play Now</button>
+                </div>
+            </div>
+
+            <div class="radio-card discovery" onclick="dashboard.playRadio('discovery')">
+                <div class="radio-content">
+                    <div class="radio-icon"><i class="ph ph-compass"></i></div>
+                    <h3>Discovery Radio</h3>
+                    <p>Explore new tracks similar to your listening history.</p>
+                    <button class="radio-play-btn">Explore</button>
+                </div>
+            </div>
+
+            <div class="radio-card artist-radio">
+                <div class="radio-content">
+                    <div class="radio-icon"><i class="ph ph-users-three"></i></div>
+                    <h3>Artist Radio</h3>
+                    <div class="search-input-wrapper">
+                        <input type="text" id="artistRadioSearch" placeholder="Enter artist name...">
+                        <button
+                            onclick="dashboard.playRadio('artist', document.getElementById('artistRadioSearch').value)"><i
+                                class="ph ph-play"></i></button>
+                    </div>
+                    <p>Start a station based on any artist.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="discovery-section">
+            <h3>Featured Genres</h3>
+            <div class="genre-pills">
+                <span class="genre-pill" onclick="dashboard.playRadio('genre', 'Lo-Fi')">☕ Lo-Fi</span>
+                <span class="genre-pill" onclick="dashboard.playRadio('genre', 'Gaming')">🎮 Gaming</span>
+                <span class="genre-pill" onclick="dashboard.playRadio('genre', 'Chill')">🌊 Chill</span>
+                <span class="genre-pill" onclick="dashboard.playRadio('genre', 'Pop')">🎤 Pop</span>
+                <span class="genre-pill" onclick="dashboard.playRadio('genre', 'Hip Hop')">🔥 Hip Hop</span>
+                <span class="genre-pill" onclick="dashboard.playRadio('genre', 'Electronic')">⚡
+                    Electronic</span>
+            </div>
+        </div>
+    </section>
+    </main>
+    </div>
+    <!-- Global Modals -->
+    <div id="lyricsModal" class="modal hidden">
+        <div class="modal-content lyrics-modal-content">
+            <div class="modal-header">
+                <h3><i class="ph ph-note-pencil"></i> Lyrics</h3>
+                <button class="modal-close" onclick="dashboard.closeModal('lyricsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="lyrics-header-actions">
+                    <div id="lyricsTitle" class="lyrics-track-title">Loading...</div>
+                    <div class="lyrics-translate-controls">
+                        <select id="lyricsLangSelect" class="lang-select">
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="ko">Korean</option>
+                            <option value="ja">Japanese</option>
+                            <option value="vi">Vietnamese</option>
+                            <option value="id">Indonesian</option>
+                            <option value="th">Thai</option>
+                            <option value="zh">Chinese</option>
+                        </select>
+                        <button id="translateLyricsBtn" class="action-btn small secondary"
+                            onclick="dashboard.translateLyrics()">
+                            <i class="ph ph-globe"></i> Translate
+                        </button>
+                    </div>
+                </div>
+                <div id="lyricsContent" class="lyrics-body">
+                    <!-- Lyrics will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Permission Request Modal (for session owners) -->
+    <div id="permissionRequestModal" class="permission-modal hidden">
+        <div class="permission-modal-content">
+            <div class="permission-header">
+                <span class="permission-icon"><i class="ph ph-bell"></i></span>
+                <h4>Permission Request</h4>
+            </div>
+            <div class="permission-body">
+                <div class="requester-info">
+                    <img id="permRequesterAvatar" class="requester-avatar" src="" alt="">
+                    <div class="requester-details">
+                        <span id="permRequesterName" class="requester-name"></span>
+                        <span class="permission-action">wants to <strong id="permAction">control the
+                                player</strong></span>
+                    </div>
+                </div>
+                <p class="permission-message">Allow this user to control the music player?</p>
+            </div>
+            <div class="permission-actions">
+                <button id="denyPermissionBtn" class="action-btn danger">
+                    <i class="ph ph-x"></i> Deny
+                </button>
+                <button id="approvePermissionBtn" class="action-btn primary">
+                    <i class="ph ph-check"></i> Approve
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Permission Denied Notification (for requesters) -->
+    <div id="permissionDeniedNotification" class="permission-notification hidden">
+        <div class="notification-content denied">
+            <span class="notification-icon"><i class="ph ph-prohibit"></i></span>
+            <span class="notification-text">Permission denied by session owner</span>
+        </div>
+    </div>
+    <!-- Permission Approved Notification -->
+    <div id="permissionApprovedNotification" class="permission-notification hidden">
+        <div class="notification-content approved">
+            <span class="notification-icon"><i class="ph ph-check-circle"></i></span>
+            <span class="notification-text">Permission granted! You can now control the player.</span>
+        </div>
+    </div>
+    <!-- Session Owner Indicator -->
+    <div id="sessionOwnerBadge" class="session-owner-badge hidden">
+        <span class="badge-icon"><i class="ph ph-crown"></i></span>
+        <span class="badge-text">Session Owner</span>
+    </div>
+    <!-- Audio for notification sound -->
+    <audio id="notificationSound" preload="auto">
+        <source
+            src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleEEwhae3qsO9k0E5b5Guqam1u4NJOX2PmKCcobRzPkF7i5OZhIh+YEFEa36JkYaBeWNBRWt+iZGGgXljQUVrfomRhoF5Y0FFa36JkYaBeWNBRWt+iZGGgXljQUVrfomRhoF5Y0FFa36JkYaBeWNB"
+            type="audio/wav">
+    </audio>
+    <!-- Scripts with dynamic cache-busting -->
+    <script>document.write('<script src="app.js?v=' + Date.now() + '"><\/script>');</script>
+    <!-- Edit Playlist Modal -->
+    <div id="editPlaylistModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Edit Playlist</h4>
+                <button class="modal-close" onclick="dashboard.closeModal('editPlaylistModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Playlist Name</label>
+                    <input type="text" id="editPlaylistName" class="setting-input" placeholder="Enter playlist name" />
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="editPlaylistDescription" class="setting-input"
+                        placeholder="Enter playlist description" rows="3"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button class="action-btn" onclick="dashboard.closeModal('editPlaylistModal')">Cancel</button>
+                    <button class="action-btn primary" onclick="dashboard.savePlaylistDetails()">Save Changes</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="app.js"></script>
-</body>
-</html>
+    <!-- Generic Input Modal -->
+    <div id="genericInputModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="genericInputTitle">Input</h4>
+                <button class="modal-close" onclick="dashboard.closeModal('genericInputModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label id="genericInputLabel">Value</label>
+                    <input type="text" id="genericInputValue" class="setting-input" />
+                </div>
+                <div class="modal-actions">
+                    <button class="action-btn" onclick="dashboard.closeModal('genericInputModal')">Cancel</button>
+                    <button class="action-btn primary" id="genericInputConfirmBtn">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Generic Confirm Modal -->
+    <div id="genericConfirmModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="genericConfirmTitle">Confirm</h4>
+                <button class="modal-close" onclick="dashboard.closeModal('genericConfirmModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="genericConfirmText">Are you sure?</p>
+                <div class="modal-actions">
+                    <button class="action-btn" onclick="dashboard.closeModal('genericConfirmModal')">Cancel</button>
+                    <button class="action-btn danger" id="genericConfirmBtn">Yes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Delete Playlist</h4>
+                <button class="modal-close" onclick="dashboard.closeModal('deleteConfirmModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteConfirmText">Are you sure you want to delete this playlist? This action cannot be undone.
+                </p>
+                <div class="modal-actions">
+                    <button class="action-btn" onclick="dashboard.closeModal('deleteConfirmModal')">Cancel</button>
+                    <button class="action-btn danger" id="confirmDeleteBtn">Delete Forever</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Play Options Modal -->
+    <div id="playOptionsModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Play Track</h4>
+                <button class="modal-close" onclick="dashboard.closeModal('playOptionsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="playOptionsTrackTitle" class="modal-subtitle">Selected Track</p>
+                <div class="play-options-grid">
+                    <button class="action-btn primary large-btn" onclick="dashboard.confirmPlayNow()">
+                        <span class="btn-icon"><i class="ph ph-play"></i></span>
+                        <div class="btn-text">
+                            <span class="main">Play Now</span>
+                            <span class="sub">Replaces current queue</span>
+                        </div>
+                    </button>
+                    <button class="action-btn secondary large-btn" onclick="dashboard.confirmPlayNext()">
+                        <span class="btn-icon"><i class="ph ph-queue"></i></span>
+                        <div class="btn-text">
+                            <span class="main">Play Next</span>
+                            <span class="sub">Add to top of queue</span>
+                        </div>
+                    </button>
+                    <button class="action-btn secondary large-btn" onclick="dashboard.confirmAddToQueue()">
+                        <span class="btn-icon"><i class="ph ph-list-plus"></i></span>
+                        <div class="btn-text">
+                            <span class="main">Add to Queue</span>
+                            <span class="sub">Add to end of queue</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite Collaborator Modal -->
+    <div id="inviteCollaboratorModal" class="popup-overlay hidden"
+        onclick="if(event.target===this) dashboard.closeModal('inviteCollaboratorModal')">
+        <div class="popup-content small">
+            <div class="popup-header">
+                <h3><i class="ph ph-user-plus"></i> Invite Collaborator</h3>
+                <button class="popup-close" onclick="dashboard.closeModal('inviteCollaboratorModal')">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+            <div class="popup-body">
+                <p class="popup-description">Enter the Discord User ID of the person you want to collaborate with.</p>
+                <div class="form-group">
+                    <label for="collaboratorIdInput">Discord User ID</label>
+                    <input type="text" id="collaboratorIdInput" class="form-input"
+                        placeholder="e.g. 123456789012345678">
+                </div>
+                <div class="form-group">
+                    <label for="collaboratorRoleSelect">Role</label>
+                    <select id="collaboratorRoleSelect" class="form-select">
+                        <option value="editor">Editor (can add/remove tracks)</option>
+                        <option value="viewer">Viewer (can only view)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="popup-footer">
+                <button class="action-btn secondary"
+                    onclick="dashboard.closeModal('inviteCollaboratorModal')">Cancel</button>
+                <button class="action-btn primary"
+                    onclick="dashboard.inviteCollaborator(document.getElementById('collaboratorIdInput').value, document.getElementById('collaboratorRoleSelect').value)">
+                    <i class="ph ph-paper-plane-tilt"></i> Send Invite
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Panel (Slide-out) -->
+    <div id="historyPanel" class="slide-panel hidden">
+        <div class="slide-panel-header">
+            <h3><i class="ph ph-clock-counter-clockwise"></i> Recently Played</h3>
+            <button class="popup-close" onclick="dashboard.toggleHistoryPanel()">
+                <i class="ph ph-x"></i>
+            </button>
+        </div>
+        <div id="historyList" class="slide-panel-content">
+            <div class="empty-state">
+                <i class="ph ph-music-notes-simple"></i>
+                <p>No history yet</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcutsModal" class="popup-overlay hidden"
+        onclick="if(event.target===this) dashboard.closeModal('shortcutsModal')">
+        <div class="popup-content medium">
+            <div class="popup-header">
+                <h3><i class="ph ph-keyboard"></i> Keyboard Shortcuts</h3>
+                <button class="popup-close" onclick="dashboard.closeModal('shortcutsModal')">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+            <div class="popup-body shortcuts-grid">
+                <div class="shortcut-category">
+                    <h4>Playback</h4>
+                    <div class="shortcut-item"><kbd>Space</kbd> <span>Play / Pause</span></div>
+                    <div class="shortcut-item"><kbd>→</kbd> <span>Skip to next track</span></div>
+                    <div class="shortcut-item"><kbd>←</kbd> <span>Previous track</span></div>
+                    <div class="shortcut-item"><kbd>Shift</kbd> + <kbd>→</kbd> <span>Fast forward 10s</span></div>
+                    <div class="shortcut-item"><kbd>Shift</kbd> + <kbd>←</kbd> <span>Rewind 10s</span></div>
+                </div>
+                <div class="shortcut-category">
+                    <h4>Volume</h4>
+                    <div class="shortcut-item"><kbd>↑</kbd> <span>Volume up</span></div>
+                    <div class="shortcut-item"><kbd>↓</kbd> <span>Volume down</span></div>
+                    <div class="shortcut-item"><kbd>M</kbd> <span>Mute / Unmute</span></div>
+                </div>
+                <div class="shortcut-category">
+                    <h4>Queue</h4>
+                    <div class="shortcut-item"><kbd>R</kbd> <span>Toggle repeat mode</span></div>
+                    <div class="shortcut-item"><kbd>S</kbd> <span>Shuffle queue</span></div>
+                    <div class="shortcut-item"><kbd>L</kbd> <span>Like current track</span></div>
+                </div>
+                <div class="shortcut-category">
+                    <h4>Navigation</h4>
+                    <div class="shortcut-item"><kbd>1</kbd> <span>Go to Player</span></div>
+                    <div class="shortcut-item"><kbd>2</kbd> <span>Go to Search</span></div>
+                    <div class="shortcut-item"><kbd>3</kbd> <span>Go to Playlists</span></div>
+                    <div class="shortcut-item"><kbd>?</kbd> <span>Show this help</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mintone-Style Scroll Reveal Animations -->
+    <script>
+        // Scroll-triggered reveal animations using IntersectionObserver
+        (function () {
+            const revealElements = document.querySelectorAll('.reveal');
+
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px 0px -50px 0px',
+                threshold: 0.1
+            };
+
+            const revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('revealed');
+                        // Optionally stop observing after reveal
+                        // revealObserver.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            revealElements.forEach(el => revealObserver.observe(el));
+
+            // Animated number counter for stats
+            function animateCounter(element, target) {
+                const duration = 2000; // 2 seconds
+                const startTime = performance.now();
+                const startValue = 0;
+
+                // Add counting class for pulse animation
+                element.classList.add('counting');
+
+                function update(currentTime) {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+
+                    // Easing function for smooth animation
+                    const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+                    const currentValue = Math.floor(startValue + (target - startValue) * easeOutCubic);
+
+                    element.textContent = currentValue.toLocaleString() + '+';
+
+                    if (progress < 1) {
+                        requestAnimationFrame(update);
+                    } else {
+                        element.classList.remove('counting');
+                    }
+                }
+
+                requestAnimationFrame(update);
+            }
+
+            // Observe stat cards for counter animation
+            const statCards = document.querySelectorAll('.stat-card');
+            const statObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && !entry.target.dataset.counted) {
+                        entry.target.dataset.counted = 'true';
+                        const h3 = entry.target.querySelector('h3[id^="stat-"]');
+                        if (h3 && h3.dataset.target) {
+                            animateCounter(h3, parseInt(h3.dataset.target, 10));
+                        }
+                    }
+                });
+            }, { threshold: 0.5 });
+
+            statCards.forEach(card => statObserver.observe(card));
+
+            // === CURSOR GLOW EFFECT ===
+            const cursorGlow = document.createElement('div');
+            cursorGlow.className = 'cursor-glow';
+            cursorGlow.style.opacity = '0'; // Start hidden until mouse moves
+            document.body.appendChild(cursorGlow);
+
+            let mouseX = 0, mouseY = 0;
+            let glowX = 0, glowY = 0;
+            let hasMouseMoved = false;
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                // Show glow on first mouse move
+                if (!hasMouseMoved) {
+                    hasMouseMoved = true;
+                    glowX = mouseX;
+                    glowY = mouseY;
+                    cursorGlow.style.opacity = '0.7';
+                }
+            });
+
+            // Smooth cursor following with lerp (tighter tracking)
+            function animateCursorGlow() {
+                const speed = 0.25; // Faster tracking
+                glowX += (mouseX - glowX) * speed;
+                glowY += (mouseY - glowY) * speed;
+
+                // Use left/top for more reliable positioning
+                cursorGlow.style.left = (glowX - 100) + 'px';
+                cursorGlow.style.top = (glowY - 100) + 'px';
+                requestAnimationFrame(animateCursorGlow);
+            }
+            animateCursorGlow();
+
+            // Hide cursor glow when mouse leaves window
+            document.addEventListener('mouseleave', () => {
+                cursorGlow.style.opacity = '0';
+            });
+            document.addEventListener('mouseenter', () => {
+                cursorGlow.style.opacity = '1';
+            });
+
+            // === PARALLAX SCROLLING FOR HERO ===
+            const hero = document.querySelector('.hero');
+            const heroContent = document.querySelector('.hero-content');
+            const heroGrid = document.querySelector('.hero-grid-overlay');
+
+            if (hero && heroContent) {
+                window.addEventListener('scroll', () => {
+                    const scrollY = window.scrollY;
+                    const heroHeight = hero.offsetHeight;
+
+                    // Only apply parallax while hero is visible
+                    if (scrollY < heroHeight) {
+                        const parallaxAmount = scrollY * 0.4;
+                        const opacityFade = 1 - (scrollY / heroHeight);
+
+                        heroContent.style.transform = `translateY(${parallaxAmount}px)`;
+                        heroContent.style.opacity = Math.max(0, opacityFade);
+
+                        if (heroGrid) {
+                            heroGrid.style.transform = `translateY(${scrollY * 0.2}px)`;
+                        }
+                    }
+                }, { passive: true });
+            }
+        })();
+    </script>
+
+    <!-- Cursor Glow Styles (inline for immediate effect) -->
+    <style>
+        .cursor-glow {
+            position: fixed;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle,
+                    rgba(99, 102, 241, 0.08) 0%,
+                    rgba(139, 92, 246, 0.04) 40%,
+                    transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9998;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+            mix-blend-mode: screen;
+            will-change: left, top;
+        }
+
+        /* Reduce parallax on mobile for better performance */
+        @media (max-width: 768px) {
+            .cursor-glow {
+                display: none;
+            }
+        }
+    </style>
+    <script>document.write('<script src="visualizer.js?v=' + Date.now() + '"><\/script>');</script>
+</body>
+
+</html>
