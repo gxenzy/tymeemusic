@@ -42,11 +42,34 @@ export class Tymee extends Client {
 				Partials.Message,
 				Partials.User,
 			],
+			// Aggressive cache limits for reduced memory
 			makeCache: Options.cacheWithLimits({
-				MessageManager: 100,
-				PresenceManager: 0,
-				UserManager: 100,
+				MessageManager: 50, // Reduced from 100
+				PresenceManager: 0, // Disable presence caching
+				UserManager: 50, // Reduced from 100
+				GuildMemberManager: 50, // Limit guild member cache
+				ReactionManager: 0, // Disable reaction caching
+				ReactionUserManager: 0, // Disable reaction user caching
+				ThreadManager: 0, // Disable thread caching
+				ThreadMemberManager: 0, // Disable thread member caching
+				StageInstanceManager: 0, // Disable stage caching
+				VoiceStateManager: Infinity, // Keep voice states (needed for music)
+				GuildBanManager: 0, // Disable ban caching
+				GuildInviteManager: 0, // Disable invite caching
+				GuildScheduledEventManager: 0, // Disable event caching
 			}),
+			// Auto-sweep old cached data
+			sweepers: {
+				...Options.DefaultSweeperSettings,
+				messages: {
+					interval: 300, // Every 5 minutes
+					lifetime: 600, // Delete messages older than 10 minutes
+				},
+				users: {
+					interval: 600, // Every 10 minutes
+					filter: () => user => user.bot && user.id !== user.client.user?.id, // Remove cached bots
+				},
+			},
 			failIfNotExists: false,
 			allowedMentions: { parse: ['users', 'roles'], repliedUser: false },
 		};
@@ -55,6 +78,7 @@ export class Tymee extends Client {
 			clientOptions.shards = shardInfo.SHARD_LIST;
 			clientOptions.shardCount = shardInfo.TOTAL_SHARDS;
 		}
+
 
 		super(clientOptions);
 

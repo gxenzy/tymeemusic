@@ -177,11 +177,11 @@ class HelpCommand extends Command {
 
       // Auto-assign tier based on category and command name
       let commandData = { ...CommandClass };
-      
+
       // Only call _determineCommandTier if tier is 'free' or undefined
       // (not explicitly set to vip/premium/owner)
       const explicitlySetTier = commandData.tier && ['vip', 'premium', 'owner'].includes(commandData.tier);
-      
+
       if (!explicitlySetTier) {
         const determinedTier = this._determineCommandTier(categoryName, commandData.name);
         commandData.tier = determinedTier;
@@ -302,7 +302,7 @@ class HelpCommand extends Command {
 
       // Filter categories based on available commands
       const filteredCategories = this._filterCategoriesByCommands(categories, filteredCommands);
-      
+
       if (filteredCategories.size === 0) {
         return message.reply({
           components: [this._createErrorContainer("No commands available for your tier.")],
@@ -339,7 +339,7 @@ class HelpCommand extends Command {
           ],
           flags: MessageFlags.IsComponentsV2,
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }
 
@@ -349,10 +349,10 @@ class HelpCommand extends Command {
       const userTier = await this._getUserTier(interaction.user.id, interaction.guild.id, client);
       const { commands, categories, subcategories } =
         await this._scanCommandDirectories();
-      
+
       // Filter commands based on user's tier
       const filteredCommands = this._filterCommandsByTier(commands, userTier);
-      
+
       const commandName = interaction.options.getString("command");
 
       if (commandName) {
@@ -417,24 +417,24 @@ class HelpCommand extends Command {
       try {
         if (interaction.replied || interaction.deferred) {
           await interaction.editReply({
-            components: [
-              this._createErrorContainer(
-                "An error occurred while loading help.",
-              ),
-            ],
+            content: "❌ An error occurred while loading help. Please try again.",
+            components: [],
           });
         } else {
           await interaction.reply({
-            components: [
-              this._createErrorContainer(
-                "An error occurred while loading help.",
-              ),
-            ],
+            content: "❌ An error occurred while loading help. Please try again.",
             ephemeral: true,
           });
         }
       } catch (e) {
         logger.error("HelpCommand", "Failed to send error response:", e);
+        // Ultimate fallback - try plain content without any flags
+        try {
+          await interaction.reply({
+            content: "❌ Help command failed. Please try again later.",
+            ephemeral: true,
+          }).catch(() => { });
+        } catch { }
       }
     }
   }
@@ -460,7 +460,7 @@ class HelpCommand extends Command {
 
       await interaction.respond(choices);
     } catch (error) {
-      await interaction.respond([]).catch(() => {});
+      await interaction.respond([]).catch(() => { });
     }
   }
 
@@ -478,10 +478,10 @@ class HelpCommand extends Command {
       const { DatabaseManager } = await import('#database/DatabaseManager');
       const { db } = await import('#database/DatabaseManager');
       const guildDb = db.guild;
-      
+
       const guild = guildDb.ensureGuild(guildId);
       const tier = guildDb.getTier(guildId) || 'free';
-      
+
       // If tier is owner, only bot owners get it
       if (tier === 'owner') {
         return config.ownerIds?.includes(userId) ? 'owner' : 'free';
@@ -489,7 +489,7 @@ class HelpCommand extends Command {
 
       const guildObj = client.guilds.cache.get(guildId);
       if (!guildObj) return 'denied';
-      
+
       let member = guildObj.members.cache.get(userId);
       if (!member) {
         try {
@@ -567,7 +567,7 @@ class HelpCommand extends Command {
     const userTierLevel = tierHierarchy[userTier] || 0;
 
     const filtered = new Map();
-    
+
     for (const [name, command] of commands) {
       // Only add unique commands (not aliases)
       if (name !== command.name) continue;
@@ -586,13 +586,13 @@ class HelpCommand extends Command {
 
   _filterCategoriesByCommands(categories, filteredCommands) {
     const filtered = new Map();
-    
+
     for (const [categoryName, commands] of categories) {
       // Filter commands in this category
-      const filteredCategoryCommands = commands.filter(cmd => 
+      const filteredCategoryCommands = commands.filter(cmd =>
         filteredCommands.has(cmd.name)
       );
-      
+
       if (filteredCategoryCommands.length > 0) {
         filtered.set(categoryName, filteredCategoryCommands);
       }
@@ -665,7 +665,7 @@ class HelpCommand extends Command {
         const categoryCommands = categories.get(category) || [];
         const subcats = subcategories.get(category);
         const subcatCount = subcats ? subcats.size : 0;
-        const info = subcatCount > 0 
+        const info = subcatCount > 0
           ? `${categoryCommands.length} commands, ${subcatCount} subcategories`
           : `${categoryCommands.length} commands`;
 
@@ -749,7 +749,7 @@ class HelpCommand extends Command {
       let content = `**${this._capitalize(category)} Category**\n\n`;
       content += `Your Tier: ${this._getTierDisplayName(userTier)}\n\n`;
 
-      
+
       const directCommands = commands.filter((cmd) => {
         if (!subcats) return true;
         for (const [, subcatCommands] of subcats) {
@@ -764,7 +764,7 @@ class HelpCommand extends Command {
       const hasSubcats = subcats && subcats.size > 0;
       const subcatEntries = hasSubcats ? Array.from(subcats.entries()) : [];
 
-    
+
       if (hasDirectCommands) {
         directCommands.forEach((cmd, index) => {
           const isLast = index === directCommands.length - 1 && !hasSubcats;
@@ -773,7 +773,7 @@ class HelpCommand extends Command {
         });
       }
 
-    
+
       if (hasSubcats) {
         subcatEntries.forEach(([subcatName, subcatCommands], subcatIndex) => {
           const isLastSubcat = subcatIndex === subcatEntries.length - 1;
@@ -781,7 +781,7 @@ class HelpCommand extends Command {
 
           content += `${prefix}${emoji.get("folder")}**${this._capitalize(subcatName)}**\n`;
 
-          
+
           const commandList = subcatCommands.map(cmd => `\`${cmd.name}\``).join(", ");
           const indent = isLastSubcat ? "    " : "│   ";
           content += `${indent}${commandList}\n`;
@@ -862,7 +862,7 @@ class HelpCommand extends Command {
       // Get command's required tier
       const commandTier = this._getCommandTier(command);
       const tierEmoji = { free: '🎵', vip: '⭐', premium: '💎', owner: '👑' };
-      
+
       let content = `**Command Information**\n\n`;
       content += `┌─ **${emoji.get("info")} Basic Info**\n`;
       content += `├─ Description: ${command.description || "No description provided"}\n`;
@@ -892,12 +892,12 @@ class HelpCommand extends Command {
       }
 
       const requirements = [];
-      
+
       // Tier access info
       const tierHierarchy = { free: 1, vip: 2, premium: 3, owner: 4 };
       const userTierLevel = tierHierarchy[userTier] || 0;
       const commandTierLevel = tierHierarchy[commandTier] || 0;
-      
+
       if (userTierLevel >= commandTierLevel) {
         content += `✅ You have access to this command!\n\n`;
       } else {
@@ -1167,7 +1167,7 @@ class HelpCommand extends Command {
           await interaction.deferUpdate();
 
           if (interaction.customId === "help_close") {
-            await interaction.deleteReply().catch(() => {});
+            await interaction.deleteReply().catch(() => { });
             collector.stop();
             return;
           }

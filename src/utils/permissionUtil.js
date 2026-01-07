@@ -3,7 +3,7 @@ import { config } from '#config/config';
 import { db } from '#database/DatabaseManager';
 import { logger } from '#utils/logger';
 
-const ownerSet = new Set(config.ownerIds || []);
+// Removed static ownerSet - now using dynamic check in isOwner()
 const permissionNames = new Map();
 
 for (const [name, value] of Object.entries(PermissionFlagsBits)) {
@@ -17,8 +17,10 @@ for (const [name, value] of Object.entries(PermissionFlagsBits)) {
 }
 
 export function isOwner(userId) {
-	return ownerSet.has(userId);
+	// Always check config dynamically to ensure owner IDs are current
+	return config.ownerIds?.includes(userId) || false;
 }
+
 
 export function canUseCommand(member, command) {
 	if (command.ownerOnly && !isOwner(member.id)) return false;

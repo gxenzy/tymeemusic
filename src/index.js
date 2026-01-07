@@ -1,3 +1,6 @@
+// V8 compile cache - speeds up module loading
+import 'v8-compile-cache-lib';
+
 import { Tymee } from '#structures/classes/Yukihana';
 import { logger } from '#utils/logger';
 

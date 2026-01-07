@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 package-lock.json
+bun.lock
 
 # Environment variables
 .env
@@ -9,6 +10,7 @@ package-lock.json
 
 # Database files
 database/data/
+data/
 *.bread
 *.bread-shm
 *.bread-wal
@@ -23,21 +25,63 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# IDE
+# IDE/Editor
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
+*.sublime-*
 
 # Test files
 test-results/
 test-*.js
+tests/
 
-# Large files
+# Large binaries
 *.jar
+*.war
+plugins/
+
+# Cache files
+.cache/
+*.cache
+.v8-cache/
 
 # Temporary files
 *.tmp
 *.temp
+*.bak
+*.backup
+*.old
+
+# Credentials & Sensitive
+*.pem
+*.key
+credentials.json
+youtube-cookies.txt
+
+# NodeLink specific
+nodelink/logs/
+nodelink/*.bread*
+nodelink/node_modules/
+nodelink/package-lock.json
+
+# Investigation/Debug notes
+investigation*.md
+*_log.md
+*_update_log.md
+
+# Assets (optional - uncomment if not needed in repo)
+# fonts/
+
+# Build outputs
+dist/
+build/
+
+# Session data
+sessions/
+*.session

@@ -1,3 +1,6 @@
+// V8 compile cache - speeds up subsequent startups by caching compiled bytecode
+import 'v8-compile-cache-lib';
+
 import { ClusterManager, HeartbeatManager } from 'discord-hybrid-sharding';
 
 import { config } from '#config/config';
@@ -12,12 +15,14 @@ const manager = new ClusterManager('./src/index.js', {
 	restartMode: 'gracefulSwitch',
 });
 
+// Optimized heartbeat - reduced frequency for less CPU usage
 manager.extend(
 	new HeartbeatManager({
-		interval: 2000,
-		maxMissedHeartbeats: 5,
+		interval: 5000, // Increased from 2000ms
+		maxMissedHeartbeats: 8, // Increased from 5
 	}),
 );
+
 
 manager.on('clusterCreate', cluster => {
 	logger.info(
@@ -139,7 +144,7 @@ const deploySlashCommands = async () => {
 
 const run = async () => {
 	// Deploy commands before spawning shards
-	// await deploySlashCommands(); // Temporary disable for Bun test
+	await deploySlashCommands();
 
 	manager
 		.spawn({ timeout: -1 })

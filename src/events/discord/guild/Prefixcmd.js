@@ -56,8 +56,14 @@ async function _sendError(message, title, description) {
     } else {
       await message.reply(reply);
     }
-  } catch (e) { }
+  } catch (e) {
+    // Fallback to plain text if Components V2 fails
+    try {
+      await message.reply(`❌ **${title}**\n${description}`).catch(() => { });
+    } catch { }
+  }
 }
+
 
 async function _sendPremiumError(message, type) {
   const button = new ButtonBuilder()
@@ -86,12 +92,20 @@ async function _sendPremiumError(message, type) {
         .setButtonAccessory(button),
     );
 
-  await message.reply({
-    components: [container],
-    flags: MessageFlags.IsComponentsV2,
-    ephemeral: true,
-  });
+  try {
+    await message.reply({
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
+      ephemeral: true,
+    });
+  } catch (e) {
+    // Fallback to plain text if Components V2 fails
+    try {
+      await message.reply(`ℹ️ **${typeText} Required**\nThis command is an exclusive feature for our premium subscribers.`).catch(() => { });
+    } catch { }
+  }
 }
+
 
 async function _sendCooldownError(message, cooldownTime, command) {
   if (

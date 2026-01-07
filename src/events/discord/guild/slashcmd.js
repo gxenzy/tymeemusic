@@ -58,9 +58,24 @@ async function _sendError(interaction, title, description) {
       await interaction.reply(reply);
     }
   } catch (error) {
-    logger.error("InteractionCreate", "Failed to send error reply.", error);
+    logger.error("InteractionCreate", "Failed to send Components V2 error reply, trying fallback.", error);
+    // Fallback to plain text if Components V2 fails
+    try {
+      const fallbackReply = {
+        content: `❌ **${title}**\n${description}`,
+        ephemeral: true,
+      };
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(fallbackReply);
+      } else {
+        await interaction.reply(fallbackReply);
+      }
+    } catch (fallbackError) {
+      logger.error("InteractionCreate", "Fallback error reply also failed.", fallbackError);
+    }
   }
 }
+
 
 async function _sendPremiumError(interaction, type) {
   const button = new ButtonBuilder()
@@ -102,11 +117,26 @@ async function _sendPremiumError(interaction, type) {
   } catch (error) {
     logger.error(
       "InteractionCreate",
-      "Failed to send premium error reply.",
+      "Failed to send premium error reply, trying fallback.",
       error,
     );
+    // Fallback to plain text
+    try {
+      const fallbackReply = {
+        content: `ℹ️ **${type} Required**\nThis command requires a **${type}** subscription. Contact the bot owner for access.`,
+        ephemeral: true,
+      };
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(fallbackReply);
+      } else {
+        await interaction.reply(fallbackReply);
+      }
+    } catch (fallbackError) {
+      logger.error("InteractionCreate", "Fallback premium error also failed.", fallbackError);
+    }
   }
 }
+
 
 async function _sendCooldownError(interaction, cooldownTime, command) {
   if (!antiAbuse.shouldShowCooldownNotification(interaction.user.id, command.name)) {

@@ -4,6 +4,14 @@ import filters from '#config/filters';
 import { logger } from '#utils/logger';
 import { db } from '#database/DatabaseManager';
 
+// Helper function to auto-dismiss messages after 5 seconds
+function autoDismiss(interaction, delayMs = 5000) {
+  setTimeout(() => {
+    interaction.deleteReply().catch(() => { });
+  }, delayMs);
+}
+
+
 export async function handleButtonInteraction(interaction, pm, client) {
   const { customId } = interaction;
   let response = '';
@@ -322,8 +330,8 @@ export async function handleButtonInteraction(interaction, pm, client) {
     // Update the ephemeral status message
     await interaction.editReply({ content: response });
 
-    // Auto-dismiss simple status messages after 5 seconds
-    if (!isMenu && response && !response.includes('❌')) {
+    // Auto-dismiss ALL messages after 5 seconds (not just successful ones)
+    if (!isMenu && response) {
       setTimeout(() => {
         interaction.deleteReply().catch(() => { });
       }, 5000);
@@ -341,9 +349,14 @@ export async function handleButtonInteraction(interaction, pm, client) {
     logger.error('Playerbuttons', 'Error handling button interaction:', err);
     try {
       await interaction.editReply({ content: '❌ An error occurred while processing your button interaction.' });
+      // Auto-dismiss error messages too
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
     } catch { }
   }
 }
+
 
 export async function handleSelectMenuInteraction(interaction, pm, client) {
   const selectedValue = interaction.values?.[0];
@@ -356,13 +369,16 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
 
       if (minutes === 0) {
         pm.setSleepTimer(0);
-        return interaction.editReply({ content: '✅ **Sleep timer cancelled.**' });
+        await interaction.editReply({ content: '✅ **Sleep timer cancelled.**' });
+        autoDismiss(interaction);
+        return;
       }
 
       const expireAt = pm.setSleepTimer(minutes, client);
       const timeString = `<t:${Math.floor(expireAt / 1000)}:R>`;
       response = `✅ **Sleep timer set!** The music will stop ${timeString}. 💤`;
       await interaction.editReply({ content: response });
+      autoDismiss(interaction);
 
       // Immediate embed update for sleep timer status
       try {
@@ -373,13 +389,16 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
       return;
     }
 
+
     if (interaction.customId === 'music_similar_results') {
       const idx = parseInt((selectedValue || '').replace('similar_add_', ''), 10);
       const suggestions = pm.player?.get('similarSuggestions') || [];
       const suggestion = suggestions[idx];
 
       if (!suggestion) {
-        return interaction.editReply({ content: '❌ Invalid selection.' });
+        await interaction.editReply({ content: '❌ Invalid selection.' });
+        autoDismiss(interaction);
+        return;
       }
 
       try {
@@ -389,6 +408,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
         if (searchResult && searchResult.tracks.length > 0) {
           await pm.addTracks(searchResult.tracks[0]);
           await interaction.editReply({ content: `✅ Added **${searchResult.tracks[0].info.title}** to the queue!` });
+          autoDismiss(interaction);
 
           // Refresh embed
           try {
@@ -399,13 +419,16 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
           if (client.webServer) client.webServer.updatePlayerState(pm.guildId);
         } else {
           await interaction.editReply({ content: '❌ Could not find a playable version of that track.' });
+          autoDismiss(interaction);
         }
       } catch (err) {
         logger.error('Playerbuttons', 'Error adding similar track:', err);
         await interaction.editReply({ content: '❌ Error adding track.' });
+        autoDismiss(interaction);
       }
       return;
     }
+
 
     if (interaction.customId === 'music_similar_select') {
       if (selectedValue === 'similar_search') {
@@ -478,6 +501,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
           }
           pm.player.lastFilterName = null;
           await interaction.editReply({ content: '✅ Audio filters reset.' });
+          autoDismiss(interaction);
           try {
             const mod = await import('./Playerbuttons.js');
             if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
@@ -486,6 +510,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
         } catch (err) {
           logger.error('Playerbuttons', 'Error resetting filters:', err);
           await interaction.editReply({ content: '❌ Failed to reset filters.' });
+          autoDismiss(interaction);
         }
         return;
       }
@@ -535,6 +560,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
         pm.player.lastFilterName = selected;
 
         await interaction.editReply({ content: `✅ Applied filter **${selected}**.` });
+        autoDismiss(interaction);
         try {
           const mod = await import('./Playerbuttons.js');
           if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
@@ -543,6 +569,7 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
       } catch (err) {
         logger.error('Playerbuttons', 'Error applying filter:', err);
         await interaction.editReply({ content: '❌ Failed to apply that filter.' });
+        autoDismiss(interaction);
       }
       return;
     }
@@ -550,11 +577,16 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
     if (interaction.customId === 'music_move_select') {
       const val = selectedValue;
       const match = /^move_idx_(\d+)$/.exec(val);
-      if (!match) return interaction.editReply({ content: '❌ Invalid selection.' });
+      if (!match) {
+        await interaction.editReply({ content: '❌ Invalid selection.' });
+        autoDismiss(interaction);
+        return;
+      }
       const fromIndex = parseInt(match[1], 10);
       try {
         await pm.moveTrack(fromIndex, 0);
         await interaction.editReply({ content: `✅ Moved track ${fromIndex + 1} to the top of the queue.` });
+        autoDismiss(interaction);
         try {
           const mod = await import('./Playerbuttons.js');
           if (typeof mod.updatePlayerMessageEmbed === 'function') mod.updatePlayerMessageEmbed(client, pm);
@@ -563,9 +595,11 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
       } catch (err) {
         logger.error('Playerbuttons', 'Error moving track:', err);
         await interaction.editReply({ content: '❌ Failed to move that track.' });
+        autoDismiss(interaction);
       }
       return;
     }
+
 
     if (interaction.customId === 'music_effects_select') {
       const effect = selectedValue;
@@ -855,9 +889,14 @@ export async function handleSelectMenuInteraction(interaction, pm, client) {
     logger.error('Playerbuttons', 'Error handling select menu interaction:', err);
     try {
       await interaction.editReply({ content: '❌ An error occurred while processing your selection.' });
+      // Auto-dismiss error message after 5 seconds
+      setTimeout(() => {
+        interaction.deleteReply().catch(() => { });
+      }, 5000);
     } catch { }
   }
 }
+
 
 import { DiscordPlayerEmbed } from '#utils/DiscordPlayerEmbed';
 

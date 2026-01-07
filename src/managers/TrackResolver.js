@@ -17,27 +17,35 @@ export class TrackResolver {
             return null;
         }
 
+        const targetDuration = trackInfo.duration;
+        const durationTolerance = 5000; // 5 seconds tolerance
+
+        // 1. Try ISRC first for exact match (most accurate)
         if (trackInfo.isrc) {
-            // Try resolving by ISRC first (Youtube Music or Spotify)
             const isrcResult = await this.search(`"${trackInfo.isrc}"`, requester);
             if (isrcResult.tracks?.length) {
-                return isrcResult.tracks[0];
+                const match = this._findBestMatch(isrcResult.tracks, targetDuration, durationTolerance);
+                if (match) return match;
             }
         }
 
-        // 1. Try resolving by URI (most accurate)
+        // 2. Try resolving by URI (if YouTube/Spotify URL)
         if (trackInfo.uri) {
             const result = await this.search(trackInfo.uri, requester);
             if (result.tracks?.length) {
-                return result.tracks[0];
+                const match = this._findBestMatch(result.tracks, targetDuration, durationTolerance);
+                if (match) return match;
             }
         }
 
-        // 2. Fallback: Search by "Title - Artist"
-        const query = `${trackInfo.title} ${trackInfo.author}`;
+        // 3. Search by "Artist - Title" with duration matching
+        const query = `${trackInfo.author} - ${trackInfo.title}`;
         const result = await this.search(query, requester);
 
         if (result.tracks?.length) {
+            const match = this._findBestMatch(result.tracks, targetDuration, durationTolerance);
+            if (match) return match;
+            // If no duration match, return first result as fallback
             return result.tracks[0];
         }
 
@@ -45,7 +53,53 @@ export class TrackResolver {
     }
 
     /**
-     * Search wrapper
+     * Find the best matching track based on duration
+     * @param {Array} tracks Array of tracks from search results
+     * @param {number} targetDuration Target duration in milliseconds
+     * @param {number} tolerance Duration tolerance in milliseconds
+     * @returns {Object|null} Best matching track or null
+     */
+    _findBestMatch(tracks, targetDuration, tolerance = 5000) {
+        if (!targetDuration || !tracks.length) return tracks[0];
+
+        // Filter tracks within duration tolerance
+        const matchingTracks = tracks.filter(track => {
+            const trackDuration = track.info?.duration || 0;
+            return Math.abs(trackDuration - targetDuration) <= tolerance;
+        });
+
+        if (matchingTracks.length) {
+            // Return the one closest to target duration
+            return matchingTracks.reduce((best, current) => {
+                const bestDiff = Math.abs((best.info?.duration || 0) - targetDuration);
+                const currentDiff = Math.abs((current.info?.duration || 0) - targetDuration);
+                return currentDiff < bestDiff ? current : best;
+            });
+        }
+
+        // No duration match - check if first result is obviously wrong (compilation/mix)
+        const first = tracks[0];
+        const firstDuration = first.info?.duration || 0;
+        const title = (first.info?.title || '').toLowerCase();
+
+        // If it's way too long (>2x) and looks like a mix/compilation, skip it
+        if (firstDuration > targetDuration * 2) {
+            const mixKeywords = ['mix', 'compilation', 'album', 'playlist', 'full album', 'best of'];
+            if (mixKeywords.some(kw => title.includes(kw))) {
+                // Try to find a non-mix track
+                const nonMix = tracks.find(t => {
+                    const tTitle = (t.info?.title || '').toLowerCase();
+                    return !mixKeywords.some(kw => tTitle.includes(kw));
+                });
+                if (nonMix) return nonMix;
+            }
+        }
+
+        return first;
+    }
+
+    /**
+     * Search wrapper with improved query formatting
      * @param {string} query 
      * @param {Object} requester 
      */
@@ -64,16 +118,10 @@ export class TrackResolver {
 
             // If it's not a URL and doesn't already have a source prefix
             if (!query.startsWith('http') && !query.includes(':')) {
-                // Determine if we need aggressive filtering
-                // Use quotes for exact matching if possible
-                // Filter out live, cover, remix unless explicitly requested
-                if (!query.toLowerCase().includes('live')) {
-                    q = `${source}${query} "Audio" -Live -Cover -Remix`;
-                } else {
-                    q = `${source}${query}`;
-                }
+                // Build search query optimized for original tracks
+                // Exclude common non-original versions
+                q = `${source}${query} -cover -remix -live -karaoke -instrumental`;
             } else if (query.includes('spotify') && !query.startsWith('http')) {
-                // If it's a spotify ID/ISRC being resolved
                 q = query.startsWith('ytmsearch:') ? query : `${source}${query}`;
             }
 
@@ -84,3 +132,4 @@ export class TrackResolver {
         }
     }
 }
+
