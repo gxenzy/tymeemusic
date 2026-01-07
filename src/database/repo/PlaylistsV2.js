@@ -8,7 +8,7 @@ import { logger } from "#utils/logger";
  */
 export class PlaylistsV2 extends Database {
     constructor() {
-        super(config.database.playlistsV2 || 'database/data/playlists_v2.bread');
+        super(config.database.playlistsV2);
         this.initTables();
     }
 
@@ -170,20 +170,33 @@ export class PlaylistsV2 extends Database {
         `, [userId, limit]);
 
         if (tracks.length > 0) {
-            return tracks.map(t => ({
-                ...t,
-                id: String(t.id),
-                info: {
-                    title: t.title,
-                    author: t.author,
-                    length: t.duration,
-                    artworkUrl: t.artwork_url,
-                    uri: t.uri,
-                    sourceName: t.source
-                },
-                encoded: t.encoded
-            }));
+            return tracks.map(t => {
+                let identifier = t.uri;
+                if (t.source === 'spotify' && t.uri && t.uri.includes('spotify.com')) {
+                    identifier = t.uri;
+                } else if (t.isrc) {
+                    identifier = `ytmsearch:${t.isrc}`;
+                }
+
+                return {
+                    ...t,
+                    id: String(t.id),
+                    info: {
+                        title: t.title,
+                        author: t.author,
+                        length: t.duration,
+                        artworkUrl: t.artwork_url,
+                        uri: t.uri,
+                        identifier: identifier,
+                        isrc: t.isrc,
+                        sourceName: t.source
+                    },
+                    encoded: t.encoded,
+                    isrc: t.isrc
+                };
+            });
         }
+
 
         return [];
     }
@@ -253,19 +266,32 @@ export class PlaylistsV2 extends Database {
                 LIMIT 50
             `, [requestingUserId]);
 
-            mappedTracks = tracks.map(t => ({
-                ...t,
-                id: String(t.id),
-                info: {
-                    title: t.title,
-                    author: t.author,
-                    length: t.duration,
-                    artworkUrl: t.artwork_url,
-                    uri: t.uri,
-                    sourceName: t.source
-                },
-                encoded: t.encoded
-            }));
+            mappedTracks = tracks.map(t => {
+                let identifier = t.uri;
+                if (t.source === 'spotify' && t.uri && t.uri.includes('spotify.com')) {
+                    identifier = t.uri;
+                } else if (t.isrc) {
+                    identifier = `ytmsearch:${t.isrc}`;
+                }
+
+                return {
+                    ...t,
+                    id: String(t.id),
+                    info: {
+                        title: t.title,
+                        author: t.author,
+                        length: t.duration,
+                        artworkUrl: t.artwork_url,
+                        uri: t.uri,
+                        identifier: identifier,
+                        isrc: t.isrc,
+                        sourceName: t.source
+                    },
+                    encoded: t.encoded,
+                    isrc: t.isrc
+                };
+            });
+
         } else if (isSystemDiscover && requestingUserId && id.endsWith(requestingUserId)) {
             // Placeholder: Discover Weekly usually needs external API or complex logic
             // For now, return recent tracks not played in the last day? 
@@ -283,19 +309,38 @@ export class PlaylistsV2 extends Database {
                ORDER BY pt.position ASC
             `, [id]);
 
-            mappedTracks = tracks.map(t => ({
-                ...t,
-                id: String(t.id),
-                info: {
-                    title: t.title,
-                    author: t.author,
-                    length: t.duration,
-                    artworkUrl: t.artwork_url,
-                    uri: t.uri,
-                    sourceName: t.source
-                },
-                encoded: t.encoded
-            }));
+            mappedTracks = tracks.map(t => {
+                // Build proper identifier for LavaSrc resolution
+                // If it's a Spotify track, use the Spotify URI directly
+                // Otherwise, construct a search query with ISRC if available
+                let identifier = t.uri;
+                if (t.source === 'spotify' && t.uri && t.uri.includes('spotify.com')) {
+                    identifier = t.uri; // Direct Spotify URL works best
+                } else if (t.isrc) {
+                    // Use ISRC for accurate YouTube Music resolution
+                    identifier = `ytmsearch:${t.isrc}`;
+                } else if (t.uri) {
+                    identifier = t.uri;
+                }
+
+                return {
+                    ...t,
+                    id: String(t.id),
+                    info: {
+                        title: t.title,
+                        author: t.author,
+                        length: t.duration,
+                        artworkUrl: t.artwork_url,
+                        uri: t.uri,
+                        identifier: identifier,
+                        isrc: t.isrc,
+                        sourceName: t.source
+                    },
+                    encoded: t.encoded,
+                    isrc: t.isrc
+                };
+            });
+
         }
 
         const collageArtworks = mappedTracks

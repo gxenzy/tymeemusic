@@ -513,14 +513,11 @@ export class MusicManager {
       return null;
     }
 
-    const normalizedQuery = this.normalizeQuery(query);
-
     try {
       // For direct URLs, don't default to spsearch - let lavasrc handle it
       // For search queries, default to spsearch
-      const isUrl = /^https?:\/\//.test(normalizedQuery);
+      const isUrl = /^https?:\/\//.test(query);
       const { source, requester } = options;
-      // RESTORE spsearch as the primary search source for better quality
       const finalSource = source || (isUrl ? undefined : "spsearch");
 
       const node = this.lavalink.nodeManager.leastUsedNodes("memory")[0];
@@ -530,52 +527,27 @@ export class MusicManager {
         return null;
       }
 
-      logger.debug("MusicManager", `Searching with query: ${normalizedQuery.substring(0, 100)}, source: ${finalSource || 'auto-detect'}`);
+      logger.debug("MusicManager", `Searching with query: ${query.substring(0, 100)}, source: ${finalSource || 'auto-detect'}`);
 
       const searchParams = finalSource
-        ? { query: normalizedQuery, source: finalSource }
-        : { query: normalizedQuery };
+        ? { query, source: finalSource }
+        : { query };
 
-      let searchResult;
-      try {
-        searchResult = await node.search(searchParams, requester);
-        // HARDENED: If LavaSrc returns an error, treat it as a failure to trigger fallback
-        if (searchResult && searchResult.loadType === "error") {
-          const errorMsg = searchResult.exception?.message || "LavaSrc error";
-          logger.warn("MusicManager", `Search returned loadType "error" (${errorMsg}), triggering fallback...`);
-          throw new Error(errorMsg);
-        }
-      } catch (searchError) {
-        // If the error is about a missing source plugin or any search error, try falling back to YouTube
-        logger.warn("MusicManager", `Search failed for "${finalSource}", falling back to YouTube: ${searchError.message}`);
-        searchResult = await node.search({ query: normalizedQuery, source: 'ytmsearch' }, requester);
-      }
-
-      // SPOTIFY FALLBACK: If Lavalink returns an error or no tracks for a Spotify URL, try direct API
-      if ((!searchResult || searchResult.loadType === "error" || !searchResult.tracks?.length) && normalizedQuery.includes('spotify.com')) {
-        logger.info("MusicManager", `Lavalink failed Spotify search, trying direct API fallback for: ${normalizedQuery}`);
-        const fallbackResult = await this.fetchSpotifyExternal(normalizedQuery);
-        if (fallbackResult && fallbackResult.tracks?.length > 0) {
-          searchResult = fallbackResult;
-        }
-      }
+      const searchResult = await node.search(searchParams, requester);
 
       if (!searchResult || searchResult.loadType === "error") {
-        logger.warn("MusicManager", `Search failed or returned error for query: ${normalizedQuery.substring(0, 100)} (loadType: ${searchResult?.loadType}, reason: ${searchResult?.exception?.message || 'unknown'})`);
+        logger.warn("MusicManager", `Search failed or returned error for query: ${query.substring(0, 100)} (loadType: ${searchResult?.loadType})`);
         return searchResult;
       }
 
       if (!searchResult.tracks?.length && searchResult.loadType !== "playlist") {
         logger.debug("MusicManager", `No tracks found for query: ${query.substring(0, 100)}, loadType: ${searchResult.loadType}`);
-        return searchResult;
+        return searchResult; // Return even if empty so caller can handle it
       }
-
-      // Enrich tracks with better artwork/metadata
-      const enrichedTracks = await Promise.all((searchResult.tracks || []).map(t => this.enrichTrack(t)));
-      searchResult.tracks = enrichedTracks;
 
       logger.debug("MusicManager", `Search successful: ${searchResult.tracks?.length || 0} tracks, loadType: ${searchResult.loadType}`);
       return searchResult;
+
     } catch (error) {
       logger.error("MusicManager", `Search error for query "${query.substring(0, 100)}": ${error.message}`, error);
       return null;
@@ -910,263 +882,4 @@ export class MusicManager {
 
     return restoredCount;
   }
-
-  // Spotify Auth for better artwork/metadata
-  async getSpotifyToken() {
-    if (this._spotifyToken && this._spotifyTokenExpires > Date.now()) {
-      return this._spotifyToken;
-    }
-    try {
-      const credentials = Buffer.from(`${config.spotify.clientId}:${config.spotify.clientSecret}`).toString('base64');
-      const response = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${credentials}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: 'grant_type=client_credentials'
-      });
-      const data = await response.json();
-      if (data.access_token) {
-        this._spotifyToken = data.access_token;
-        this._spotifyTokenExpires = Date.now() + (data.expires_in * 1000) - 60000;
-        return this._spotifyToken;
-      }
-    } catch (e) {
-      logger.error("MusicManager", `Spotify Auth Error: ${e.message}`);
-    }
-    return null;
-  }
-
-  async getSpotifyArtwork(uri) {
-    const token = await this.getSpotifyToken();
-    if (!token || !uri) return null;
-    try {
-      let id = uri;
-      if (uri.includes('track/')) id = uri.split('track/')[1]?.split('?')[0];
-      else if (uri.startsWith('spotify:track:')) id = uri.split(':')[2];
-
-      if (!id) return null;
-
-      const response = await fetch(`https://api.spotify.com/v1/tracks/${id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      return data.album?.images?.[0]?.url || null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  async enrichTrack(track) {
-    if (!track) return null;
-    const info = track.info || track;
-    const uri = info.uri || info.identifier;
-    if (!uri) return track;
-
-    // Initialize userData if missing
-    if (!track.userData) track.userData = {};
-
-    // Enhance Spotify tracks with real artwork and preserve original metadata
-    if (uri.includes('spotify.com') || info.sourceName === 'spotify') {
-      const artwork = await this.getSpotifyArtwork(uri);
-      if (artwork) {
-        if (track.info) track.info.artworkUrl = artwork;
-        else track.artworkUrl = artwork;
-      }
-
-      // Preserve original metadata for UI display consistency
-      // This is crucial for when these tracks are resolved via YouTube later
-      const originalTitle = info.title;
-      const originalAuthor = info.author;
-      const album = info.album || track.userData?.album || "";
-      const isrc = track.isrc || info.isrc || track.userData?.isrc;
-
-      if (!track.userData.originalTitle) track.userData.originalTitle = originalTitle;
-      if (!track.userData.originalAuthor) track.userData.originalAuthor = originalAuthor;
-      if (!track.userData.originalSource) track.userData.originalSource = 'spotify';
-      if (!track.userData.originalUri) track.userData.originalUri = uri;
-      if (isrc && !track.userData.isrc) track.userData.isrc = isrc;
-      if (album && !track.userData.album) track.userData.album = album;
-
-      // ATTEMPT 1: Try to keep it as a Spotify track for LavaSrc (spsearch) to handle.
-      // LavaSrc is much better at finding the original studio version than YouTube search.
-      // We only force it to YouTube if the Spotify plugin is confirmed dead or times out.
-
-      // If we are reaching this enrichment phase, we want to ensure it stays high quality.
-      // Only clear encoded if we MUST resolve via YouTube.
-      if (track.encoded && track.info?.sourceName === 'spotify') {
-        // Keep it as is, let LavaSrc handle it
-        return track;
-      }
-
-      // If we MUST fall back to YouTube (manual resolve)
-      track.encoded = null;
-      const searchQuery = isrc
-        ? `ytmsearch:isrc:${isrc}`
-        : `ytmsearch:${originalTitle} ${originalAuthor} ${album} Studio Official Audio -Live -Wish -Performance -Video`;
-
-      if (track.info) {
-        track.info.sourceName = 'youtube';
-        track.info.identifier = searchQuery;
-      } else {
-        track.sourceName = 'youtube';
-        track.identifier = searchQuery;
-      }
-
-      // Also sync to requester object as backup for some UI components
-      if (track.requester && typeof track.requester === 'object') {
-        track.requester.originalTitle = track.userData.originalTitle;
-        track.requester.originalAuthor = track.userData.originalAuthor;
-        track.requester.originalSource = track.userData.originalSource;
-        track.requester.originalUri = track.userData.originalUri;
-      }
-    }
-
-    // Enhance YouTube tracks if missing artwork
-    if (!info.artworkUrl && !track.artworkUrl && !info.thumbnail) {
-      const id = info.identifier;
-      if (id && (uri.includes('youtube.com') || uri.includes('youtu.be'))) {
-        const artwork = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-        if (track.info) track.info.artworkUrl = artwork;
-        else track.artworkUrl = artwork;
-      }
-    }
-
-    return track;
-  }
-
-  /**
-   * Normalize query/URL for better search success
-   */
-  normalizeQuery(query) {
-    if (!query) return query;
-    let normalized = query.trim();
-
-    // YouTube Music to Standard YouTube
-    if (normalized.includes("music.youtube.com")) {
-      normalized = normalized.replace("music.youtube.com", "www.youtube.com");
-    }
-
-    return normalized;
-  }
-
-  /**
-   * Direct Spotify API fetching for when Lavalink fails
-   */
-  async fetchSpotifyExternal(url) {
-    const token = await this.getSpotifyToken();
-    if (!token) return null;
-
-    try {
-      const isPlaylist = url.includes('playlist/');
-      const isAlbum = url.includes('album/');
-      const isTrack = url.includes('track/');
-
-      const type = isPlaylist ? 'playlists' : (isAlbum ? 'albums' : (isTrack ? 'tracks' : null));
-      if (!type) return null;
-
-      const id = url.split(`${type.slice(0, -1)}/`)[1]?.split('?')[0];
-      if (!id) return null;
-
-      logger.debug("MusicManager", `Fetching Spotify ${type.slice(0, -1)} via API: ${id}`);
-      const response = await fetch(`https://api.spotify.com/v1/${type}/${id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) return null;
-      const data = await response.json();
-
-      if (isTrack) {
-        return {
-          loadType: 'track',
-          tracks: [this._mapSpotifyTrack(data)]
-        };
-      }
-
-      const items = data.tracks?.items || [];
-      const tracks = items.map(item => this._mapSpotifyTrack(item.track || item));
-
-      return {
-        loadType: 'playlist',
-        playlistInfo: {
-          name: data.name,
-          artworkUrl: data.images?.[0]?.url,
-          author: data.owner?.display_name || data.artists?.[0]?.name || 'Spotify'
-        },
-        tracks
-      };
-    } catch (e) {
-      logger.error("MusicManager", `Spotify External Fetch Error: ${e.message}`);
-      return null;
-    }
-  }
-
-  _mapSpotifyTrack(t) {
-    const title = t.name;
-    const author = t.artists?.map(a => a.name).join(', ') || 'Unknown Artist';
-    const album = t.album?.name || '';
-    const originalUri = t.external_urls?.spotify || `https://open.spotify.com/track/${t.id}`;
-    const artworkUrl = t.album?.images?.[0]?.url || null;
-    const isrc = t.external_ids?.isrc;
-
-    // Use LavaSrc spsearch for maximum quality, with a hardened YTM fallback built-in
-    const identifier = isrc
-      ? `ytmsearch:isrc:${isrc}`
-      : `spsearch:${title} ${author}`; // Let LavaSrc find the real Spotify track first
-
-    const trackData = {
-      title,
-      author,
-      duration: t.duration_ms,
-      uri: originalUri,
-      identifier: identifier,
-      sourceName: 'youtube',
-      artworkUrl: artworkUrl,
-      isSeekable: true,
-      isStream: false,
-      isrc: isrc,
-      album: album
-    };
-
-    const requesterData = {
-      originalUri: originalUri,
-      originalTitle: title,
-      originalAuthor: author,
-      originalSource: 'spotify',
-      isrc: isrc,
-      album: album
-    };
-
-    // Try to use builder
-    if (this.lavalink.utils) {
-      const builder = this.lavalink.utils.buildUnresolvedTrack || this.lavalink.utils.buildUnresolved;
-      if (typeof builder === 'function') {
-        const unresolvedTrack = builder.call(this.lavalink.utils, trackData, requesterData);
-        if (unresolvedTrack) {
-          unresolvedTrack.userData = { ...unresolvedTrack.userData, ...requesterData };
-        }
-        return unresolvedTrack;
-      }
-    }
-
-    // Fallback manual construction
-    return {
-      info: {
-        identifier: trackData.identifier,
-        sourceName: trackData.sourceName,
-        title: trackData.title,
-        author: trackData.author,
-        uri: trackData.uri,
-        artworkUrl: trackData.artworkUrl,
-        length: trackData.duration,
-        duration: trackData.duration,
-        isSeekable: true,
-        isStream: false
-      },
-      requester: requesterData,
-      userData: requesterData
-    };
-  }
 }
-

@@ -15,19 +15,20 @@ export const config = {
   // Multiple IDs should be comma-separated in .env file
   ownerIds: (process.env.OWNER_IDS || '').split(',').map(id => id.trim()).filter(Boolean),
 
-  // Lavalink node configuration for music streaming
-  // Supports multiple nodes for load balancing and redundancy
+  // Lavalink-compatible node configuration (NodeLink)
   nodes: [
     {
-      id: "main-node",
-      host: process.env.LAVALINK_HOST,
-      port: parseInt(process.env.LAVALINK_PORT) === 443 ? 2333 : parseInt(process.env.LAVALINK_PORT) || 2333,
-      authorization: process.env.LAVALINK_PASSWORD,
-      secure: false, // Force false to connect to local Lavalink server
-      retryAmount: 5, // Number of connection retry attempts
-      retryDelay: 3000, // Delay between retries in milliseconds
+      id: "nodelink-primary",
+      host: process.env.NODELINK_HOST || "localhost",
+      port: parseInt(process.env.NODELINK_PORT) || 2333,
+      authorization: process.env.NODELINK_PASSWORD,
+      secure: false,
+      retryAmount: 5,
+      retryDelay: 3000,
     },
   ],
+
+
 
   // Application environment (development/production)
   environment: process.env.NODE_ENV || 'development',
@@ -43,8 +44,11 @@ export const config = {
     premium: './database/data/premium.bread',
     antiabuse: './database/data/antiabuse.bread',
     playlists: './database/data/playlists.bread',
+    playlistsV2: './database/data/playlists_v2.bread',
+    stats: './database/data/stats.bread',
     playerSession: './database/data/player_sessions.bread',
   },
+
 
   // External links and resources
   links: {

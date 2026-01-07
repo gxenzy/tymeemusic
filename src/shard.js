@@ -139,7 +139,7 @@ const deploySlashCommands = async () => {
 
 const run = async () => {
 	// Deploy commands before spawning shards
-	await deploySlashCommands();
+	// await deploySlashCommands(); // Temporary disable for Bun test
 
 	manager
 		.spawn({ timeout: -1 })

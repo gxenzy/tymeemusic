@@ -22,6 +22,13 @@
 
 ## ⭐ What's New in TymeeMusic
 
+### 🎯 v1.4 - Stability & Accuracy Update (Latest)
+- **Playlist Playback Fix:** Spotify tracks now resolve correctly - no more 30-minute compilations!
+- **Restored Core Commands:** `t!p` and all slash commands fully working
+- **Access Tiers Fixed:** Premium/tier features restored
+- **Real-time Filter Sync:** Track duration updates correctly with speed filters (Nightcore, Vaporwave)
+- **UI Improvements:** Mobile layout fixes, theme color corrections, premium preloader
+
 ### ✨ Auto-Update Voice Channel Status
 - **Real-time Status Updates:** Voice channel status automatically updates when music plays
 - **Request Tracking:** Shows `:play: Requested by username` when someone requests music
@@ -40,6 +47,7 @@
 - **Keyboard Shortcuts:** Control playback with Space (Play/Pause), M (Mute), Arrows (Seek/Volume), S (Shuffle), R (Repeat)
 
 ---
+
 
 ## ✨ Key Features
 

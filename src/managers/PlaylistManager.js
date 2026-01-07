@@ -206,96 +206,96 @@ export class PlaylistManager {
             tracksToPlay = tracksToPlay.slice(startIndex);
         }
 
-        const queueTracks = tracksToPlay.map(t => {
+        // Resolve tracks properly - for Spotify, use the original URI to get accurate resolution
+        const queueTracks = [];
+        for (const t of tracksToPlay) {
             try {
-                // If we have encoded data, try to use it
-                // CRITICAL: If this is a Spotify track that was previously resolved to YouTube,
-                // we should IGNORE the encoded data to force our new high-precision re-resolution.
-                const isSpotify = t.info?.sourceName === 'spotify' || (t.info?.uri && t.info.uri.includes('spotify.com'));
-
-                if (t.encoded && typeof t.encoded === 'string' && t.encoded.length > 30 && !isSpotify) {
-                    try {
-                        return this.client.lavalink.utils.buildTrack(t.encoded, options.requester || { id: userId });
-                    } catch (buildErr) {
-                        logger.debug('PlaylistManager', `Failed to build track from encoded data for ${t.info?.title || t.title}. Falling back to unresolved. Error: ${buildErr.message}`);
-                        // Fall through to unresolved creation
-                    }
-                }
-
-                // If it IS a Spotify track, we purposefully fall through here to re-resolve
-                // using our new improved ytmsearch logic below.
-
-                // Calculate properties first
-                let uri = t.info?.uri || t.uri;
-                let identifier = t.info?.identifier || t.uri || t.identifier;
                 const title = t.info?.title || t.title || "Unknown Title";
                 const author = t.info?.author || t.author || "Unknown Artist";
-                let sourceName = t.info?.sourceName || t.sourceName || 'youtube';
+                const originalUri = t.info?.uri || t.uri;
+                const sourceName = t.info?.sourceName || t.sourceName || 'unknown';
+                const isSpotify = sourceName === 'spotify' || (originalUri && originalUri.includes('spotify.com'));
 
-                // SPECIAL HANDLING: Check for Spotify tracks which fail on Lavalink nodes without Spotify plugin
-                const originalUri = uri; // Capture original URI for metadata (e.g. Spotify link)
-                let originalSource = sourceName;
-
-                if (uri && (uri.includes('spotify.com') || uri.includes('open.spotify'))) {
-                    // FORCE YouTube search because Lavalink Spotify plugin is timing out
-                    sourceName = 'youtube';
-                    originalSource = 'spotify';
-
-                    // Use ISRC if available in the track data from DB
-                    const isrc = t.isrc || t.info?.isrc;
-                    const album = t.album || t.info?.album || "";
-
-                    // IMPROVED: Use spsearch (LavaSrc) for native Spotify quality
-                    identifier = isrc ? `ytmsearch:isrc:${isrc}` : `spsearch:${title} ${author}`;
-                    uri = identifier;
-                }
-
-                // Prepare requester data with original metadata to persist through YouTube resolution
-                // This allows the UI to show "Spotify" and the original Title/Artist even if playing from YouTube
-                const requesterData = {
-                    id: userId,
-                    originalUri: originalUri,
-                    originalTitle: title,
-                    originalAuthor: author,
-                    originalSource: originalSource
-                };
-
-                // Try to use client utils to build validated track object
-                if (this.client.lavalink.utils) {
-                    const trackData = {
-                        title,
-                        author,
-                        duration: t.info?.length || t.duration || 0,
-                        uri,
-                        identifier,
-                        sourceName,
-                        artworkUrl: t.info?.artworkUrl || t.artwork_url || t.info?.thumbnail || t.thumbnail || t.info?.image || t.image || '',
-                        isSeekable: true,
-                        isStream: false
-                    };
-
-                    // Handle different lavalink-client versions
-                    const builder = this.client.lavalink.utils.buildUnresolvedTrack || this.client.lavalink.utils.buildUnresolved;
-                    if (typeof builder === 'function') {
-                        // Pass original metadata in the requester object (which acts as userData container)
-                        const unresolvedTrack = builder.call(this.client.lavalink.utils, trackData, requesterData);
-                        // Also attach to userData for better persistence in some lavalink-client versions
-                        if (unresolvedTrack) {
-                            unresolvedTrack.userData = { ...unresolvedTrack.userData, ...requesterData };
+                // For Spotify tracks, resolve using the Spotify URI directly
+                // This is exactly what t!p does and gives the most accurate results
+                if (isSpotify && originalUri && originalUri.includes('spotify.com')) {
+                    try {
+                        logger.debug('PlaylistManager', `Resolving Spotify track: ${title} via ${originalUri}`);
+                        const searchResult = await this.client.music.search(originalUri, { requester: options.requester || { id: userId } });
+                        if (searchResult?.tracks?.[0]) {
+                            const resolved = searchResult.tracks[0];
+                            // Preserve original metadata
+                            resolved.userData = {
+                                ...(resolved.userData || {}),
+                                originalUri,
+                                originalTitle: title,
+                                originalAuthor: author,
+                                originalSource: 'spotify'
+                            };
+                            queueTracks.push(resolved);
+                            continue;
                         }
-                        return unresolvedTrack;
+                    } catch (resolveErr) {
+                        logger.warn('PlaylistManager', `Failed to resolve Spotify track ${title}: ${resolveErr.message}`);
                     }
                 }
 
-                // Fallback manual construction
-                return {
+                // For non-Spotify tracks with encoded data, use it directly
+                if (t.encoded && typeof t.encoded === 'string' && t.encoded.length > 30) {
+                    try {
+                        const built = this.client.lavalink.utils.buildTrack(t.encoded, options.requester || { id: userId });
+                        if (built) {
+                            queueTracks.push(built);
+                            continue;
+                        }
+                    } catch (buildErr) {
+                        logger.debug('PlaylistManager', `Failed to build from encoded: ${buildErr.message}`);
+                    }
+                }
+
+                // Fallback: Build unresolved track for Lavalink to resolve at playtime
+                const requesterData = {
+                    id: userId,
+                    originalUri,
+                    originalTitle: title,
+                    originalAuthor: author,
+                    originalSource: sourceName
+                };
+
+                const trackData = {
+                    title,
+                    author,
+                    duration: t.info?.length || t.duration || 0,
+                    uri: originalUri,
+                    identifier: originalUri,
+                    sourceName: sourceName,
+                    artworkUrl: t.info?.artworkUrl || t.artwork_url || '',
+                    isSeekable: true,
+                    isStream: false
+                };
+
+                // Use lavalink utils to build unresolved track if available
+                if (this.client.lavalink.utils) {
+                    const builder = this.client.lavalink.utils.buildUnresolvedTrack || this.client.lavalink.utils.buildUnresolved;
+                    if (typeof builder === 'function') {
+                        const unresolvedTrack = builder.call(this.client.lavalink.utils, trackData, requesterData);
+                        if (unresolvedTrack) {
+                            unresolvedTrack.userData = { ...unresolvedTrack.userData, ...requesterData };
+                            queueTracks.push(unresolvedTrack);
+                            continue;
+                        }
+                    }
+                }
+
+                // Manual fallback construction
+                queueTracks.push({
                     info: {
-                        identifier: identifier,
-                        sourceName: sourceName,
-                        title: title,
-                        author: author,
-                        uri: uri,
-                        artworkUrl: t.info?.artworkUrl || t.artwork_url || t.info?.thumbnail || t.thumbnail || t.info?.image || t.image || '',
+                        identifier: originalUri,
+                        sourceName,
+                        title,
+                        author,
+                        uri: originalUri,
+                        artworkUrl: t.info?.artworkUrl || t.artwork_url || '',
                         length: t.info?.length || t.duration || 0,
                         duration: t.info?.length || t.duration || 0,
                         isSeekable: true,
@@ -303,61 +303,29 @@ export class PlaylistManager {
                     },
                     requester: requesterData,
                     userData: requesterData
-                };
+                });
+
             } catch (err) {
-                // Final safety net
-                logger.error('PlaylistManager', `Critical error building track object for ${t.title || 'unknown'}: ${err.message}`);
-                return {
+                logger.error('PlaylistManager', `Critical error processing track ${t.title || 'unknown'}: ${err.message}`);
+                // Add minimal track data as last resort
+                queueTracks.push({
                     info: {
                         title: t.title || "Unknown",
                         uri: t.uri
                     },
                     requester: { id: userId },
                     userData: { id: userId }
-                };
+                });
             }
-        });
+        }
+
 
         if (queueTracks.length > 1) {
-            logger.debug('PlaylistManager', `Debug: Second Track Structure: ${JSON.stringify(queueTracks[1])}`);
+            logger.debug('PlaylistManager', `Debug: Second Track Structure: ${JSON.stringify(queueTracks[1]?.info?.title || 'N/A')}`);
         }
 
-        logger.info('PlaylistManager', `Adding ${queueTracks.length} tracks to guild ${guildId}`);
+        logger.info('PlaylistManager', `Resolved and adding ${queueTracks.length} tracks to guild ${guildId}`);
 
-        // Resolve the first track before adding to get playable encoded data
-        let firstTrack = queueTracks[0];
-        if (firstTrack && !firstTrack.encoded) {
-            try {
-                const firstUri = firstTrack.info?.uri || firstTrack.uri;
-                if (firstUri) {
-                    logger.info('PlaylistManager', `Resolving first track: ${firstUri}`);
-                    // Capture original metadata before resolution
-                    const originalMetadata = firstTrack.userData || firstTrack.requester || {};
-
-                    const search = await this.client.music.search(firstUri, { requester: options.requester || { id: userId } });
-                    if (search?.tracks?.[0]) {
-                        const resolvedTrack = search.tracks[0];
-
-                        // IMPORTANT: Merge original metadata to the resolved track
-                        // because a fresh search won't have our "originalTitle" etc.
-                        resolvedTrack.userData = { ...(resolvedTrack.userData || {}), ...originalMetadata };
-
-                        // Ensure requester object exists and has the metadata
-                        if (!resolvedTrack.requester || typeof resolvedTrack.requester !== 'object') {
-                            resolvedTrack.requester = { id: userId, ...originalMetadata };
-                        } else {
-                            resolvedTrack.requester = { ...resolvedTrack.requester, ...originalMetadata };
-                        }
-
-                        firstTrack = resolvedTrack;
-                        queueTracks[0] = firstTrack; // Replace with resolved track
-                        logger.success('PlaylistManager', `First track resolvd & metadata preserved: "${firstTrack.info?.title || firstTrack.title}"`);
-                    }
-                }
-            } catch (e) {
-                logger.warn('PlaylistManager', `Failed to resolve first track (${firstTrack.info?.title}): ${e.message}`);
-            }
-        }
 
         // Add tracks to queue - use proper API which handles UnresolvedTrack creation
         if (clearQueue) {
@@ -379,7 +347,7 @@ export class PlaylistManager {
         // Handle playback initiation
         if (clearQueue || (!player.playing && !player.paused)) {
             if (player.queue.tracks.length > 0) {
-                logger.info('PlaylistManager', `Starting playback of: ${firstTrack?.info?.title || 'first track'}`);
+                logger.info('PlaylistManager', `Starting playback of: ${queueTracks[0]?.info?.title || 'first track'}`);
                 // Use player.play() directly - it will shift from queue and start playing
                 await player.play();
             } else {
@@ -413,8 +381,11 @@ export class PlaylistManager {
 
         const result = await this.client.music.search(url, { requester: { id: userId } });
         if (!result || !result.tracks || result.tracks.length === 0) {
+            logger.warn('PlaylistManager', `Import failed: No tracks found for ${url}`);
             throw new Error("No tracks found on Spotify URL. Make sure the playlist is public.");
         }
+
+        logger.info('PlaylistManager', `Found ${result.tracks.length} tracks on Spotify. Importing...`);
 
         // Extract playlist info from search result
         const playlistInfo = result.playlist || result.playlistInfo || {};
@@ -426,16 +397,40 @@ export class PlaylistManager {
 
         const playlist = await this.createPlaylist(userId, { name: playlistName, description });
 
-        // Enrich tracks with better artwork/metadata first
-        const enrichedTracks = await Promise.all((result.tracks || []).map(t => this.client.music.enrichTrack(t)));
+        // Enrich tracks with better artwork/metadata one by one to avoid rate limits
+        const enrichedTracks = [];
+        const total = result.tracks.length;
+
+        logger.debug('PlaylistManager', `Starting enrichment for ${total} tracks...`);
+
+        for (let i = 0; i < total; i++) {
+            try {
+                const track = result.tracks[i];
+                if (i % 10 === 0) {
+                    options.progressCallback?.({
+                        status: 'enriching',
+                        message: `Processing track ${i + 1}/${total}...`,
+                        progress: (i / total) * 100
+                    });
+                }
+                // Use track directly - no enrichment needed as LavaSrc handles resolution at playtime
+                enrichedTracks.push(track);
+            } catch (e) {
+                logger.warn('PlaylistManager', `Failed to process track at index ${i}: ${e.message}`);
+                enrichedTracks.push(result.tracks[i]);
+            }
+        }
+
 
         const addResult = await this.db.addTracks(playlist.id, userId, enrichedTracks);
+        logger.success('PlaylistManager', `Imported ${addResult.addedCount} tracks from Spotify to playlist ${playlist.id}`);
 
         return {
             playlist,
             imported: addResult.addedCount,
             total: enrichedTracks.length
         };
+
     }
 
     /**
@@ -461,16 +456,36 @@ export class PlaylistManager {
 
         const playlist = await this.createPlaylist(userId, { name: playlistName, description });
 
-        // Enrich tracks with better artwork/metadata first
-        const enrichedTracks = await Promise.all((result.tracks || []).map(t => this.client.music.enrichTrack(t)));
+        // Enrich tracks sequentially for consistency
+        const enrichedTracks = [];
+        const total = result.tracks.length;
+        for (let i = 0; i < total; i++) {
+            try {
+                const track = result.tracks[i];
+                if (i % 25 === 0) {
+                    options.progressCallback?.({
+                        status: 'enriching',
+                        message: `Processing track ${i + 1}/${total}...`,
+                        progress: (i / total) * 100
+                    });
+                }
+                // Use track directly - no enrichment needed
+                enrichedTracks.push(track);
+            } catch (e) {
+                enrichedTracks.push(result.tracks[i]);
+            }
+        }
+
 
         const addResult = await this.db.addTracks(playlist.id, userId, enrichedTracks);
+        logger.success('PlaylistManager', `Imported ${addResult.addedCount} tracks from YouTube to playlist ${playlist.id}`);
 
         return {
             playlist,
             imported: addResult.addedCount,
             total: enrichedTracks.length
         };
+
     }
 
     /**

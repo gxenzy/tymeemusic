@@ -4,9 +4,38 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Cache Control: Prevent caching -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Tymee Music - Premium Dashboard</title>
     <link rel="icon" type="image/png" href="logo.png">
-    <link rel="stylesheet" href="styles.css?v=2026.41" />
+    <!-- CRITICAL: Mobile Scroll Fix - Remove ALL scroll blocking -->
+    <style>
+        @media (max-width: 768px) {
+
+            html,
+            body,
+            #app,
+            .app {
+                height: auto !important;
+                min-height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                position: static !important;
+            }
+        }
+    </style>
+    <!-- Dynamic cache-busting with timestamp -->
+    <script>
+        (function () {
+            var ts = Date.now();
+            document.write('<link rel="stylesheet" href="styles.css?v=' + ts + '" />');
+        })();
+    </script>
+    <noscript>
+        <link rel="stylesheet" href="styles.css?v=2026.103" />
+    </noscript>
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script>
@@ -36,23 +65,91 @@
 </head>
 
 <body>
-    <!-- Initial App Loader -->
+    <!-- Minimalist Chip Loader (Mintone Style) -->
     <div id="appLoader" class="app-loader">
-        <div class="loader-content">
-            <div class="music-spinner">
-                <div class="bar bar1"></div>
-                <div class="bar bar2"></div>
-                <div class="bar bar3"></div>
-                <div class="bar bar4"></div>
+        <div class="loader-chip">
+            <div class="corner-mark top-left"></div>
+            <div class="corner-mark top-right"></div>
+            <div class="corner-mark bottom-right"></div>
+            <div class="corner-mark bottom-left"></div>
+
+            <div class="chip-glow"></div>
+            <img src="logo.png" alt="Tymee" class="chip-logo">
+        </div>
+
+        <div class="loader-status">
+            <div class="dots-loader">
+                <span></span><span></span><span></span>
             </div>
-            <h2>TymeeMusic</h2>
-            <p>Loading your dashboard...</p>
+            <div class="loading-line"></div>
         </div>
     </div>
 
-    <div class="app-container">
+    <!-- Global Noise Overlay -->
+    <!-- Noise overlay removed -->
+
+    <!-- Smooth Scrolling (Lenis) -->
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js"></script>
+    <script>
+        // Initialize Smooth Scroll (DESKTOP ONLY - breaks mobile touch scrolling)
+        let lenis = null;
+
+        function initLenis() {
+            // Only enable Lenis on desktop (> 768px width)
+            if (window.innerWidth > 768) {
+                lenis = new Lenis({
+                    duration: 1.2,
+                    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+                    direction: 'vertical',
+                    gestureDirection: 'vertical',
+                    smooth: true,
+                    mouseMultiplier: 1,
+                    smoothTouch: false,
+                    touchMultiplier: 2,
+                });
+
+                function raf(time) {
+                    if (lenis) lenis.raf(time);
+                    requestAnimationFrame(raf);
+                }
+                requestAnimationFrame(raf);
+            }
+        }
+
+        // Initialize on load
+        initLenis();
+
+        // Re-check on resize (in case user rotates device)
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768 && lenis) {
+                lenis.destroy();
+                lenis = null;
+            } else if (window.innerWidth > 768 && !lenis) {
+                initLenis();
+            }
+        });
+
+        // Magnetic Button Effect
+        document.querySelectorAll('.cta-btn').forEach(btn => {
+            btn.addEventListener('mousemove', (e) => {
+                const rect = btn.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+
+                // Strength of magnetism
+                btn.style.transform = `translate(${x * 0.2}px, ${y * 0.2}px) scale(1.05)`;
+            });
+
+            btn.addEventListener('mouseleave', () => {
+                btn.style.transform = 'translate(0, 0) scale(1)';
+            });
+        });
+    </script>
+
+    <!-- App Container -->
+    <div id="app" class="app reveal">
         <!-- Header -->
-        <header class="header">
+        <header class="header reveal">
             <div class="header-content">
                 <div class="logo-wrapper">
                     <img src="logo.png" alt="Tymee Music Logo" class="header-logo">
@@ -131,8 +228,16 @@
         <main id="mainContent" class="main-content">
             <!-- Homepage (MiTone Style) -->
             <div id="homePage" class="page">
-                <section class="hero">
-                    <div class="hero-content">
+                <section class="hero" style="position: relative; background: none !important;">
+                    <!-- 3D Visualizer Canvas (Particles & Aura) - Contained within hero only -->
+                    <canvas id="hero-visualizer"
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0.8;"></canvas>
+                    <div class="hero-grid-overlay" style="z-index: 2; opacity: 0.3;"></div>
+                    <div class="hero-content" style="position: relative; z-index: 10;">
+                        <div class="status-pill">
+                            <div class="status-dot"></div>
+                            <span>Tymee Music v1.4 Is Now Live!</span>
+                        </div>
                         <h1 class="hero-title">Experience Music Like <span class="text-gradient">Never Before</span>
                         </h1>
                         <p class="hero-subtitle">The most advanced Discord music bot with a premium web dashboard,
@@ -147,41 +252,251 @@
                                     class="ph ph-layout"></i> Open
                                 Dashboard</button>
                         </div>
+
+                        <!-- Discord Mockup (Exact Replica - Fixed Row 3 & Icons) -->
+                        <div class="discord-mockup-wrapper"
+                            style="transform: scale(0.9); transform-origin: top center; margin-bottom: 250px; position: relative; z-index: 50; font-family: 'gg sans', 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+
+                            <!-- Message Container -->
+                            <div style="display: flex; align-items: flex-start; gap: 16px;">
+                                <img src="logo.png"
+                                    style="width: 40px; height: 40px; border-radius: 50%; margin-top: 2px; cursor: pointer;">
+
+                                <div style="flex: 1; max-width: 432px;">
+                                    <!-- Header -->
+                                    <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
+                                        <span style="font-weight: 500; color: #f2f3f5; font-size: 1rem;">TymeeMusic
+                                            Bot</span>
+                                        <span
+                                            style="background: #5865F2; color: #fff; font-size: 0.625rem; padding: 1px 4px; border-radius: 3px; font-weight: 500; line-height: 1.3; vertical-align: baseline; display: flex; align-items: center; gap: 2px;"><svg
+                                                xmlns="http://www.w3.org/2000/svg" width="8" height="8"
+                                                viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+                                            </svg>APP</span>
+                                        <span style="color: #949BA4; font-size: 0.75rem; margin-left: 4px;">6:00
+                                            AM</span>
+                                    </div>
+
+                                    <!-- EMBED (Dark Theme, Slight Glass) -->
+                                    <div
+                                        style="background: #2B2D31; border-left: 4px solid #1DB954; border-radius: 4px; padding: 12px 16px; margin-bottom: 8px;">
+
+                                        <!-- Embed Body -->
+                                        <div style="display: flex; gap: 16px;">
+                                            <div style="flex: 1;">
+                                                <div
+                                                    style="color: #f2f3f5; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px;">
+                                                    NOW PLAYING</div>
+                                                <div
+                                                    style="color: #00A8FC; font-size: 1rem; font-weight: 600; margin-bottom: 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px;">
+                                                    Uhaw (Tayong Lahat)</div>
+                                                <div style="font-size: 0.875rem; line-height: 1.25rem; color: #dbdee1;">
+                                                    <span style="font-weight: 600;">Artist:</span> Dilaw<br>
+                                                    <span style="font-weight: 600;">Requested by:</span> <span
+                                                        style="background: #3f4147; color: #f2f3f5; border-radius: 3px; padding: 0 4px; display: inline-block;">@ZenIX
+                                                        (G)/^..^ \</span>
+                                                </div>
+                                            </div>
+                                            <!-- Album Art -->
+                                            <img src="https://i.scdn.co/image/ab67616d0000b273440e53a31c50e26d03222da1"
+                                                style="width: 80px; height: 80px; border-radius: 4px; object-fit: cover;"
+                                                onerror="this.src='https://placehold.co/80x80/2B2D31/FFFFFF?text=Music'">
+                                        </div>
+
+                                        <!-- Progress Bar -->
+                                        <div
+                                            style="margin-top: 12px; font-family: monospace; color: #dbdee1; font-size: 0.9rem; display: flex; align-items: center; gap: 4px;">
+                                            <span
+                                                style="background: #1e1f22; padding: 2px 4px; border-radius: 3px;">0:12</span>
+                                            <span>🔶⬜⬜⬜⬜⬜⬜⬜⬜</span>
+                                            <span
+                                                style="background: #1e1f22; padding: 2px 4px; border-radius: 3px;">4:01</span>
+                                        </div>
+
+                                        <!-- Status Fields -->
+                                        <div
+                                            style="margin-top: 8px; font-size: 0.875rem; line-height: 1.25rem; color: #dbdee1;">
+                                            ▶️ Playing • 🔊 100% • ❌ Off •<br>📋 0 tracks
+                                        </div>
+                                        <div
+                                            style="margin-top: 8px; font-size: 0.875rem; line-height: 1.25rem; color: #dbdee1;">
+                                            📻 Radio: ❌
+                                        </div>
+
+                                        <!-- Footer -->
+                                        <div
+                                            style="margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: #949BA4; font-weight: 500;">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/1024px-Spotify_logo_without_text.svg.png"
+                                                style="width: 16px; height: 16px; border-radius: 50%;">
+                                            <span>SPOTIFY • TymeeMusic • Today at 6:00 AM</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- COMPONENTS STACK -->
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+
+                                        <!-- Select Menu -->
+                                        <div
+                                            style="background: #2B2D31; padding: 10px 12px; border-radius: 3px; display: flex; justify-content: space-between; align-items: center; color: #dbdee1; font-size: 0.875rem; cursor: pointer;">
+                                            <span style="display: flex; align-items: center; gap: 8px;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="#dbdee1" viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                                                </svg>
+                                                Similar songs selection menu
+                                            </span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                fill="#dbdee1" viewBox="0 0 24 24">
+                                                <path d="M7 10l5 5 5-5z" />
+                                            </svg>
+                                        </div>
+
+                                        <!-- Row 1 -->
+                                        <div style="display: flex; gap: 8px;">
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>📋</span> Queue: 0 tracks
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>🌐</span> Dashboard ↗
+                                            </button>
+                                        </div>
+
+                                        <!-- Row 2 (Blue Controls + Red Stop) -->
+                                        <div style="display: flex; gap: 8px;">
+                                            <!-- Prev -->
+                                            <button
+                                                style="flex: 1; background: #5865F2; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                                                </svg>
+                                            </button>
+                                            <!-- Pause -->
+                                            <button
+                                                style="flex: 1; background: #5865F2; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                                                </svg>
+                                            </button>
+                                            <!-- Next -->
+                                            <button
+                                                style="flex: 1; background: #5865F2; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                                                </svg>
+                                            </button>
+                                            <!-- Stop -->
+                                            <button
+                                                style="flex: 1; background: #DA373C; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <rect width="18" height="18" x="3" y="3" rx="2" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        <!-- Row 3 (Shuffle, Loop, Vol-, Vol+) -->
+                                        <div style="display: flex; gap: 8px;">
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M7 9v6h4l5 5V4l-5 5H7z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; cursor: pointer; display:grid; place-items:center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        <!-- Row 4 -->
+                                        <div style="display: flex; gap: 8px;">
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>❤️</span> Save
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>🎛️</span> FX
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>📝</span> Lyrics
+                                            </button>
+                                            <button
+                                                style="flex: 1; background: #2B2D31; color: #fff; border: none; border-radius: 3px; height: 32px; font-size: 0.875rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                <span>⚙️</span> More
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="scroll-indicator">
+                        <i class="ph ph-caret-double-down"></i>
                     </div>
                 </section>
-                <section class="stats-grid">
-                    <div class="stat-card">
-                        <h3 id="stat-servers">0+</h3>
+                <section class="stats-grid reveal reveal-stagger">
+                    <div class="stat-card reveal">
+                        <h3 id="stat-servers" data-target="150">0+</h3>
                         <p>Servers</p>
                     </div>
-                    <div class="stat-card">
-                        <h3 id="stat-users">0+</h3>
+                    <div class="stat-card reveal">
+                        <h3 id="stat-users" data-target="25000">0+</h3>
                         <p>Users</p>
                     </div>
-                    <div class="stat-card">
-                        <h3 id="stat-tracks">0+</h3>
+                    <div class="stat-card reveal">
+                        <h3 id="stat-tracks" data-target="500000">0+</h3>
                         <p>Tracks Played</p>
                     </div>
                 </section>
-                <section class="features">
-                    <h2 class="section-title">Why Choose <span class="text-gradient">TymeeMusic</span>?</h2>
-                    <div class="features-grid">
-                        <div class="feature-card">
+                <section class="features reveal">
+                    <h2 class="section-title reveal">Why Choose <span class="text-gradient">TymeeMusic</span>?</h2>
+                    <div class="features-grid reveal-stagger">
+                        <div class="feature-card reveal">
                             <div class="feature-icon"><i class="ph ph-sparkle"></i></div>
                             <h3>Animated Progress Bars</h3>
                             <p>Exclusive custom GIF emojis for a truly unique music player experience.</p>
                         </div>
-                        <div class="feature-card">
+                        <div class="feature-card reveal">
                             <div class="feature-icon"><i class="ph ph-speaker-high"></i></div>
                             <h3>Lossless Audio</h3>
                             <p>High-fidelity audio streaming with support for Spotify, YouTube, and more.</p>
                         </div>
-                        <div class="feature-card">
+                        <div class="feature-card reveal">
                             <div class="feature-icon"><i class="ph ph-sliders"></i></div>
                             <h3>Advanced Filters</h3>
                             <p>Apply 8D, Bass Boost, Nightcore, and many other filters with one click.</p>
                         </div>
-                        <div class="feature-card">
+                        <div class="feature-card reveal">
                             <div class="feature-icon"><i class="ph ph-globe"></i></div>
                             <h3>Rich Dashboard</h3>
                             <p>Control your music, manage playlists, and sync emojis in real-time from the web.</p>
@@ -556,7 +871,7 @@
                                             Playlists</span>
                                     </div>
                                     <div class="import-info">
-                                        <p>ℹ️ Tracks will be searched on YouTube and added to a new playlist.</p>
+                                        <p>ℹ️ Importing tracks from source URL...</p>
                                     </div>
                                 </div>
                             </div>
@@ -771,28 +1086,28 @@
                             </label>
                             <span class="setting-help">Automatically play similar songs when queue ends</span>
                         </div>
-                    </div>
-                    <div class="settings-group checkbox-group">
-                        <label class="toggle-label">
-                            <span class="toggle-text">Last Track</span>
-                            <div class="toggle-switch">
-                                <input type="checkbox" id="leaveOnEmptyCheck"
-                                    onchange="dashboard.updateSetting('leaveOnEmpty', this.checked)" />
-                                <span class="toggle-slider"></span>
-                            </div>
-                        </label>
-                        <span class="setting-help">Bot leaves voice channel when empty</span>
-                    </div>
-                    <div class="settings-group checkbox-group">
-                        <label class="toggle-label">
-                            <span class="toggle-text">Keyboard Shortcuts</span>
-                            <div class="toggle-switch">
-                                <input type="checkbox" id="keyboardShortcutsCheck"
-                                    onchange="dashboard.toggleShortcuts(this.checked)" />
-                                <span class="toggle-slider"></span>
-                            </div>
-                        </label>
-                        <span class="setting-help">Enable/disable dashboard hotkeys</span>
+                        <div class="settings-group checkbox-group">
+                            <label class="toggle-label">
+                                <span class="toggle-text">Last Track</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="leaveOnEmptyCheck"
+                                        onchange="dashboard.updateSetting('leaveOnEmpty', this.checked)" />
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                            <span class="setting-help">Bot leaves voice channel when empty</span>
+                        </div>
+                        <div class="settings-group checkbox-group">
+                            <label class="toggle-label">
+                                <span class="toggle-text">Keyboard Shortcuts</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="keyboardShortcutsCheck"
+                                        onchange="dashboard.toggleShortcuts(this.checked)" />
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                            <span class="setting-help">Enable/disable dashboard hotkeys</span>
+                        </div>
                     </div>
                 </div>
                 <!-- DJ Roles Settings (Multi-Select) -->
@@ -1406,8 +1721,8 @@
             src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleEEwhae3qsO9k0E5b5Guqam1u4NJOX2PmKCcobRzPkF7i5OZhIh+YEFEa36JkYaBeWNBRWt+iZGGgXljQUVrfomRhoF5Y0FFa36JkYaBeWNBRWt+iZGGgXljQUVrfomRhoF5Y0FFa36JkYaBeWNB"
             type="audio/wav">
     </audio>
-    <!-- Scripts -->
-    <script src="app.js?v=2026.41"></script>
+    <!-- Scripts with dynamic cache-busting -->
+    <script>document.write('<script src="app.js?v=' + Date.now() + '"><\/script>');</script>
     <!-- Edit Playlist Modal -->
     <div id="editPlaylistModal" class="modal hidden">
         <div class="modal-content">
@@ -1616,6 +1931,173 @@
             </div>
         </div>
     </div>
+
+    <!-- Mintone-Style Scroll Reveal Animations -->
+    <script>
+        // Scroll-triggered reveal animations using IntersectionObserver
+        (function () {
+            const revealElements = document.querySelectorAll('.reveal');
+
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px 0px -50px 0px',
+                threshold: 0.1
+            };
+
+            const revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('revealed');
+                        // Optionally stop observing after reveal
+                        // revealObserver.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            revealElements.forEach(el => revealObserver.observe(el));
+
+            // Animated number counter for stats
+            function animateCounter(element, target) {
+                const duration = 2000; // 2 seconds
+                const startTime = performance.now();
+                const startValue = 0;
+
+                // Add counting class for pulse animation
+                element.classList.add('counting');
+
+                function update(currentTime) {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+
+                    // Easing function for smooth animation
+                    const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+                    const currentValue = Math.floor(startValue + (target - startValue) * easeOutCubic);
+
+                    element.textContent = currentValue.toLocaleString() + '+';
+
+                    if (progress < 1) {
+                        requestAnimationFrame(update);
+                    } else {
+                        element.classList.remove('counting');
+                    }
+                }
+
+                requestAnimationFrame(update);
+            }
+
+            // Observe stat cards for counter animation
+            const statCards = document.querySelectorAll('.stat-card');
+            const statObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && !entry.target.dataset.counted) {
+                        entry.target.dataset.counted = 'true';
+                        const h3 = entry.target.querySelector('h3[id^="stat-"]');
+                        if (h3 && h3.dataset.target) {
+                            animateCounter(h3, parseInt(h3.dataset.target, 10));
+                        }
+                    }
+                });
+            }, { threshold: 0.5 });
+
+            statCards.forEach(card => statObserver.observe(card));
+
+            // === CURSOR GLOW EFFECT ===
+            const cursorGlow = document.createElement('div');
+            cursorGlow.className = 'cursor-glow';
+            cursorGlow.style.opacity = '0'; // Start hidden until mouse moves
+            document.body.appendChild(cursorGlow);
+
+            let mouseX = 0, mouseY = 0;
+            let glowX = 0, glowY = 0;
+            let hasMouseMoved = false;
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                // Show glow on first mouse move
+                if (!hasMouseMoved) {
+                    hasMouseMoved = true;
+                    glowX = mouseX;
+                    glowY = mouseY;
+                    cursorGlow.style.opacity = '0.7';
+                }
+            });
+
+            // Smooth cursor following with lerp (tighter tracking)
+            function animateCursorGlow() {
+                const speed = 0.25; // Faster tracking
+                glowX += (mouseX - glowX) * speed;
+                glowY += (mouseY - glowY) * speed;
+
+                // Use left/top for more reliable positioning
+                cursorGlow.style.left = (glowX - 100) + 'px';
+                cursorGlow.style.top = (glowY - 100) + 'px';
+                requestAnimationFrame(animateCursorGlow);
+            }
+            animateCursorGlow();
+
+            // Hide cursor glow when mouse leaves window
+            document.addEventListener('mouseleave', () => {
+                cursorGlow.style.opacity = '0';
+            });
+            document.addEventListener('mouseenter', () => {
+                cursorGlow.style.opacity = '1';
+            });
+
+            // === PARALLAX SCROLLING FOR HERO ===
+            const hero = document.querySelector('.hero');
+            const heroContent = document.querySelector('.hero-content');
+            const heroGrid = document.querySelector('.hero-grid-overlay');
+
+            if (hero && heroContent) {
+                window.addEventListener('scroll', () => {
+                    const scrollY = window.scrollY;
+                    const heroHeight = hero.offsetHeight;
+
+                    // Only apply parallax while hero is visible
+                    if (scrollY < heroHeight) {
+                        const parallaxAmount = scrollY * 0.4;
+                        const opacityFade = 1 - (scrollY / heroHeight);
+
+                        heroContent.style.transform = `translateY(${parallaxAmount}px)`;
+                        heroContent.style.opacity = Math.max(0, opacityFade);
+
+                        if (heroGrid) {
+                            heroGrid.style.transform = `translateY(${scrollY * 0.2}px)`;
+                        }
+                    }
+                }, { passive: true });
+            }
+        })();
+    </script>
+
+    <!-- Cursor Glow Styles (inline for immediate effect) -->
+    <style>
+        .cursor-glow {
+            position: fixed;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle,
+                    rgba(99, 102, 241, 0.08) 0%,
+                    rgba(139, 92, 246, 0.04) 40%,
+                    transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9998;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+            mix-blend-mode: screen;
+            will-change: left, top;
+        }
+
+        /* Reduce parallax on mobile for better performance */
+        @media (max-width: 768px) {
+            .cursor-glow {
+                display: none;
+            }
+        }
+    </style>
+    <script>document.write('<script src="visualizer.js?v=' + Date.now() + '"><\/script>');</script>
 </body>
 
 </html>

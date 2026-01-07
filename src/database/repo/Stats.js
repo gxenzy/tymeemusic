@@ -4,7 +4,7 @@ import { logger } from '#utils/logger';
 
 export class Stats extends Database {
     constructor() {
-        super(config.database.stats || 'database/stats.db');
+        super(config.database.stats);
         this.initTables();
     }
 

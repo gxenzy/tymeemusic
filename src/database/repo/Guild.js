@@ -102,7 +102,24 @@ export class Guild extends Database {
   getGuild(guildId) {
     if (!guildId) return null;
     const storageId = this.getStorageId(guildId);
-    return this.get("SELECT * FROM guilds WHERE id = ?", [storageId]);
+    let row = this.get("SELECT * FROM guilds WHERE id = ?", [storageId]);
+
+    // Fallback: If not found with suffix ID but suffix is different from pure ID,
+    // check if a legacy pure ID record exists.
+    if (!row && storageId !== guildId) {
+      row = this.get("SELECT * FROM guilds WHERE id = ?", [guildId]);
+      if (row) {
+        logger.info('GuildDB', `Migrating legacy record for guild ${guildId} to suffixed ID ${storageId}`);
+        try {
+          this.exec("UPDATE guilds SET id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [storageId, guildId]);
+          // Re-fetch to confirm migration
+          row = this.get("SELECT * FROM guilds WHERE id = ?", [storageId]);
+        } catch (e) {
+          logger.error('GuildDB', `Failed to migrate guild ${guildId}: ${e.message}`);
+        }
+      }
+    }
+    return row;
   }
 
   ensureGuild(guildId) {
@@ -117,6 +134,7 @@ export class Guild extends Database {
     const defaultPrefix = JSON.stringify([config.prefix]);
 
     if (!guild) {
+      logger.info('GuildDB', `Creating new record for guild ${guildId} (storageId: ${storageId})`);
       this.exec(
         "INSERT INTO guilds (id, prefixes, default_volume, auto_disconnect, stay_247, stay_247_voice_channel, stay_247_text_channel) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [storageId, defaultPrefix, 100, 1, 0, null, null],
@@ -127,7 +145,7 @@ export class Guild extends Database {
     let needsUpdate = false;
     const updates = {};
 
-    if (!guild.prefixes) {
+    if (guild.prefixes === null || guild.prefixes === undefined) {
       updates.prefixes = defaultPrefix;
       needsUpdate = true;
     }
@@ -345,13 +363,15 @@ export class Guild extends Database {
   }
 
   setMusicCardSettings(guildId, settings) {
+    const storageId = this.getStorageId(guildId);
     this.ensureGuild(guildId);
     const settingsJson = JSON.stringify(settings);
     return this.exec(
       "UPDATE guilds SET music_card_settings = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [settingsJson, guildId]
+      [settingsJson, storageId]
     );
   }
+
 
   // ============ TIER & ROLE MANAGEMENT ============
 

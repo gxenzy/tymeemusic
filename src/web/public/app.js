@@ -1387,7 +1387,7 @@ class MusicDashboard {
         this.connectionStatus.classList.remove("connected", "success");
         newText = "🔴 Disconnected / Idle";
         this.trackTitle.textContent = "Not Playing";
-        this.trackArtist.textContent = "-";
+        this.trackArtist.textContent = "";
         this.albumArt.classList.add("hidden");
         this.noArtwork.classList.remove("hidden");
         this.stopPositionUpdates();
@@ -2021,7 +2021,7 @@ class MusicDashboard {
 
     if (!this.servers || !guildId) return false;
     const server = this.servers.find(s => s.id === guildId);
-    return server ? !!server.owner : false;
+    return server ? (server.owner === true || server.isAdmin === true) : false;
   }
   updateSidebarAccess() {
     // Visually lock/hide buttons for non-owners
@@ -3773,8 +3773,9 @@ class MusicDashboard {
                     </div>
                     <div class="track-col-actions">
                         <div class="track-actions">
-                            <button class="icon-btn small" onclick="event.stopPropagation(); dashboard.addPlaylistTrackToQueue(${index})" title="Add to Queue">➕</button>
-                            <button class="icon-btn small danger" onclick="event.stopPropagation(); dashboard.removeTrackFromPlaylist(${index})" title="Remove">✕</button>
+                            <button class="track-more-btn" onclick="event.stopPropagation(); dashboard.showTrackMoreOptions(${index}, event)" title="More options">
+                                <i class="ph ph-dots-three-vertical"></i>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -4245,33 +4246,37 @@ class MusicDashboard {
   }
   showPlaylistMoreOptions() {
     console.log("showPlaylistMoreOptions called");
-    console.log("currentPlaylist:", this.currentPlaylist);
 
     // Remove existing context menu if any
     const existing = document.querySelector('.context-menu-overlay');
     if (existing) existing.remove();
 
     if (!this.currentPlaylist || !this.currentPlaylist.id) {
-      console.error("No playlist selected!");
       this.showToast("❌ No playlist selected", "error");
       return;
     }
 
     const btn = document.getElementById("playlistMoreBtn");
-    if (!btn) {
-      console.error("More button not found!");
-      return;
-    }
+    if (!btn) return;
+
     const rect = btn.getBoundingClientRect();
 
     const overlay = document.createElement('div');
     overlay.className = 'context-menu-overlay';
+    overlay.style.zIndex = "10000"; // Ensure it's on top
     overlay.onclick = () => overlay.remove();
 
     const menu = document.createElement('div');
     menu.className = 'context-menu';
-    menu.style.top = `${rect.bottom + 8}px`;
-    menu.style.right = `${window.innerWidth - rect.right}px`; // Align to right
+
+    // Improved positioning logic
+    const top = rect.bottom + 8;
+    const right = window.innerWidth - rect.right;
+
+    menu.style.top = `${top}px`;
+    menu.style.right = `${right}px`;
+    menu.style.position = "fixed"; // Use fixed to match viewport coords of rect
+    menu.style.zIndex = "10001";
 
     const isPublic = !!(this.currentPlaylist.is_public || this.currentPlaylist.isPublic);
 
@@ -4279,20 +4284,20 @@ class MusicDashboard {
       {
         label: "Edit Details",
         action: () => this.editPlaylistDetails(),
-        icon: "✏️"
+        icon: "pencil-simple"
       },
       {
         label: isPublic ? "Make Private" : "Make Public",
         action: () => this.togglePlaylistPrivacy(this.currentPlaylist.id, !isPublic),
-        icon: isPublic ? "🔒" : "🌍"
+        icon: isPublic ? "lock" : "globe"
       }
     ];
 
-    if (this.currentPlaylist.cover_image) {
+    if (this.currentPlaylist.cover_image || this.currentPlaylist.cover_url) {
       options.push({
         label: "Remove Cover",
         action: () => this.removePlaylistCover(),
-        icon: "🖼️"
+        icon: "image-break"
       });
     }
 
@@ -4300,13 +4305,18 @@ class MusicDashboard {
       label: "Delete Playlist",
       action: () => this.deletePlaylist(this.currentPlaylist.id),
       danger: true,
-      icon: "🗑️"
+      icon: "trash"
     });
 
     options.forEach(opt => {
       const item = document.createElement('div');
       item.className = `context-menu-item ${opt.danger ? 'danger' : ''}`;
-      item.innerHTML = `<span>${opt.icon}</span>${opt.label}`;
+      // Use Phosphor icons if possible, otherwise fallback to emoji
+      const iconHtml = opt.icon.includes('-') || opt.icon.length > 2
+        ? `<i class="ph ph-${opt.icon}"></i>`
+        : `<span>${opt.icon}</span>`;
+
+      item.innerHTML = `${iconHtml} ${opt.label}`;
       item.onclick = (e) => {
         e.stopPropagation();
         opt.action();
@@ -4317,6 +4327,75 @@ class MusicDashboard {
 
     overlay.appendChild(menu);
     document.body.appendChild(overlay);
+  }
+
+  showTrackMoreOptions(index, event) {
+    if (!this.currentPlaylist || !this.currentPlaylist.tracks || !this.currentPlaylist.tracks[index]) return;
+
+    const track = this.currentPlaylist.tracks[index];
+    const rect = event.currentTarget.getBoundingClientRect();
+
+    // Remove existing
+    const existing = document.querySelector('.context-menu-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'context-menu-overlay';
+    overlay.style.zIndex = "10000";
+    overlay.onclick = () => overlay.remove();
+
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+
+    const top = rect.bottom + 8;
+    const right = window.innerWidth - rect.right;
+
+    menu.style.top = `${top}px`;
+    menu.style.right = `${right}px`;
+    menu.style.position = "fixed";
+    menu.style.zIndex = "10001";
+
+    const options = [
+      {
+        label: "Add to Queue",
+        action: () => this.addPlaylistTrackToQueue(index),
+        icon: "plus-circle"
+      },
+      {
+        label: "Play Next",
+        action: () => this.playNext(track),
+        icon: "skip-forward-circle"
+      },
+      {
+        label: "Remove from Playlist",
+        action: () => this.removeTrackFromPlaylist(index),
+        danger: true,
+        icon: "x-circle"
+      }
+    ];
+
+    options.forEach(opt => {
+      const item = document.createElement('div');
+      item.className = `context-menu-item ${opt.danger ? 'danger' : ''}`;
+      const iconHtml = `<i class="ph ph-${opt.icon}"></i>`;
+      item.innerHTML = `${iconHtml} ${opt.label}`;
+      item.onclick = (e) => {
+        e.stopPropagation();
+        opt.action();
+        overlay.remove();
+      };
+      menu.appendChild(item);
+    });
+
+    overlay.appendChild(menu);
+    document.body.appendChild(overlay);
+  }
+
+  async playNext(track) {
+    const identifier = track.uri || track.info?.uri || track.url || track.identifier;
+    if (identifier) {
+      await this.addTrackToQueue(identifier, "next");
+    }
   }
 
 
@@ -4347,25 +4426,46 @@ class MusicDashboard {
     }
   }
   async loadPlaylistToQueue() {
-    if (!this.currentPlaylist || !this.currentPlaylist.tracks) return;
-    // Add all tracks to queue
-    for (const track of this.currentPlaylist.tracks) {
-      try {
-        await fetch(`/ api / player / ${this.guildId}/queue`, {
+    if (!this.currentPlaylist || !this.currentPlaylist.tracks || this.currentPlaylist.tracks.length === 0) return;
+
+    // Show a loading indicator if possible, or just log
+    console.log(`Adding ${this.currentPlaylist.tracks.length} tracks to queue in bulk...`);
+
+    try {
+      // Use bulk add for performance
+      const response = await fetch(`/api/player/${this.guildId}/queue`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": this.apiKey,
+        },
+        body: JSON.stringify(this.currentPlaylist.tracks),
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      await this.loadQueue();
+
+      // Auto-start if nothing is playing
+      if (!this.currentState || !this.currentState.playing) {
+        // POST to /play without body will resume or start first track from queue
+        await fetch(`/api/player/${this.guildId}/play`, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             "X-API-Key": this.apiKey,
+            "Content-Type": "application/json"
           },
-          body: JSON.stringify(track),
-        });
-      } catch (error) {
-        console.error("Failed to add track to queue:", error);
+          body: JSON.stringify({}) // Empty body to trigger "resume or start" logic
+        }).catch(() => { });
       }
+
+      alert(`Added ${this.currentPlaylist.tracks.length} tracks to queue!`);
+    } catch (error) {
+      console.error("Failed to bulk add tracks to queue:", error);
+      alert("Failed to add tracks to queue. Check console for details.");
     }
-    await this.loadQueue();
-    alert(`Added ${this.currentPlaylist.tracks.length} tracks to queue!`);
   }
+
   async copyPlaylistLink(playlistId) {
     const url = `${window.location.origin}/dashboard?playlist=${playlistId}`;
     try {
@@ -7547,19 +7647,8 @@ class AudioVisualizer {
           this.drawAura(w, h, centerX, centerY);
       }
     } else {
-      // Idle state: very slow breathing
-      this.pulse += 0.01;
-      const radius = (w * 0.35) + Math.sin(this.pulse) * 5;
-      const gradient = this.ctx.createRadialGradient(
-        centerX, centerY, 0,
-        centerX, centerY, radius
-      );
-      gradient.addColorStop(0, `rgba(255, 255, 255, 0.05)`);
-      gradient.addColorStop(1, `rgba(255, 255, 255, 0)`);
-      this.ctx.fillStyle = gradient;
-      this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-      this.ctx.fill();
+      // Idle state: no visualization, just clear canvas
+      // (The white breathing pulse was distracting)
     }
 
     requestAnimationFrame(() => this.animate());

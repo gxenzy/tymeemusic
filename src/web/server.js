@@ -1,6 +1,8 @@
 import express from "express";
+import compression from "compression";
 import { createServer } from "http";
 import { createServer as createHttpsServer } from "https";
+
 import { WebSocketServer } from "ws";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
@@ -240,9 +242,11 @@ export class WebServer {
   }
   // Helper function to extract userId from request
   getUserIdFromRequest(req) {
+    if (!req || !req.headers) return null;
     // Parse cookies
     const cookies = {};
     const cookieHeader = req.headers.cookie;
+
     if (cookieHeader) {
       cookieHeader.split(";").forEach((cookie) => {
         const parts = cookie.trim().split("=");
@@ -605,6 +609,9 @@ export class WebServer {
     logger.success("WebServer", "Discord OAuth2 configured");
   }
   setupMiddleware() {
+    // Enable Gzip Compression (huge bandwidth saving)
+    this.app.use(compression());
+
     // CORS middleware
     this.app.use((req, res, next) => {
       res.header("Access-Control-Allow-Origin", "http://localhost:3000");
@@ -640,8 +647,12 @@ export class WebServer {
       }
       next();
     });
-    // Static files
-    this.app.use(express.static(join(__dirname, "public")));
+    // Static files with 1 Day Cache
+    this.app.use(express.static(join(__dirname, "public"), {
+      maxAge: '1d',
+      etag: true,
+      lastModified: true
+    }));
   }
   // Authentication middleware
   authenticate(req, res, next) {
@@ -903,14 +914,21 @@ export class WebServer {
               res.json({ success: true, message: "Playing now" });
             }
           } else {
+            // No query - check if we should resume or start from queue
             if (player.paused) {
               await pm.resume();
               if (channel) EventUtils.sendTimedMessage(this.client, pm.textChannelId, `▶️ **Resumed playback** via dashboard.`);
               res.json({ success: true, message: "Playback resumed" });
+            } else if (!player.playing && player.queue.tracks.length > 0) {
+              // Idle with tracks in queue - start playing
+              await pm.play();
+              if (channel) EventUtils.sendTimedMessage(this.client, pm.textChannelId, `🎶 **Started playback** from queue via dashboard.`);
+              res.json({ success: true, message: "Started playing from queue" });
             } else {
-              res.json({ success: true, message: "Already playing" });
+              res.json({ success: true, message: "Already playing or queue empty" });
             }
           }
+
           this.broadcastToGuild(guildId, {
             type: "state_update",
             data: this.getPlayerState(pm, guildId),
@@ -1429,12 +1447,98 @@ export class WebServer {
           if (!player) {
             return res.status(404).json({ error: "No player found" });
           }
-          const track = req.body;
-          player.queue.add(track);
+          const data = req.body;
+          const tracksToAdd = Array.isArray(data) ? data : [data];
+
+          // Process tracks - for Spotify tracks, search using the URI for proper resolution
+          const processedTracks = [];
+          for (const trackData of tracksToAdd) {
+            const info = trackData.info || trackData;
+            const uri = info.uri || info.identifier;
+
+            // If it's a Spotify track, re-search to get proper encoding
+            if (uri && (uri.includes('spotify.com') || info.sourceName === 'spotify')) {
+              try {
+                const searchResult = await this.client.music.search(uri);
+                if (searchResult && searchResult.tracks && searchResult.tracks.length > 0) {
+                  processedTracks.push(searchResult.tracks[0]);
+                  continue;
+                }
+              } catch (e) {
+                logger.warn("WebServer", `[QueueAPI] Failed to re-search Spotify track: ${e.message}`);
+              }
+            }
+
+            // For tracks with ISRC, search using ISRC for accurate matching
+            if (info.isrc || trackData.isrc) {
+              const isrc = info.isrc || trackData.isrc;
+              try {
+                const searchResult = await this.client.music.search(`ytsearch:"${isrc}"`);
+                if (searchResult && searchResult.tracks && searchResult.tracks.length > 0) {
+                  // Find best duration match
+                  const targetDuration = info.length || info.duration || 0;
+                  let bestTrack = searchResult.tracks[0];
+                  if (targetDuration > 0) {
+                    for (const t of searchResult.tracks) {
+                      const diff = Math.abs((t.info?.length || t.info?.duration || 0) - targetDuration);
+                      if (diff < 30000) { // Within 30 seconds
+                        bestTrack = t;
+                        break;
+                      }
+                    }
+                  }
+                  processedTracks.push(bestTrack);
+                  continue;
+                }
+              } catch (e) {
+                logger.warn("WebServer", `[QueueAPI] ISRC search failed: ${e.message}`);
+              }
+            }
+
+            // Fallback: search by title and author
+            if (info.title && info.author) {
+              try {
+                const query = `${info.title} ${info.author}`;
+                const searchResult = await this.client.music.search(query);
+                if (searchResult && searchResult.tracks && searchResult.tracks.length > 0) {
+                  // Find best duration match to avoid compilations
+                  const targetDuration = info.length || info.duration || 0;
+                  let bestTrack = searchResult.tracks[0];
+                  let bestDiff = Infinity;
+
+                  if (targetDuration > 0) {
+                    for (const t of searchResult.tracks) {
+                      const tDuration = t.info?.length || t.info?.duration || 0;
+                      const diff = Math.abs(tDuration - targetDuration);
+                      // Prefer tracks within 30s of expected duration
+                      if (diff < bestDiff && diff < 60000) {
+                        bestDiff = diff;
+                        bestTrack = t;
+                      }
+                    }
+                  }
+
+                  processedTracks.push(bestTrack);
+                  continue;
+                }
+              } catch (e) {
+                logger.warn("WebServer", `[QueueAPI] Title search failed: ${e.message}`);
+              }
+            }
+
+            // Last resort: add the raw track data
+            processedTracks.push(trackData);
+          }
+
+          if (processedTracks.length > 0) {
+            player.queue.add(processedTracks);
+            logger.info("WebServer", `[QueueAPI] Added ${processedTracks.length} tracks to ${guildId}`);
+          }
+
           const queue = player.queue.tracks.map((t, index) => ({
             title: t.info?.title || "Unknown",
             author: t.info?.author || "Unknown",
-            duration: t.info?.duration || 0,
+            duration: t.info?.duration || t.info?.length || 0,
             artworkUrl: t.info?.artworkUrl || t.pluginInfo?.artworkUrl,
             uri: t.info?.uri,
           }));
@@ -1446,6 +1550,7 @@ export class WebServer {
         }
       },
     );
+
     // Shuffle queue
     this.app.post(
       "/api/queue/:guildId/shuffle",
@@ -2389,6 +2494,12 @@ export class WebServer {
       async (req, res) => {
         try {
           const { guildId } = req.params;
+
+          // Check if user has permission to manage this guild
+          if (!await this.checkControlPermission(req, res, guildId)) return;
+          const userId = this.getUserIdFromRequest(req);
+
+
           const {
             prefix,
             defaultVolume,
@@ -2406,27 +2517,37 @@ export class WebServer {
             premiumRoles,
             premiumUsers,
           } = req.body;
+
+          logger.info("WebServer", `Updating settings for guild ${guildId} by user ${userId}`);
+          logger.debug("WebServer", `Payload: ${JSON.stringify(req.body)}`);
+
           const { db } = await import("#database/DatabaseManager");
           const guildDb = db.guild;
-          if (prefix !== undefined)
-            guildDb.setPrefixes(guildId, JSON.stringify([prefix]));
-          if (defaultVolume !== undefined)
+
+          if (prefix !== undefined) {
+            guildDb.setPrefixes(guildId, [prefix]);
+            logger.debug("WebServer", `Set prefix for ${guildId} to ${prefix}`);
+          }
+          if (defaultVolume !== undefined) {
             guildDb.setDefaultVolume(guildId, parseInt(defaultVolume));
+            logger.debug("WebServer", `Set volume for ${guildId} to ${defaultVolume}`);
+          }
           if (djRoles !== undefined) {
             guildDb.setDjRoles(guildId, djRoles);
+            logger.debug("WebServer", `Set DJ roles for ${guildId}: ${JSON.stringify(djRoles)}`);
           }
           if (autoPlay !== undefined) {
             guildDb.ensureGuild(guildId);
             guildDb.exec("UPDATE guilds SET auto_play = ? WHERE id = ?", [
               autoPlay ? 1 : 0,
-              guildId,
+              guildDb.getStorageId(guildId), // FIX: Use storageId
             ]);
           }
           if (leaveOnEmpty !== undefined) {
             guildDb.ensureGuild(guildId);
             guildDb.exec("UPDATE guilds SET auto_disconnect = ? WHERE id = ?", [
               leaveOnEmpty ? 1 : 0,
-              guildId,
+              guildDb.getStorageId(guildId), // FIX: Use storageId
             ]);
           }
           if (stay247 !== undefined) {
@@ -2440,6 +2561,7 @@ export class WebServer {
           // Tier and role settings
           if (tier !== undefined) {
             guildDb.setTier(guildId, tier);
+            logger.info("WebServer", `Set tier for ${guildId} to ${tier}`);
           }
           if (allowedRoles !== undefined) {
             guildDb.setAllowedRoles(guildId, allowedRoles);
@@ -2459,6 +2581,8 @@ export class WebServer {
           if (premiumUsers !== undefined) {
             guildDb.setPremiumUsers(guildId, premiumUsers);
           }
+
+          logger.success("WebServer", `Settings successfully updated for guild ${guildId}`);
           res.json({ success: true, message: "Settings updated" });
         } catch (error) {
           logger.error("WebServer", "Error updating settings:", error);
