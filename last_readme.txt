@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/github/license/gxenzy/tymeemusic?style=for-the-badge" alt="License"/>
 </p>
 
-# 🎵 TymeeMusic v1.41
+# 🎵 TymeeMusic
 
 **TymeeMusic** is a powerful, feature-rich Discord music bot with a web dashboard, built with performance and user experience in mind. Developed by [gxenzy](https://github.com/gxenzy), this bot brings high-quality audio streaming, an intuitive web interface, and advanced customization options to your Discord server.
 
@@ -36,7 +36,7 @@
 
 ## ⭐ What's New
 
-### 🚀 v1.41 - Performance & Stability Update (Latest)
+### 🚀 v4.1 - Performance & Stability Update (Latest)
 
 #### ⚡ Performance Optimizations
 - **NodeLink Audio Server:** Lightweight JavaScript audio server replacing Java Lavalink - 70% less memory usage
