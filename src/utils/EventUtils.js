@@ -53,11 +53,13 @@ export class EventUtils {
 			const channel = client.channels.cache.get(channelId) || await client.channels.fetch(channelId).catch(() => null);
 			if (!channel) return null;
 
-			// FINAL GHOST CHECK: If we are in voice, and the resolved channel is NOT the voice channel, stop.
+			// FINAL GHOST CHECK: (DISABLED) - Allowing message to send to text channels even if in voice.
+			/*
 			if (voiceId && channel.id !== voiceId && !channel.isVoiceBased()) {
 				logger.debug('EventUtils', 'Blocking message to generic channel while in voice.');
 				return null;
 			}
+			*/
 
 			return await channel.send(messageData);
 		} catch (error) {

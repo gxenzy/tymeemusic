@@ -142,7 +142,7 @@ class SuggestCommand extends Command {
 			`└─ Approved features are added to our roadmap\n\n` +
 			`**${emoji.get('add')} Implementation:** Good suggestions are typically considered for the next major update cycle.\n\n` +
 			`**${emoji.get('folder')} Stay Updated:** Join our support server to track suggestion status and upcoming features!\n\n` +
-			`*Thank you for helping shape Yukihana's future!*`;
+			`*Thank you for helping shape TymeeMusic's future!*`;
 
 		const section = new SectionBuilder()
 			.addTextDisplayComponents(new TextDisplayBuilder().setContent(content))

@@ -115,6 +115,10 @@ class WebSocketManager {
                 await this.handlePlaylistAction(socket, 'save', data);
             });
 
+            socket.on('heartbeat', (data) => {
+                socket.emit('heartbeat', { clientTimestamp: data.timestamp, serverTimestamp: Date.now() });
+            });
+
             socket.on('disconnect', () => {
                 console.log(`WebSocket user disconnected: ${socket.user?.username || 'Unknown'}`);
                 this.userSockets.get(socket.user.id)?.delete(socket.id);

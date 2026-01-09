@@ -72,7 +72,7 @@ class InviteCommand extends Command {
 		const container = new ContainerBuilder();
 
 		container.addTextDisplayComponents(
-			new TextDisplayBuilder().setContent(`${emoji.get('add')} **Invite Yukihana**`)
+			new TextDisplayBuilder().setContent(`${emoji.get('add')} **Invite TymeeMusic**`)
 		);
 
 		container.addSeparatorComponents(
@@ -81,7 +81,7 @@ class InviteCommand extends Command {
 
 		const inviteLink = `https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`;
 
-		const content = `**Add Yukihana to your server!**\n\n` +
+		const content = `**Add TymeeMusic to your server!**\n\n` +
 			`**${emoji.get('check')} Features:**\n` +
 			`├─ High-quality music streaming\n` +
 			`├─ Advanced queue management\n` +
@@ -93,7 +93,7 @@ class InviteCommand extends Command {
 			`├─ Send messages and embeds\n` +
 			`├─ Use external emojis\n` +
 			`└─ Manage messages for queue control\n\n` +
-			`*Click the button below to add Yukihana to your server!*`;
+			`*Click the button below to add TymeeMusic to your server!*`;
 
 		const section = new SectionBuilder()
 			.addTextDisplayComponents(new TextDisplayBuilder().setContent(content))

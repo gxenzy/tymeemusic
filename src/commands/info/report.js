@@ -141,7 +141,7 @@ class ReportCommand extends Command {
 			`├─ A fix will be developed and tested\n` +
 			`└─ The fix will be deployed in the next update\n\n` +
 			`**${emoji.get('add')} Priority:** Bug reports receive high priority attention and are typically resolved within 24-48 hours.\n\n` +
-			`*Thank you for helping us improve Yukihana's stability!*`;
+			`*Thank you for helping us improve TymeeMusic's stability!*`;
 
 		const section = new SectionBuilder()
 			.addTextDisplayComponents(new TextDisplayBuilder().setContent(content))

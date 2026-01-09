@@ -133,13 +133,13 @@ class FeedbackCommand extends Command {
 		);
 
 		const content = `**Thank you for your feedback!**\n\n` +
-			`Your feedback has been successfully sent to our development team. We appreciate you taking the time to help us improve Yukihana!\n\n` +
+			`Your feedback has been successfully sent to our development team. We appreciate you taking the time to help us improve TymeeMusic!\n\n` +
 			`**${emoji.get('info')} What happens next:**\n` +
 			`├─ Our team will review your feedback\n` +
 			`├─ We'll consider it for future updates\n` +
 			`├─ Important issues get priority attention\n` +
 			`└─ You may receive a follow-up if needed\n\n` +
-			`*Thank you for helping us make Yukihana better!*`;
+			`*Thank you for helping us make TymeeMusic better!*`;
 
 		const section = new SectionBuilder()
 			.addTextDisplayComponents(new TextDisplayBuilder().setContent(content))
@@ -176,7 +176,7 @@ class FeedbackCommand extends Command {
 			`├─ Features you love or dislike\n` +
 			`├─ Performance observations\n` +
 			`└─ General suggestions for improvement\n\n` +
-			`*Your feedback helps us make Yukihana better for everyone!*`;
+			`*Your feedback helps us make TymeeMusic better for everyone!*`;
 
 		const section = new SectionBuilder()
 			.addTextDisplayComponents(new TextDisplayBuilder().setContent(content))

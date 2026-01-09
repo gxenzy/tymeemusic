@@ -75,14 +75,37 @@ export function hasPremiumAccess(userId, guildId, type = 'any') {
 export function getPremiumStatus(userId, guildId) {
 	const userPremium = isUserPremium(userId);
 	const guildPremium = isGuildPremium(guildId);
+	const isBotOwner = isOwner(userId);
+
+	// Get tier from DB if possible (sync check for what's in DB for the server)
+	const guildTier = db.guild.getTier(guildId) || 'free';
+
+	// Check if user is specifically in a tier via DB (users only check, roles need member object)
+	const tierData = db.guild.getAllTierData(guildId);
+	const isVipUser = tierData.users.vip.includes(userId);
+	const isPremiumUser = tierData.users.premium.includes(userId) || !!(userPremium || guildPremium);
+
+	// Determine the effective tier
+	let effectiveTier = 'free';
+	if (isBotOwner) effectiveTier = 'owner';
+	else if (isPremiumUser || guildTier === 'premium') effectiveTier = 'premium';
+	else if (isVipUser || guildTier === 'vip') effectiveTier = 'vip';
+
+	// Map tier to maxSongs
+	const maxSongs = config.queue.maxSongs[effectiveTier] || config.queue.maxSongs.free;
+	const maxSongsFormatted = maxSongs === Infinity ? 'Unlimited' : maxSongs.toString();
 
 	return {
 		hasUserPremium: !!userPremium,
 		hasGuildPremium: !!guildPremium,
-		hasAnyPremium: !!(userPremium || guildPremium),
+		hasAnyPremium: !!(userPremium || guildPremium || isBotOwner || effectiveTier !== 'free'),
 		userPremium: userPremium || null,
 		guildPremium: guildPremium || null,
 		activePremium: userPremium || guildPremium || null,
+		tier: effectiveTier,
+		maxSongs: maxSongs,
+		maxSongsFormatted: maxSongsFormatted,
+		isOwner: isBotOwner
 	};
 }
 

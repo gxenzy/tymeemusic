@@ -15,16 +15,17 @@ export const config = {
   // Multiple IDs should be comma-separated in .env file
   ownerIds: (process.env.OWNER_IDS || '').split(',').map(id => id.trim()).filter(Boolean),
 
-  // Lavalink-compatible node configuration (NodeLink)
+  // Lavalink node configuration
   nodes: [
     {
-      id: "nodelink-primary",
-      host: process.env.NODELINK_HOST || "localhost",
-      port: parseInt(process.env.NODELINK_PORT) || 2333,
-      authorization: process.env.NODELINK_PASSWORD,
-      secure: false,
-      retryAmount: 5,
-      retryDelay: 3000,
+      id: "lavalink-primary",
+      host: process.env.LAVALINK_HOST || "localhost",
+      port: parseInt(process.env.LAVALINK_PORT) || 2333,
+      authorization: process.env.LAVALINK_PASSWORD,
+      secure: process.env.LAVALINK_SECURE === "true",
+      retryAmount: 100000,
+      retryDelay: 5000,
+      spotify: true,
     },
   ],
 
@@ -37,16 +38,16 @@ export const config = {
   debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development',
 
   // Database file paths for different data types
-  // Using .bread extension for Better-SQLite3 databases
+  // Using .db extension for Better-SQLite3 databases
   database: {
-    guild: './database/data/guild.bread',
-    user: './database/data/user.bread',
-    premium: './database/data/premium.bread',
-    antiabuse: './database/data/antiabuse.bread',
-    playlists: './database/data/playlists.bread',
-    playlistsV2: './database/data/playlists_v2.bread',
-    stats: './database/data/stats.bread',
-    playerSession: './database/data/player_sessions.bread',
+    guild: './database/data/guild.db',
+    user: './database/data/user.db',
+    premium: './database/data/premium.db',
+    antiabuse: './database/data/antiabuse.db',
+    playlists: './database/data/playlists.db',
+    playlistsV2: './database/data/playlists_v2.db',
+    stats: './database/data/stats.db',
+    playerSession: './database/data/player_sessions.db',
   },
 
 
@@ -61,7 +62,7 @@ export const config = {
     secure: process.env.WEB_SECURE === 'true',
     sslCert: process.env.WEB_SSL_CERT || null,
     sslKey: process.env.WEB_SSL_KEY || null,
-    apiKey: process.env.WEB_API_KEY || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ',
+    apiKey: process.env.WEB_API_KEY,
     host: process.env.WEB_HOST || 'localhost',
   },
 
@@ -115,16 +116,18 @@ export const config = {
   // Queue limitations based on user tier
   queue: {
     maxSongs: {
-      free: 50,      // Maximum songs for free users
-      premium: 200   // Maximum songs for premium users
+      free: 100,      // Maximum songs for free users
+      vip: 500,       // Maximum songs for VIP users
+      premium: Infinity, // Unlimited songs for premium users
+      owner: Infinity,   // Unlimited songs for owners
     }
   },
 
   // Default image assets for embeds
   assets: {
-    defaultTrackArtwork: process.env.DEFAULT_TRACK_ARTWORK || 'https://raw.githubusercontent.com/bre4d777/Miku/refs/heads/main/images%20(1).jpeg',
-    defaultThumbnail: process.env.DEFAULT_THUMBNAIL || 'https://raw.githubusercontent.com/bre4d777/Miku/refs/heads/main/images%20(1).jpeg',
-    helpThumbnail: process.env.HELP_THUMBNAIL || 'https://raw.githubusercontent.com/bre4d777/Miku/refs/heads/main/images%20(1).jpeg'
+    defaultTrackArtwork: process.env.DEFAULT_TRACK_ARTWORK,
+    defaultThumbnail: process.env.DEFAULT_THUMBNAIL,
+    helpThumbnail: process.env.HELP_THUMBNAIL
   },
 
   // Spotify API credentials for track searching

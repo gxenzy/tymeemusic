@@ -28,7 +28,7 @@ class UnlinkSpotifyCommand extends Command {
 			cooldown: 5,
 			enabledSlash: true,
 			slashData: {
-				name: ["spotify","unlink"],
+				name: ["spotify", "unlink"],
 				description: "Unlink your Spotify profile from the bot",
 			},
 		});
@@ -37,7 +37,7 @@ class UnlinkSpotifyCommand extends Command {
 	async execute({ message }) {
 		try {
 			const spotifyProfile = db.user.getSpotifyProfile(message.author.id);
-			
+
 			if (!spotifyProfile) {
 				return message.reply({
 					components: [this._createNotLinkedContainer()],
@@ -56,14 +56,14 @@ class UnlinkSpotifyCommand extends Command {
 			await message.reply({
 				components: [this._createErrorContainer("An error occurred while processing your request.")],
 				flags: MessageFlags.IsComponentsV2,
-			}).catch(() => {});
+			}).catch(() => { });
 		}
 	}
 
 	async slashExecute({ interaction }) {
 		try {
 			const spotifyProfile = db.user.getSpotifyProfile(interaction.user.id);
-			
+
 			if (!spotifyProfile) {
 				return interaction.reply({
 					components: [this._createNotLinkedContainer()],
@@ -85,9 +85,9 @@ class UnlinkSpotifyCommand extends Command {
 				ephemeral: true,
 			};
 			if (interaction.replied || interaction.deferred) {
-				await interaction.editReply(errorPayload).catch(() => {});
+				await interaction.editReply(errorPayload).catch(() => { });
 			} else {
-				await interaction.reply(errorPayload).catch(() => {});
+				await interaction.reply(errorPayload).catch(() => { });
 			}
 		}
 	}
@@ -138,8 +138,8 @@ class UnlinkSpotifyCommand extends Command {
 			new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small)
 		);
 
-		const linkedDate = spotifyProfile.linkedAt 
-			? new Date(spotifyProfile.linkedAt).toLocaleDateString() 
+		const linkedDate = spotifyProfile.linkedAt
+			? new Date(spotifyProfile.linkedAt).toLocaleDateString()
 			: 'Unknown';
 
 		const content = `**Confirm Spotify Profile Removal**\n\n` +
@@ -203,7 +203,7 @@ class UnlinkSpotifyCommand extends Command {
 			`├─ You can still use all other bot features\n` +
 			`├─ Your music history and preferences are preserved\n` +
 			`└─ Re-link anytime with \`link-spotify\`\n\n` +
-			`*Thank you for using Yukihana!*`;
+			`*Thank you for using TymeeMusic!*`;
 
 		const thumbnailUrl = config.assets?.defaultThumbnail || config.assets?.defaultTrackArtwork;
 
@@ -332,7 +332,7 @@ class UnlinkSpotifyCommand extends Command {
 				await interaction.update({
 					components: [this._createErrorContainer("An error occurred while processing your request.")],
 					flags: MessageFlags.IsComponentsV2,
-				}).catch(() => {});
+				}).catch(() => { });
 			}
 		});
 

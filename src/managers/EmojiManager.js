@@ -161,6 +161,7 @@ class EmojiManager {
 
     async getPlayerEmojis(guildId) {
         return {
+            // Playback controls
             play: await this.resolveEmoji(guildId, 'play'),
             pause: await this.resolveEmoji(guildId, 'pause'),
             stop: await this.resolveEmoji(guildId, 'stop'),
@@ -168,14 +169,68 @@ class EmojiManager {
             previous: await this.resolveEmoji(guildId, 'previous'),
             shuffle: await this.resolveEmoji(guildId, 'shuffle'),
             loop: await this.resolveEmoji(guildId, 'loop'),
+            loop_track: await this.resolveEmoji(guildId, 'loop_track'),
+
+            // Volume controls
             volume_up: await this.resolveEmoji(guildId, 'volume_up'),
             volume_down: await this.resolveEmoji(guildId, 'volume_down'),
+            volume_mute: await this.resolveEmoji(guildId, 'volume_mute'),
+
             // Progress bar emojis
             pb_start: await this.resolveEmoji(guildId, 'pb_start'),
             pb_filled: await this.resolveEmoji(guildId, 'pb_filled'),
             pb_empty: await this.resolveEmoji(guildId, 'pb_empty'),
             pb_head: await this.resolveEmoji(guildId, 'pb_head'),
             pb_end: await this.resolveEmoji(guildId, 'pb_end'),
+            pb_start_filled: await this.resolveEmoji(guildId, 'pb_start_filled'),
+            pb_end_filled: await this.resolveEmoji(guildId, 'pb_end_filled'),
+
+            // Status indicators
+            playing: await this.resolveEmoji(guildId, 'playing'),
+            loading: await this.resolveEmoji(guildId, 'loading'),
+            error: await this.resolveEmoji(guildId, 'error'),
+            success: await this.resolveEmoji(guildId, 'success'),
+            warning: await this.resolveEmoji(guildId, 'warning'),
+            idle: await this.resolveEmoji(guildId, 'idle'),
+
+            // UI Elements
+            music: await this.resolveEmoji(guildId, 'music'),
+            artist: await this.resolveEmoji(guildId, 'artist'),
+            queue: await this.resolveEmoji(guildId, 'queue'),
+            album: await this.resolveEmoji(guildId, 'album'),
+            heart: await this.resolveEmoji(guildId, 'heart'),
+            star: await this.resolveEmoji(guildId, 'star'),
+            fire: await this.resolveEmoji(guildId, 'fire'),
+            sparkle: await this.resolveEmoji(guildId, 'sparkle'),
+            crown: await this.resolveEmoji(guildId, 'crown'),
+            trophy: await this.resolveEmoji(guildId, 'trophy'),
+
+            // Features
+            autoplay: await this.resolveEmoji(guildId, 'autoplay'),
+            lyrics: await this.resolveEmoji(guildId, 'lyrics'),
+            fx: await this.resolveEmoji(guildId, 'fx'),
+            sleep: await this.resolveEmoji(guildId, 'sleep'),
+            live: await this.resolveEmoji(guildId, 'live'),
+
+            // Connection quality
+            ping_good: await this.resolveEmoji(guildId, 'ping_good'),
+            ping_medium: await this.resolveEmoji(guildId, 'ping_medium'),
+            ping_bad: await this.resolveEmoji(guildId, 'ping_bad'),
+            signal: await this.resolveEmoji(guildId, 'signal'),
+            globe: await this.resolveEmoji(guildId, 'globe'),
+            location: await this.resolveEmoji(guildId, 'location'),
+
+            // Source icons
+            source_spotify: await this.resolveEmoji(guildId, 'source_spotify'),
+            source_youtube: await this.resolveEmoji(guildId, 'source_youtube'),
+            source_soundcloud: await this.resolveEmoji(guildId, 'source_soundcloud'),
+            source_deezer: await this.resolveEmoji(guildId, 'source_deezer'),
+            source_apple: await this.resolveEmoji(guildId, 'source_apple'),
+
+            // Decorative
+            divider: await this.resolveEmoji(guildId, 'divider'),
+            arrow_right: await this.resolveEmoji(guildId, 'arrow_right'),
+            diamond: await this.resolveEmoji(guildId, 'diamond'),
         };
     }
 

@@ -1,7 +1,7 @@
 {
-  "name": "yukihana-discord-bot",
+  "name": "tymee-music-bot",
   "version": "2.0.0",
-  "description": "A versatile Discord.js bot with advanced sharding, emoji management, and web dashboard",
+  "description": "Premium Discord music bot with web dashboard, coded by ZenIX",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
@@ -32,12 +32,12 @@
     "discord.js",
     "sharding",
     "modular",
-    "yukihana",
+    "tymee",
     "music",
     "dashboard",
     "emoji"
   ],
-  "author": "Bre4d777",
+  "author": "ZenIX",
   "license": "MIT",
   "dependencies": {
     "@napi-rs/canvas": "^0.1.74",

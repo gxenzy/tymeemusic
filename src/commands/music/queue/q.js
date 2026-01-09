@@ -17,6 +17,7 @@ import { PlayerManager } from "#managers/PlayerManager";
 import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import { logger } from "#utils/logger";
+import { getPremiumStatus } from "#utils/permissionUtil";
 const TRACKS_PER_PAGE = 5;
 
 class QueueCommand extends Command {
@@ -177,14 +178,7 @@ class QueueCommand extends Command {
   }
 
   _getPremiumStatus(guildId, userId) {
-    const premiumStatus = db.hasAnyPremium(userId, guildId);
-    return {
-      hasPremium: !!premiumStatus,
-      type: premiumStatus ? premiumStatus.type : "free",
-      maxSongs: premiumStatus
-        ? config.queue.maxSongs.premium
-        : config.queue.maxSongs.free,
-    };
+    return getPremiumStatus(userId, guildId);
   }
 
   _createPaginationButtons(currentPage, maxPages, guildId) {

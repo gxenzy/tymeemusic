@@ -71,6 +71,18 @@ class Logger {
 		}
 	}
 
+	// Helper to safely stringify objects with circular references
+	safeStringify(obj) {
+		const cache = new WeakSet();
+		return JSON.stringify(obj, (key, value) => {
+			if (typeof value === 'object' && value !== null) {
+				if (cache.has(value)) return '[Circular]';
+				cache.add(value);
+			}
+			return value;
+		});
+	}
+
 	async sendWebhook(level, context, message, error = null) {
 		if (!config.webhook?.enabled || !config.webhook?.url) return;
 
@@ -98,9 +110,9 @@ class Logger {
 					{
 						name: 'Message',
 						value:
-							message.length > 1024
-								? `${message.substring(0, 1021)}...`
-								: message,
+							String(message).length > 1024
+								? `${String(message).substring(0, 1021)}...`
+								: String(message),
 						inline: false,
 					},
 				],
@@ -111,11 +123,10 @@ class Logger {
 			};
 
 			if (error) {
+				const errorDetail = error.stack || String(error);
 				embed.fields.push({
 					name: 'Error Details',
-					value: `\`\`\`\n${(
-						error.stack || error.toString()
-					).substring(0, 1000)}\n\`\`\``,
+					value: `\`\`\`\n${errorDetail.substring(0, 1000)}\n\`\`\``,
 					inline: false,
 				});
 			}
@@ -131,7 +142,7 @@ class Logger {
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify(payload),
+				body: this.safeStringify(payload),
 			});
 		} catch (webhookError) {
 			console.error('Failed to send webhook:', webhookError);

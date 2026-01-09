@@ -600,6 +600,25 @@
                         <input type="range" id="volumeSlider" min="0" max="100" value="100" class="volume-slider" />
                         <span id="volumeValue" class="volume-value">100%</span>
                     </div>
+                    <!-- Latency & Connection Info -->
+                    <div class="latency-section">
+                        <div class="latency-item" title="Website to Bot Latency">
+                            <i class="ph ph-globe"></i>
+                            <span id="webLatency">-- ms</span>
+                        </div>
+                        <div class="latency-item" title="Bot to Discord Latency">
+                            <i class="ph ph-discord-logo"></i>
+                            <span id="botLatency">-- ms</span>
+                        </div>
+                        <div class="latency-item" title="Bot to Lavalink Latency">
+                            <i class="ph ph-broadcast"></i>
+                            <span id="lavaLatency">-- ms</span>
+                        </div>
+                        <div class="latency-item" title="Voice Channel Region">
+                            <i class="ph ph-map-pin"></i>
+                            <span id="voiceRegion">N/A</span>
+                        </div>
+                    </div>
                     <!-- Utility Controls (Premium) -->
                     <div class="utility-controls">
                         <button id="likeBtn" class="utility-btn like-btn" title="Like this song"
@@ -1059,6 +1078,7 @@
                         </button>
                         <button class="settings-tab" data-tab="247">24/7 Mode</button>
                         <button class="settings-tab" data-tab="premium">Premium</button>
+                        <button class="settings-tab" data-tab="embed">Embed Editor</button>
                         <button id="adminSettingsTab" class="settings-tab hidden" data-tab="admin"><i
                                 class="ph ph-shield-check"></i> Admin</button>
                     </div>
@@ -1267,6 +1287,171 @@
                         </div>
                     </div>
                 </div>
+                <!-- Embed Editor Settings -->
+                <div id="settings-embed" class="settings-tab-content hidden">
+                    <div class="embed-editor-wrapper" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <!-- LEFT COLUMN: Editor -->
+                        <div class="embed-editor-left" style="flex: 1; min-width: 300px;">
+                            <div class="settings-group">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                        <div>
+                                            <label style="margin-bottom: 0;">Layout Designer</label>
+                                            <p class="setting-description" style="margin-bottom: 0;">Drag components to
+                                                reorder. Toggle to hide/show.</p>
+                                        </div>
+                                        <div class="mode-toggle">
+                                            <button id="modeVisualBtn" class="mode-btn active"
+                                                onclick="dashboard.switchEmbedMode('visual')"><i
+                                                    class="ph ph-squares-four"></i> Visual</button>
+                                            <button id="modeCodeBtn" class="mode-btn"
+                                                onclick="dashboard.switchEmbedMode('code')"><i class="ph ph-code"></i>
+                                                Code</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- VISUAL EDITOR CONTAINER -->
+                                    <div id="visualEditorContainer" class="visual-editor-container">
+                                        <div class="visual-blocks-list" id="activeBlocksList">
+                                            <!-- Blocks injected by JS -->
+                                        </div>
+
+                                        <div class="add-block-section"
+                                            style="margin-top: 20px; border-top: 1px dashed var(--border); padding-top: 15px;">
+                                            <label style="font-size: 0.8rem; color: #888;">Available Components (Click
+                                                to Add)</label>
+                                            <div class="available-blocks-list" id="availableBlocksList">
+                                                <!-- Blocks injected by JS -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- RAW CODE EDITOR (Hidden by default) -->
+                                    <div id="codeEditorContainer" class="hidden">
+                                        <textarea id="embedTemplateInput" class="setting-textarea" rows="15"
+                                            placeholder="Enter your custom ASCII art and placeholders here..."
+                                            style="font-family: 'Consolas', 'Monaco', monospace; white-space: pre;"></textarea>
+                                    </div>
+
+                                    <div class="template-placeholders code-block"
+                                        style="margin-top: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+                                        <strong
+                                            style="display:block; margin-bottom:8px; color:white;">Variables</strong>
+                                        <div
+                                            style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem;">
+                                            <div><code>{{title}}</code> / <code>{{fancyTitle}}</code></div>
+                                            <div><code>{{author}}</code> Artist</div>
+                                            <div><code>{{duration}}</code> / <code>{{currentTime}}</code></div>
+                                            <div><code>{{progressBar}}</code> Progress</div>
+                                            <div><code>{{volume}}</code> / <code>{{volumeBar}}</code></div>
+                                            <div><code>{{volumeBox}}</code> Box</div>
+                                            <div><code>{{jukebox}}</code> / <code>{{visualizer}}</code></div>
+                                            <div><code>{{controls}}</code> Buttons</div>
+                                            <div><code>{{borderTop}}</code> / <code>{{borderBottom}}</code></div>
+                                            <div><code>{{requester}}</code> / <code>{{statusIcon}}</code></div>
+                                        </div>
+                                        <div><code>{{requester}}</code> User</div>
+                                        <div><code>{{statusIcon}}</code> Icon</div>
+                                    </div>
+                                </div>
+
+                                <div class="embed-editor-actions" style="margin-top: 20px;">
+                                    <button id="saveEmbedBtn" class="cta-btn primary"
+                                        onclick="musicDashboard.saveEmbedSettings()">
+                                        <i class="ph ph-floppy-disk"></i> Save Layout
+                                    </button>
+                                    <button id="resetEmbedBtn" class="cta-btn secondary"
+                                        onclick="musicDashboard.resetEmbedSettings()">
+                                        <i class="ph ph-arrow-counter-clockwise"></i> Reset Default
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN: Preview -->
+                        <div class="embed-editor-right" style="flex: 0 0 340px;">
+                            <label style="display:block; margin-bottom: 8px;">Live Preview (Voice Channel)</label>
+                            <!-- DISCORD MOCKUP -->
+                            <div class="discord-mock-container" style="
+                                width: 320px; 
+                                background-color: #313338; 
+                                border-radius: 8px; 
+                                padding: 16px; 
+                                font-family: 'gg sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                                color: #dbdee1;
+                                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                                border: 1px solid #1e1f22;
+                            ">
+                                <!-- EMBED BODY -->
+                                <div class="discord-embed-preview" style="
+                                    background-color: #2b2d31; 
+                                    border-left: 4px solid var(--accent); 
+                                    border-radius: 4px; 
+                                    padding: 8px 16px 16px 12px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 8px;
+                                ">
+                                    <div style="font-size: 0.75rem; font-weight: 700; color: #dbdee1; margin-top: 8px;">
+                                        NOW PLAYING</div>
+
+                                    <div
+                                        style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                                        <div
+                                            style="font-weight: 600; color: #00a8fc; font-size: 1rem; line-height: 1.3;">
+                                            Adele - Hello (Official Music Video)
+                                        </div>
+                                        <img src="https://i.ytimg.com/vi/YQHsXMglC9A/maxresdefault.jpg"
+                                            style="width: 64px; height: 64px; border-radius: 4px; object-fit: cover;">
+                                    </div>
+
+                                    <!-- Dynamic Description Area -->
+                                    <div id="embedPreviewContent" style="
+                                        font-size: 0.875rem; 
+                                        line-height: 1.3; 
+                                        white-space: pre-wrap; 
+                                        color: #dbdee1;
+                                        margin-top: 4px;
+                                    ">Loading preview...</div>
+
+                                    <!-- Footer -->
+                                    <div style="
+                                        display: flex; 
+                                        align-items: center; 
+                                        gap: 8px; 
+                                        margin-top: 8px; 
+                                        font-size: 0.75rem; 
+                                        color: #949ba4;
+                                        border-top: 0px solid #3f4147;
+                                        padding-top: 0px;
+                                    ">
+                                        <img src="https://ui-avatars.com/api/?name=TM&background=random"
+                                            style="width: 20px; height: 20px; border-radius: 50%;">
+                                        <span>YOUTUBE • TymeeMusic • Today at 2:52 PM</span>
+                                    </div>
+                                </div>
+
+                                <!-- Fake Buttons -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;">
+                                    <div
+                                        style="background: #5865f2; color: white; border-radius: 3px; padding: 6px; text-align: center; font-size: 0.85rem; font-weight: 600;">
+                                        Pause</div>
+                                    <div
+                                        style="background: #4e5058; color: white; border-radius: 3px; padding: 6px; text-align: center; font-size: 0.85rem; font-weight: 600;">
+                                        Skip</div>
+                                </div>
+                            </div>
+                            <p style="margin-top: 10px; font-size: 0.75rem; color: #888;">
+                                <i class="ph ph-info"></i> This preview is forced to <strong>320px width</strong> to
+                                simulate the Voice Channel sidebar environment. If your ASCII art wraps here, it will
+                                wrap in Discord!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Admin Settings (Visible to Bot Owners Only) -->
                 <div id="settings-admin" class="settings-tab-content hidden">
                     <div class="settings-group">
@@ -1533,6 +1718,36 @@
                     <div class="stat-icon"><i class="ph ph-disc"></i></div>
                     <h4>Tracks Played</h4>
                     <span id="historyCount" class="stat-value">0</span>
+                </div>
+            </div>
+            <!-- Connection Quality -->
+            <div class="stats-section-detailed">
+                <h4><i class="ph ph-activity"></i> Connection Quality</h4>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="ph ph-globe"></i></div>
+                        <h4>Web Latency</h4>
+                        <span id="statsWebLatency" class="stat-value">-- ms</span>
+                        <p class="stat-sub">Browser to Bot</p>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="ph ph-discord-logo"></i></div>
+                        <h4>Discord API</h4>
+                        <span id="statsBotLatency" class="stat-value">-- ms</span>
+                        <p class="stat-sub">Bot to Gateway</p>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="ph ph-broadcast"></i></div>
+                        <h4>Lavalink</h4>
+                        <span id="statsLavaLatency" class="stat-value">-- ms</span>
+                        <p class="stat-sub">Bot to Node</p>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="ph ph-waveform-slash"></i></div>
+                        <h4>Voice Ping</h4>
+                        <span id="statsVoiceLatency" class="stat-value">-- ms</span>
+                        <p class="stat-sub">Voice UDP Ping</p>
+                    </div>
                 </div>
             </div>
             <!-- Top Songs -->

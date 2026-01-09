@@ -127,6 +127,17 @@ async function checkIfAlone(voiceState, pm, client) {
 	if (humanMembers.size === 0) {
 		logger.info('VoiceStateUpdate', `Bot is alone in voice channel in guild ${guildId}`);
 
+		// Check if 24/7 mode is enabled FIRST
+		const is247Enabled = await pm.is247ModeEnabled();
+
+		if (is247Enabled) {
+			// 24/7 mode: Keep playing, do NOT pause or set timeout to destroy
+			logger.info('VoiceStateUpdate', `24/7 mode enabled in guild ${guildId} - continuing playback while alone`);
+			clearAloneTimeout(guildId);
+			return;
+		}
+
+		// Not 24/7 mode: Pause and set timeout to destroy
 		clearAloneTimeout(guildId);
 
 		if (pm.isPlaying) {
@@ -273,4 +284,4 @@ async function sendDisconnectNotification(pm, reason, client) {
 	} catch (error) {
 		logger.error('VoiceStateUpdate', 'Error sending disconnect notification:', error);
 	}
-                               }
+}

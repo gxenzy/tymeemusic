@@ -79,7 +79,7 @@ class SupportCommand extends Command {
 			new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small)
 		);
 
-		const content = `**Need help with Yukihana?**\n\n` +
+		const content = `**Need help with TymeeMusic?**\n\n` +
 			`**${emoji.get('check')} Get Support For:**\n` +
 			`├─ Music playback issues\n` +
 			`├─ Command usage and setup\n` +

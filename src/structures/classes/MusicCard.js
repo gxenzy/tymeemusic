@@ -9,6 +9,8 @@ export default class MusicCard {
 	}
 
 	registerFonts() {
+        if (global.musicFontsLoaded) return;
+
 		try {
 			const fontPaths = [
 				{
@@ -55,30 +57,27 @@ export default class MusicCard {
 						'Inter',
 					);
 
-					logger.success(
+					logger.debug(
 						'MusicCard',
 						`Fonts registered successfully from: ${fontPath.path} (${fontPath.context})`,
 					);
 					fontsRegistered = true;
+                    global.musicFontsLoaded = true;
 					break;
-				} catch (e) {
-					console.error(
-						`Error while registering fonts from path: ${fontPath.path}: ${e}`,
-					);
-					continue;
+				} catch (err) {
+					// Continue to next path
 				}
 			}
 
 			if (!fontsRegistered) {
-				logger.warn(
-					'MusicCard',
-					'Could not register custom fonts from any path. Using system defaults.',
-				);
+				logger.warn('MusicCard', 'Could not register fonts from any known location.');
 			}
-		} catch (e) {
-			logger.error('MusicCard', 'Font registration error:', e);
+		} catch (error) {
+			logger.warn('MusicCard', `Error checking for fonts: ${error.message}`);
 		}
 	}
+
+
 
 	createFrostedGlass(ctx, x, y, width, height, radius = 15) {
 		ctx.save();
@@ -510,7 +509,27 @@ export default class MusicCard {
 				ctx.beginPath();
 				ctx.roundRect(x, y, size, size, 20);
 				ctx.clip();
-				ctx.drawImage(artwork, x, y, size, size);
+
+                // 🛠️ FIX: Aspect Ratio Aware Drawing (Object-Fit: Cover)
+                // This prevents stretching for widescreen (YouTube) thumbnails
+                const imageWidth = artwork.width;
+                const imageHeight = artwork.height;
+                const aspectRatio = imageWidth / imageHeight;
+                
+                let sourceX = 0;
+                let sourceY = 0;
+                let sourceWidth = imageWidth;
+                let sourceHeight = imageHeight;
+
+                if (aspectRatio > 1) { // Widescreen
+                    sourceWidth = imageHeight; // Crop to square based on height
+                    sourceX = (imageWidth - sourceWidth) / 2;
+                } else if (aspectRatio < 1) { // Tall
+                    sourceHeight = imageWidth; // Crop to square based on width
+                    sourceY = (imageHeight - sourceHeight) / 2;
+                }
+
+				ctx.drawImage(artwork, sourceX, sourceY, sourceWidth, sourceHeight, x, y, size, size);
 
 				// Subtle inner glow
 				ctx.shadowColor = 'rgba(100, 150, 255, 0.3)';
@@ -1535,4 +1554,81 @@ export default class MusicCard {
 
 		return canvas.toBuffer('image/png');
 	}
+
+    /**
+     * Creates a landscape album art card (Album + Background only)
+     * Requested by user for the embed big image
+     */
+    async createLandscapeCard(track, guildId = null) {
+        const width = 800;
+        const height = 350;
+        const padding = 20;
+
+        const canvas = createCanvas(width, height);
+        const ctx = canvas.getContext('2d');
+
+        // 1. APPLY BACKGROUND
+        let backgroundApplied = false;
+        if (guildId) {
+            try {
+                const backgroundSettings = db.guild.getMusicCardSettings(guildId);
+                if (backgroundSettings) {
+                    const { type, value } = backgroundSettings;
+                    if (type === 'color' && value) {
+                        ctx.fillStyle = value;
+                        ctx.fillRect(0, 0, width, height);
+                        backgroundApplied = true;
+                    } else if (type === 'gradient' && value) {
+                        const gradient = this.getGradientByName(value, ctx, width, height);
+                        if (gradient) {
+                            ctx.fillStyle = gradient;
+                            ctx.fillRect(0, 0, width, height);
+                            backgroundApplied = true;
+                        }
+                    } else if (type === 'image' && value) {
+                        const image = await loadImage(value);
+                        ctx.drawImage(image, 0, 0, width, height);
+                        // Add blur/dim for text contrast (even though we have no text, it looks premium)
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                        ctx.fillRect(0, 0, width, height);
+                        backgroundApplied = true;
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        if (!backgroundApplied) {
+            try {
+                // Try to load the user-provided banner from the root directory
+                const bannerPath = join(process.cwd(), 'peakphbanner.jpg');
+                const banner = await loadImage(bannerPath);
+                
+                // Draw background image
+                ctx.drawImage(banner, 0, 0, width, height);
+                
+                // Add a subtle dark overlay (30% black) for a premium "frosted" layout look
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, width, height);
+                backgroundApplied = true;
+            } catch (err) {
+                // Fallback to the original dynamic background if banner loading fails
+                this.applyEnhancedModernBackground(ctx, width, height);
+            }
+        }
+
+        // 2. DRAW CENTERED ARTWORK
+        const margin = 30; // vertical margin
+        const artworkSize = height - (margin * 2); // Square size based on height
+        const artworkX = (width - artworkSize) / 2;
+        const artworkY = margin;
+
+        await this.drawModernArtwork(ctx, track, artworkX, artworkY, artworkSize);
+
+        // 3. OPTIONAL: REFLECTION OR SHADOW?
+        // drawModernArtwork already handles shadow.
+
+        return canvas.toBuffer('image/png');
+    }
 }

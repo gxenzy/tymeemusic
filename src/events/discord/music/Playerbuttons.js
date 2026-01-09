@@ -1,6 +1,6 @@
 import { PlayerManager } from '#managers/PlayerManager';
 import { logger } from '#utils/logger';
-import { DiscordPlayerEmbed } from '#utils/DiscordPlayerEmbed';
+// import { DiscordPlayerEmbed } from '#utils/DiscordPlayerEmbed'; // using dynamic import for hot-reload
 import { EventUtils } from '#utils/EventUtils';
 import { db } from '#database/DatabaseManager';
 import { config } from '#config/config';
@@ -116,13 +116,48 @@ export async function updatePlayerMessageEmbed(client, pm) {
 			const guild = client.guilds.cache.get(pm.guildId);
 			// Get fresh position from player
 			const currentPosition = pm.player?.position ?? pm.position ?? 0;
+
+			// 🔥 DEV: Smart Hot-Reload (Prevents lag/memory leaks)
+			// Only re-import if it's been more than 10 seconds since the last reload
+			if (!global.cachedDiscordPlayerEmbed || Date.now() - (global.lastEmbedReload || 0) > 10000) {
+				const { DiscordPlayerEmbed: FreshClass } = await import(`../../../utils/DiscordPlayerEmbed.js?v=${Date.now()}`);
+				global.cachedDiscordPlayerEmbed = FreshClass;
+				global.lastEmbedReload = Date.now();
+			}
+			
+			const DiscordPlayerEmbed = global.cachedDiscordPlayerEmbed;
 			const embed = await DiscordPlayerEmbed.createPlayerEmbedAsync(pm, guild, currentPosition, client);
+            
+            // EXTRACT GENERATED IMAGE
+            const files = embed.file ? [embed.file] : [];
 
 			const channel = guild?.channels.cache.get(channelId);
 			if (channel) {
 				const message = await channel.messages.fetch(messageId).catch(() => null);
-				if (message && message.embeds.length > 0) {
-					await message.edit({ embeds: [embed] });
+				if (message) {
+                    const currentTrackId = pm.queue.current?.info?.identifier || pm.queue.current?.info?.uri;
+                    const cachedId = pm.player?.cachedCard?.id;
+                    
+                    // Logic: If we are playing the same track as the one cached/displayed, try to retain attachments
+                    // The cachedId is set in DiscordPlayerEmbed when image is generated/retrieved
+                    const isSameTrack = currentTrackId && cachedId && currentTrackId === cachedId;
+                    const hasAttachments = message.attachments.size > 0;
+
+                    const editOptions = { embeds: [embed] };
+
+                    if (isSameTrack && hasAttachments) {
+                         // RETAIN: Do nothing, just don't add 'files' 
+                    } else {
+                        // New Track or missing image: Upload
+                        if (files.length > 0) editOptions.files = files;
+                    }
+
+					const updatedMsg = await message.edit(editOptions);
+                    
+                    // 🖼️ CAPTURE CDN URL (If not already cached)
+                    if (updatedMsg && updatedMsg.embeds[0]?.image?.url && pm.player?.cachedCard) {
+                        pm.player.cachedCard.url = updatedMsg.embeds[0].image.url;
+                    }
 				}
 			}
 		}

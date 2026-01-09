@@ -8,15 +8,15 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/stars/gxenzy/tymeemusic?style=for-the-badge" alt="Stars"/>
-  <img src="https://img.shields.io/github/forks/gxenzy/tymeemusic?style=for-the-badge" alt="Forks"/>
-  <img src="https://img.shields.io/github/issues/gxenzy/tymeemusic?style=for-the-badge" alt="Issues"/>
-  <img src="https://img.shields.io/github/license/gxenzy/tymeemusic?style=for-the-badge" alt="License"/>
+  <img src="https://img.shields.io/github/stars/ZenIX/tymeemusic?style=for-the-badge" alt="Stars"/>
+  <img src="https://img.shields.io/github/forks/ZenIX/tymeemusic?style=for-the-badge" alt="Forks"/>
+  <img src="https://img.shields.io/github/issues/ZenIX/tymeemusic?style=for-the-badge" alt="Issues"/>
+  <img src="https://img.shields.io/github/license/ZenIX/tymeemusic?style=for-the-badge" alt="License"/>
 </p>
 
 # 🎵 TymeeMusic v1.41
 
-**TymeeMusic** is a powerful, feature-rich Discord music bot with a web dashboard, built with performance and user experience in mind. Developed by [gxenzy](https://github.com/gxenzy), this bot brings high-quality audio streaming, an intuitive web interface, and advanced customization options to your Discord server.
+**TymeeMusic** is a powerful, feature-rich Discord music bot with a web dashboard, built with performance and user experience in mind. Developed by [ZenIX](https://github.com/ZenIX), this bot brings high-quality audio streaming, an intuitive web interface, and advanced customization options to your Discord server.
 
 ---
 
@@ -273,8 +273,8 @@ Contributions are welcome! Here's how you can help:
 ## 👏 Credits
 
 ### Development
-- **[gxenzy](https://github.com/gxenzy)** - Lead Developer, TymeeMusic
-- Forked from [Yukihana](https://github.com/OpenUwU/yukihana) by [Bre4d777](https://github.com/bre4d777)
+- **[ZenIX](https://github.com/ZenIX)** - Lead Developer, TymeeMusic
+- Originally Forked from [Yukihana](https://github.com/OpenUwU/yukihana) by [Bre4d777](https://github.com/bre4d777) (Modified & Enhanced by ZenIX)
 
 ### Technologies
 - [NodeLink](https://nodelink.js.org/) - PerformanC & 1Lucas1.apk
@@ -295,13 +295,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  <b>Made with ❤️ by <a href="https://github.com/gxenzy">gxenzy</a></b>
+  <b>Made with ❤️ by <a href="https://github.com/ZenIX">ZenIX</a></b>
 </p>
 
 <p align="center">
   <a href="https://discord.gg/XYwwyDKhec">Support Server</a> •
-  <a href="https://github.com/gxenzy/tymeemusic/issues">Report Bug</a> •
-  <a href="https://github.com/gxenzy/tymeemusic/issues">Request Feature</a>
+  <a href="https://github.com/ZenIX/tymeemusic/issues">Report Bug</a> •
+  <a href="https://github.com/ZenIX/tymeemusic/issues">Request Feature</a>
 </p>
 
 <p align="center">

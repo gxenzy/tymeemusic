@@ -80,8 +80,8 @@ class TeamInfoCommand extends Command {
 		);
 
 		const content = `**Meet our development team!**\n\n` +
-			`**${emoji.get('check')} Lead Developer:** Bre4d777\n` +
-			`**${emoji.get('folder')} Bot Name:** Yukihana\n` +
+			`**${emoji.get('check')} Lead Developer:** ZenIX\n` +
+			`**${emoji.get('folder')} Bot Name:** TymeeMusic\n` +
 			`**${emoji.get('add')} Specialization:** Music & Utility Bot\n` +
 			`**${emoji.get('reset')} Status:** Active Development\n\n` +
 			`*We're constantly working to improve your experience!*`;

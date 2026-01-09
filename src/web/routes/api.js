@@ -279,4 +279,31 @@ export default function setupApiRoutes(app) {
             res.status(500).json({ error: error.message });
         }
     });
+    app.get('/api/settings/:guildId/embed', requireAuth, requireGuildPermission, async (req, res) => {
+        const guildId = req.params.guildId;
+        const db = req.app.get('bot').database; // or however DB is accessed
+        try {
+            const settings = await db.guild.getMusicCardSettings(guildId);
+            res.json({ settings: settings || {} });
+        } catch (error) {
+            console.error('Error fetching embed settings:', error);
+            res.status(500).json({ error: 'Failed to fetch settings' });
+        }
+    });
+
+    app.post('/api/settings/:guildId/embed', requireAuth, requireGuildPermission, async (req, res) => {
+        const guildId = req.params.guildId;
+        const { settings } = req.body;
+        const db = req.app.get('bot').database;
+
+        if (!settings) return res.status(400).json({ error: 'Settings required' });
+
+        try {
+            await db.guild.setMusicCardSettings(guildId, settings);
+            res.json({ success: true });
+        } catch (error) {
+            console.error('Error saving embed settings:', error);
+            res.status(500).json({ error: 'Failed to save settings' });
+        }
+    });
 }

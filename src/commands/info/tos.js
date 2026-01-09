@@ -76,7 +76,7 @@ class TermsOfServiceCommand extends Command {
 			new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small)
 		);
 
-		const content = `**By using Yukihana, you agree to these terms**\n\n` +
+		const content = `**By using TymeeMusic, you agree to these terms**\n\n` +
 			`**${emoji.get('check')} Acceptable Use**\n` +
 			`├─ Use the bot responsibly and follow Discord's ToS\n` +
 			`├─ Respect all cooldowns and rate limits for fair usage\n` +

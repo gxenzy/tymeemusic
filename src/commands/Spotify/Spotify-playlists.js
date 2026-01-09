@@ -18,6 +18,7 @@ import { config } from "#config/config";
 import { spotifyManager } from "#utils/SpotifyManager";
 import { logger } from "#utils/logger";
 import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
+import { getPremiumStatus } from "#utils/permissionUtil";
 import emoji from "#config/emoji";
 
 const PLAYLISTS_PER_PAGE = 5;
@@ -94,9 +95,9 @@ class PlaylistsCommand extends Command {
       const errorContainer = this._createErrorContainer("An error occurred while fetching your playlists. Please try again.");
 
       if (context.replied || context.deferred) {
-        await context.editReply({ components: [errorContainer] }).catch(() => {});
+        await context.editReply({ components: [errorContainer] }).catch(() => { });
       } else {
-        await this._reply(context, errorContainer).catch(() => {});
+        await this._reply(context, errorContainer).catch(() => { });
       }
     }
   }
@@ -509,14 +510,7 @@ class PlaylistsCommand extends Command {
   }
 
   _getPremiumStatus(guildId, userId) {
-    const premiumStatus = db.hasAnyPremium(userId, guildId);
-    return {
-      hasPremium: !!premiumStatus,
-      type: premiumStatus ? premiumStatus.type : "free",
-      maxSongs: premiumStatus
-        ? config.queue.maxSongs.premium
-        : config.queue.maxSongs.free,
-    };
+    return getPremiumStatus(userId, guildId);
   }
 
   _checkQueueLimit(currentQueueSize, tracksToAdd, guildId, userId) {
@@ -711,7 +705,7 @@ class PlaylistsCommand extends Command {
     collector.on("end", async () => {
       try {
         const expiredContainer = this._createExpiredContainer();
-        await message.edit({ 
+        await message.edit({
           components: [expiredContainer],
           flags: MessageFlags.IsComponentsV2,
         });

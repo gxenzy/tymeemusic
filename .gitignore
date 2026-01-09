@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+lavalink server/
+.agent/
+.github/
 package-lock.json
 bun.lock
 
@@ -70,10 +73,12 @@ nodelink/*.bread*
 nodelink/node_modules/
 nodelink/package-lock.json
 
-# Investigation/Debug notes
-investigation*.md
-*_log.md
 *_update_log.md
+test-*.js
+test.js
+last_readme.txt
+peakphbanner.jpg
+# Investigation/Debug notes
 
 # Assets (optional - uncomment if not needed in repo)
 # fonts/

@@ -22,6 +22,7 @@ import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import emoji from "#config/emoji";
 import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
+import { getPremiumStatus } from "#utils/permissionUtil";
 
 class PlayCommand extends Command {
   constructor() {
@@ -636,9 +637,8 @@ class PlayCommand extends Command {
       );
 
       const premiumStatus = queueLimitCheck.premiumStatus;
-      const limitWarning = premiumStatus.hasPremium
-        ? `Added ${tracksToAdd.length} of ${tracks.length} tracks (premium queue limit reached)`
-        : `Added ${tracksToAdd.length} of ${tracks.length} tracks (free tier limit reached). Upgrade to premium for up to ${config.queue.maxSongs.premium} songs.`;
+      const tierName = premiumStatus.tier.charAt(0).toUpperCase() + premiumStatus.tier.slice(1);
+      const limitWarning = `Added ${tracksToAdd.length} of ${tracks.length} tracks (${tierName} queue limit reached: ${premiumStatus.maxSongsFormatted} songs)`;
 
       if (wasEmpty && tracksToAdd.length > 0) {
         await playerManager.play();
@@ -687,14 +687,7 @@ class PlayCommand extends Command {
   }
 
   _getPremiumStatus(guildId, userId) {
-    const premiumStatus = db.hasAnyPremium(userId, guildId);
-    return {
-      hasPremium: !!premiumStatus,
-      type: premiumStatus ? premiumStatus.type : "free",
-      maxSongs: premiumStatus
-        ? config.queue.maxSongs.premium
-        : config.queue.maxSongs.free,
-    };
+    return getPremiumStatus(userId, guildId);
   }
 
   _checkQueueLimit(currentQueueSize, tracksToAdd, guildId, userId) {
@@ -702,9 +695,8 @@ class PlayCommand extends Command {
     const availableSlots = premiumStatus.maxSongs - currentQueueSize;
 
     if (availableSlots <= 0) {
-      const limitMessage = premiumStatus.hasPremium
-        ? `Premium queue is full. You can have up to ${premiumStatus.maxSongs} songs in queue.`
-        : `Free tier queue is full. You can have up to ${premiumStatus.maxSongs} songs in queue. Upgrade to premium for up to ${config.queue.maxSongs.premium} songs.`;
+      const tierName = premiumStatus.tier.charAt(0).toUpperCase() + premiumStatus.tier.slice(1);
+      const limitMessage = `Your ${tierName} queue is full. You can have up to ${premiumStatus.maxSongsFormatted} songs in queue.`;
 
       return {
         allowed: false,

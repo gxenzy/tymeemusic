@@ -4,6 +4,7 @@ import { PlayerManager } from "#managers/PlayerManager";
 import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import emoji from "#config/emoji";
+import { getPremiumStatus } from "#utils/permissionUtil";
 
 class PlayNowCommand extends Command {
   constructor() {
@@ -177,7 +178,7 @@ class PlayNowCommand extends Command {
       client.logger?.error("PlayNowCommand", `Error in prefix command: ${error.message}`, error);
       const errorContainer = this._createErrorContainer("An error occurred. Please try again.");
       if (message) {
-        await message.reply({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+        await message.reply({ components: [errorContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => { });
       }
     }
   }
@@ -309,9 +310,8 @@ class PlayNowCommand extends Command {
     if (!queueLimitCheck.canAddAll) {
       tracksToAdd = tracks.slice(0, queueLimitCheck.tracksToAdd);
       const premiumStatus = queueLimitCheck.premiumStatus;
-      limitWarning = premiumStatus.hasPremium
-        ? `Added ${tracksToAdd.length} of ${tracks.length} tracks (premium queue limit reached)`
-        : `Added ${tracksToAdd.length} of ${tracks.length} tracks (free tier limit reached). Upgrade to premium for up to ${config.queue.maxSongs.premium} songs.`;
+      const tierName = premiumStatus.tier.charAt(0).toUpperCase() + premiumStatus.tier.slice(1);
+      limitWarning = `Added ${tracksToAdd.length} of ${tracks.length} tracks (${tierName} queue limit reached: ${premiumStatus.maxSongsFormatted} songs)`;
     }
 
     await playerManager.addTracks(tracksToAdd, 0);
@@ -337,12 +337,7 @@ class PlayNowCommand extends Command {
   }
 
   _getPremiumStatus(guildId, userId) {
-    const premiumStatus = db.hasAnyPremium(userId, guildId);
-    return {
-      hasPremium: !!premiumStatus,
-      type: premiumStatus ? premiumStatus.type : 'free',
-      maxSongs: premiumStatus ? config.queue.maxSongs.premium : config.queue.maxSongs.free
-    };
+    return getPremiumStatus(userId, guildId);
   }
 
   _checkQueueLimit(currentQueueSize, tracksToAdd, guildId, userId) {
@@ -350,9 +345,8 @@ class PlayNowCommand extends Command {
     const availableSlots = premiumStatus.maxSongs - currentQueueSize;
 
     if (availableSlots <= 0) {
-      const limitMessage = premiumStatus.hasPremium
-        ? `Premium queue is full. You can have up to ${premiumStatus.maxSongs} songs in queue.`
-        : `Free tier queue is full. You can have up to ${premiumStatus.maxSongs} songs in queue. Upgrade to premium for up to ${config.queue.maxSongs.premium} songs.`;
+      const tierName = premiumStatus.tier.charAt(0).toUpperCase() + premiumStatus.tier.slice(1);
+      const limitMessage = `Your ${tierName} queue is full. You can have up to ${premiumStatus.maxSongsFormatted} songs in queue.`;
 
       return {
         allowed: false,
@@ -556,7 +550,7 @@ class PlayNowCommand extends Command {
       am: "amsearch", apple: "amsearch",
       sc: "scsearch", soundcloud: "scsearch",
       dz: "dzsearch", deezer: "dzsearch",
-      js:"jssearch", jiosaavn: "jssearch", saavn:"jssearch"
+      js: "jssearch", jiosaavn: "jssearch", saavn: "jssearch"
     };
     return sourceMap[source?.toLowerCase()] || "spsearch";
   }

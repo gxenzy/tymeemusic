@@ -13,6 +13,7 @@ import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import { logger } from "#utils/logger";
 import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
+import { getPremiumStatus } from "#utils/permissionUtil";
 import emoji from "#config/emoji";
 
 const MAX_TRACKS_TO_ADD = 50;
@@ -64,7 +65,7 @@ class LoadPlaylistCommand extends Command {
 		let positionsStr = null;
 		let query = args.join(" ");
 
-	
+
 		const lastArg = args[args.length - 1];
 		if (args.length > 1 && /^[0-9,-]+$/.test(lastArg)) {
 			positionsStr = args.pop();
@@ -134,7 +135,7 @@ class LoadPlaylistCommand extends Command {
 				selectionInfo = `up to ${MAX_TRACKS_TO_ADD} tracks`;
 			}
 
-	
+
 			const voiceChannel = context.member?.voice?.channel;
 			if (!voiceChannel)
 				return this._editReply(
@@ -213,7 +214,7 @@ class LoadPlaylistCommand extends Command {
 				} else {
 					failedCount++;
 				}
-			
+
 			}
 
 			if (wasEmpty && addedCount > 0) await pm.play();
@@ -372,7 +373,7 @@ class LoadPlaylistCommand extends Command {
 		return container;
 	}
 
-	
+
 	_createLoadingContainer(query) {
 		return new ContainerBuilder().addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
@@ -402,13 +403,7 @@ class LoadPlaylistCommand extends Command {
 		);
 	}
 	_getPremiumStatus(guildId, userId) {
-		const premiumStatus = db.hasAnyPremium(userId, guildId);
-		return {
-			hasPremium: !!premiumStatus,
-			maxSongs: premiumStatus
-				? config.queue.maxSongs.premium
-				: config.queue.maxSongs.free,
-		};
+		return getPremiumStatus(userId, guildId);
 	}
 	_checkQueueLimit(currentQueueSize, tracksToAdd, guildId, userId) {
 		const premiumStatus = this._getPremiumStatus(guildId, userId);

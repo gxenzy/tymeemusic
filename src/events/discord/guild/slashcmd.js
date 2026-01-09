@@ -366,12 +366,18 @@ async function handleChatInputCommand(interaction, client) {
     )
       return _sendPremiumError(interaction, "Premium");
 
-    if (commandToExecute.voiceRequired && !interaction.member.voice.channel) {
-      return _sendError(
-        interaction,
-        "Voice Channel Required",
-        "You must be in a voice channel to use this command.",
-      );
+    if (commandToExecute.voiceRequired) {
+      const voiceChannel = interaction.member.voice.channel;
+      const voiceChannelId = interaction.member.voice.channelId;
+
+      if (!voiceChannel && !voiceChannelId) {
+        logger.debug("InteractionCreate", `User ${interaction.user.tag} voice check failed. Channel: ${voiceChannel}, ID: ${voiceChannelId}`);
+        return _sendError(
+          interaction,
+          "Voice Channel Required",
+          "You must be in a voice channel to use this command.",
+        );
+      }
     }
     if (
       commandToExecute.sameVoiceRequired &&

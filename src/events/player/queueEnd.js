@@ -4,6 +4,7 @@ import { config } from "#config/config";
 import { PlayerManager } from "#managers/PlayerManager";
 import { EventUtils } from "#utils/EventUtils";
 import { VoiceChannelStatus } from "#utils/VoiceChannelStatus";
+import { getPremiumStatus } from "#utils/permissionUtil";
 
 const LASTFM_API_KEY = config.lastfm.apiKey
 const LASTFM_BASE_URL = "http://ws.audioscrobbler.com/2.0/";
@@ -152,7 +153,7 @@ async function handleAutoplay(player, lastTrack, client) {
   }
 
   const autoplayUserId = player.get('autoplaySetBy');
-  const premiumStatus = getPremiumStatus(player.guildId, autoplayUserId);
+  const premiumStatus = getPremiumStatus(autoplayUserId, player.guildId);
   const maxAutoplayTracks = premiumStatus.hasPremium ? 10 : 6;
 
   const tracksToAdd = recommendations.slice(0, maxAutoplayTracks);
@@ -328,16 +329,7 @@ async function fetchRecommendations(track, client) {
 
 // Exported for use by control interactions (similar songs search)
 export { fetchRecommendations };
-function getPremiumStatus(guildId, userId) {
-  if (!userId) return { hasPremium: false, maxSongs: config.queue.maxSongs.free };
 
-  const premiumStatus = db.hasAnyPremium(userId, guildId);
-  return {
-    hasPremium: !!premiumStatus,
-    type: premiumStatus ? premiumStatus.type : 'free',
-    maxSongs: premiumStatus ? config.queue.maxSongs.premium : config.queue.maxSongs.free
-  };
-}
 
 function clearStoredMessageIds(player) {
   player.set('nowPlayingMessageId', null);

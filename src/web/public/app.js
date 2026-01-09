@@ -1,8 +1,9 @@
 class MusicDashboard {
   constructor() {
     console.log("=== MUSIC DASHBOARD INITIALIZING ===");
-    this.apiKey = "MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ"; // Default API key from config
-    this.guildId = "";
+    this.apiKey = ""; // Fetched dynamically on login
+    const urlParams = new URLSearchParams(window.location.search);
+    this.guildId = urlParams.get("g") || urlParams.get("guildId") || "";
     this.socket = null; // Socket.IO client
     this.socketToken = null;
     this.lastRealtimeAt = 0;
@@ -78,6 +79,7 @@ class MusicDashboard {
     this.serverStatusInterval = null;
     // Prevent race conditions when switching guild + navigating pages quickly
     this.serverSwitchInFlight = null;
+    this.lastSeekAt = 0; // Prevent UI snapping back immediately after seek
     // Small delay to let inline auth script complete
 
     // Initial state is "Loading..."
@@ -92,6 +94,10 @@ class MusicDashboard {
 
     // Load track history from localStorage
     this.loadHistoryFromStorage();
+
+    // Latency tracking
+    this.webLatency = 0;
+    this.heartbeatInterval = null;
   }
   initializeElements() {
     this.authSection = document.getElementById("authSection");
@@ -169,6 +175,18 @@ class MusicDashboard {
     this.translateLyricsBtn = document.getElementById("translateLyricsBtn");
     this.visualizerCanvas = document.getElementById("visualizerCanvas");
     this.idlePlayerView = document.getElementById("idlePlayerView");
+
+    // Latency elements
+    this.webLatencyEl = document.getElementById("webLatency");
+    this.botLatencyEl = document.getElementById("botLatency");
+    this.lavaLatencyEl = document.getElementById("lavaLatency");
+    this.voiceRegionEl = document.getElementById("voiceRegion");
+
+    // Stats Latency elements
+    this.statsWebLatencyEl = document.getElementById("statsWebLatency");
+    this.statsBotLatencyEl = document.getElementById("statsBotLatency");
+    this.statsLavaLatencyEl = document.getElementById("statsLavaLatency");
+    this.statsVoiceLatencyEl = document.getElementById("statsVoiceLatency");
   }
   async checkAuth() {
     console.log("=== FRONTEND AUTH CHECK (APP) ===");
@@ -183,6 +201,7 @@ class MusicDashboard {
       console.log("Full API response:", JSON.stringify(data));
       if (data.authenticated && data.user) {
         this.user = data.user;
+        this.apiKey = data.apiKey; // Securely set from server response
         localStorage.setItem("dashboard_user", JSON.stringify(data.user));
         localStorage.setItem("dashboard_auth", "true");
         if (this.user?.id) {
@@ -244,9 +263,9 @@ class MusicDashboard {
   showDashboard() {
     console.log("=== SHOWING DASHBOARD ===");
     this.loginRequired.classList.add("hidden");
-    // If we have a guildId, go to player. Otherwise, go to servers selection.
+    // If we have a guildId, perform server selection to initialize state/socket
     if (this.guildId) {
-      this.showPage("player");
+      this.selectServer(this.guildId);
     } else {
       this.showPage("servers");
     }
@@ -315,6 +334,15 @@ class MusicDashboard {
       this.loadUserServers();
     } else if (pageName === "player" && this.guildId) {
       this.loadFilters();
+      // Ensure visualizer is initialized when player page is shown
+      if (!this.visualizer || typeof this.visualizer.cycleMode !== 'function') {
+        const canvas = document.getElementById("visualizerCanvas");
+        if (canvas) {
+          console.log("Reinitializing visualizer on player page show...");
+          this.visualizer = new AudioVisualizer(canvas);
+          this.visualizer.updateColor(this.theme);
+        }
+      }
     }
     // Redirect if guild is required but missing
     const pagesRequiringGuild = ["player", "queue", "playlists", "settings", "stats", "emojis", "radio"];
@@ -869,9 +897,14 @@ class MusicDashboard {
         document
           .querySelectorAll(".settings-tab-content")
           .forEach((content) => content.classList.add("hidden"));
+        const tabName = btn.dataset.tab;
         document
-          .getElementById(`settings-${btn.dataset.tab}`)
+          .getElementById(`settings-${tabName}`)
           ?.classList.remove("hidden");
+
+        if (tabName === 'embed') {
+          this.loadEmbedSettings();
+        }
       });
     });
     this.setupKeyboardShortcuts();
@@ -989,8 +1022,24 @@ class MusicDashboard {
       // Start watchdog/poll fallback
       this.lastRealtimeAt = Date.now();
       this.startPollingWatchdog();
+
+      // Start heartbeat for web latency
+      if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = setInterval(() => {
+        if (this.socket && this.socket.connected) {
+          this.socket.emit("heartbeat", { timestamp: Date.now() });
+        }
+      }, 3000);
+
       // As a safety net, pull HTTP snapshot as well (handles any missed state)
       Promise.allSettled([this.loadPlayerState(), this.loadQueue()]);
+    });
+
+    this.socket.on("heartbeat", (data) => {
+      const now = Date.now();
+      const latency = now - data.clientTimestamp;
+      this.webLatency = latency;
+      this.updateLatencyUI();
     });
     this.socket.on("disconnect", (reason) => {
       console.log("Socket.IO disconnected:", reason);
@@ -998,6 +1047,11 @@ class MusicDashboard {
       this.updateConnectionStatus(false);
       // Start polling quickly on disconnect
       this.startPolling();
+      // Stop heartbeat
+      if (this.heartbeatInterval) {
+        clearInterval(this.heartbeatInterval);
+        this.heartbeatInterval = null;
+      }
     });
     this.socket.on("connect_error", (err) => {
       console.warn("Socket.IO connect_error:", err?.message || err);
@@ -1104,6 +1158,7 @@ class MusicDashboard {
         queueSize: payload?.queueSize ?? 0,
         voiceChannel: payload?.voiceChannel || null,
         guildName: payload?.guildName || this.playerState?.guildName || "",
+        ping: payload?.ping || { bot: 0, lavalink: 0, voice: 0 },
       };
 
       console.log(`[DEBUG] player:state Normalized Timescale: ${normalized.timescale}`);
@@ -1113,8 +1168,14 @@ class MusicDashboard {
       this.playerState = normalized;
 
       // Update snapshot-based timekeeping
-      this.positionAtSnapshotMs = Number(normalized.position || 0);
-      this.snapshotReceivedAtMs = Date.now();
+      // INCREASED DELAY: Ignore server updates for 2.5s after seek to allow NodeLink recovery
+      const sinceSeek = Date.now() - (this.lastSeekAt || 0);
+      if (sinceSeek < 2500) {
+        console.log(`[DEBUG] Ignoring stale server position (${normalized.position}ms) due to recent seek (${sinceSeek}ms ago)`);
+      } else {
+        this.positionAtSnapshotMs = Number(normalized.position || 0);
+        this.snapshotReceivedAtMs = Date.now();
+      }
 
       // Queue update if included
       if (Array.isArray(payload?.queue)) {
@@ -1343,8 +1404,17 @@ class MusicDashboard {
         : this.getEmojiHtml("play");
 
     // Update visualizer state
+    console.log("[UI] Updating visualizer state. isPlaying:", isPlaying, "isPaused:", isPaused, "visualizer exists:", !!this.visualizer);
     if (this.visualizer) {
       this.visualizer.setState(isPlaying && !isPaused);
+    } else {
+      console.warn("[UI] Visualizer not found! Attempting to reinitialize...");
+      const canvas = document.getElementById("visualizerCanvas");
+      if (canvas) {
+        this.visualizer = new AudioVisualizer(canvas);
+        this.visualizer.updateColor(this.theme);
+        this.visualizer.setState(isPlaying && !isPaused);
+      }
     }
     // Repeat button active state + icon based on mode
     this.repeatBtn.classList.toggle(
@@ -1424,6 +1494,40 @@ class MusicDashboard {
         this.lastRenderedFilterName = activeFilterName;
       }
     }
+
+    this.updateLatencyUI();
+  }
+
+  updateLatencyUI() {
+    if (!this.playerState) return;
+    const ping = this.playerState.ping || { bot: 0, lavalink: 0, voice: 0 };
+    const webLat = this.webLatency || 0;
+
+    // Player Page elements
+    if (this.webLatencyEl) this.webLatencyEl.textContent = `${webLat} ms`;
+    if (this.botLatencyEl) this.botLatencyEl.textContent = `${ping.bot} ms`;
+    if (this.lavaLatencyEl) this.lavaLatencyEl.textContent = `${ping.lavalink} ms`;
+    if (this.voiceRegionEl) {
+      const region = this.playerState.voiceChannel?.region || "Auto";
+      this.voiceRegionEl.textContent = region.toUpperCase();
+    }
+
+    // Stats Page elements
+    if (this.statsWebLatencyEl) this.statsWebLatencyEl.textContent = `${webLat} ms`;
+    if (this.statsBotLatencyEl) this.statsBotLatencyEl.textContent = `${ping.bot} ms`;
+    if (this.statsLavaLatencyEl) this.statsLavaLatencyEl.textContent = `${ping.lavalink} ms`;
+    if (this.statsVoiceLatencyEl) this.statsVoiceLatencyEl.textContent = `${ping.voice} ms`;
+
+    // Visual indicators (color based on latency)
+    const getLatencyColor = (ms) => {
+      if (ms < 100) return "#43b581"; // Green
+      if (ms < 250) return "#faa61a"; // Orange/Yellow
+      return "#f04747"; // Red
+    };
+
+    if (this.webLatencyEl) this.webLatencyEl.style.color = getLatencyColor(webLat);
+    if (this.botLatencyEl) this.botLatencyEl.style.color = getLatencyColor(ping.bot);
+    if (this.lavaLatencyEl) this.lavaLatencyEl.style.color = getLatencyColor(ping.lavalink);
   }
   // --- Local Position Ticker (for smooth UI) ---
   startPositionUpdates() {
@@ -1868,36 +1972,43 @@ class MusicDashboard {
     )
       return;
 
-    // Permission check
-    if (!await this.ensurePermission("seek track")) return;
+    // PREVENT TRIPLE TRIGGER
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (e && e.preventDefault && e.type === "click") e.preventDefault();
 
-    // If we are actively scrubbing, ignore click events to avoid double seeks.
-    if (this.isScrubbing) return;
-    // Click-to-seek flash feedback
-    try {
-      this.progressBar.classList.add("seeking");
-      setTimeout(() => {
-        try {
-          this.progressBar.classList.remove("seeking");
-        } catch (_) {
-          // ignore
-        }
-      }, 250);
-    } catch (_) {
-      // ignore
-    }
+    const now = Date.now();
+    // If we just finished scrubbing, ignore the trailing click event
+    if (this.isScrubbing || (now - (this.lastScrubEndAt || 0) < 500)) return;
+
     const desired = this._computeSeekPositionFromEvent(e);
     if (desired == null) return;
-    // Optimistic UI update (prevents lag/stale baseline)
-    this._applyOptimisticSeek(desired);
-    // Send seek and then resync from server
+
+    await this._sendSeek(desired);
+  }
+
+  async _sendSeek(position) {
+    const now = Date.now();
+    // Use a 1000ms throttle for ALL seek requests (click or scrub)
+    if (now - (this.lastSeekSentAt || 0) < 1000) {
+      console.warn("[SEEK] Throttled request to", position);
+      return;
+    }
+
+    if (!await this.ensurePermission("seek track")) return;
+
+    this.lastSeekAt = now;
+    this.lastSeekSentAt = now;
+    this._applyOptimisticSeek(position);
+
     try {
+      this.progressBar.classList.add("seeking");
+      setTimeout(() => this.progressBar.classList.remove("seeking"), 250);
+
       await this.apiCall("POST", `/api/player/${this.guildId}/seek`, {
-        position: desired,
+        position: position,
       });
-      this.loadPlayerState();
     } catch (error) {
-      this.loadPlayerState();
+      console.error("Seek failed:", error);
     }
   }
   _getClientXFromEvent(e) {
@@ -1911,13 +2022,53 @@ class MusicDashboard {
   }
   _computeSeekPositionFromEvent(e) {
     const clientX = this._getClientXFromEvent(e);
-    if (clientX == null) return null;
+    if (clientX == null) {
+      console.warn("Seek: clientX is null");
+      return null;
+    }
+
     const rect = this.progressBar.getBoundingClientRect();
+    if (!rect.width || rect.width <= 0) {
+      console.warn("Seek: progressBar width is 0");
+      return null;
+    }
+
     const x = clientX - rect.left;
     const percent = Math.max(0, Math.min(1, x / rect.width));
-    const duration = Number(this.playerState?.currentTrack?.duration || 0);
-    if (!duration || duration <= 0) return 0;
-    return Math.floor(percent * duration);
+
+    // Get duration from state, ensuring it's a valid number
+    let duration = Number(this.playerState?.currentTrack?.duration);
+    if (isNaN(duration) || duration <= 0) {
+      duration = 0;
+    }
+
+    if (duration <= 0) {
+      console.warn("Seek: PlayerState duration unknown, checking UI fallback...");
+      const totalText = this.totalTime?.textContent;
+      if (totalText && totalText.includes(":")) {
+        const parts = totalText.split(':');
+        if (parts.length === 2) duration = (parseInt(parts[0]) * 60 + parseInt(parts[1])) * 1000;
+        else if (parts.length === 3) duration = (parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2])) * 1000;
+      }
+    }
+
+    if (!duration || duration <= 0 || isNaN(duration)) {
+      console.error("Seek aborted: Track duration is unknown or 0.");
+      return null;
+    }
+
+    const position = Math.floor(percent * duration);
+
+    // LOGGING: Crucial to see what the browser is doing
+    console.log(`[SEEK DEBUG] ClickX: ${clientX}, RectLeft: ${rect.left}, Percent: ${percent.toFixed(4)}, Duration: ${duration}, Result: ${position}`);
+
+    // Safety Guard: Abort if calculation seems wrong (e.g. click in middle results in 0)
+    if (position === 0 && percent > 0.1) {
+      console.error("[SEEK ERROR] Calculation resulted in 0 despite clicking the middle of the bar. Aborting.");
+      return null;
+    }
+
+    return position;
   }
   _applyOptimisticSeek(positionMs) {
     const pos = Math.max(0, Number(positionMs || 0));
@@ -1983,18 +2134,19 @@ class MusicDashboard {
   endScrub(e) {
     if (!this.isScrubbing) return;
     this.isScrubbing = false;
+    this.lastScrubEndAt = Date.now();
+    this.lastSeekAt = Date.now();
+
     window.removeEventListener("mousemove", this._boundScrubMove);
     window.removeEventListener("mouseup", this._boundScrubUp);
     window.removeEventListener("touchmove", this._boundScrubMove);
     window.removeEventListener("touchend", this._boundScrubUp);
+
     // Flush final seek immediately
     this._scheduleScrubSeekSend(true);
+
     // Restart ticking
     this.startPositionUpdates();
-    // Resync state after final seek (reduces drift)
-    Promise.resolve()
-      .then(() => this.loadPlayerState())
-      .catch(() => { });
   }
   _scheduleScrubSeekSend(immediate) {
     const desired = Number(this.scrubDesiredPositionMs);
@@ -2008,12 +2160,10 @@ class MusicDashboard {
     const send = () => {
       this.scrubSendTimeout = null;
       this.scrubLastSentPositionMs = desired;
-      this.apiCall("POST", `/api/player/${this.guildId}/seek`, {
-        position: desired,
-      });
+      this._sendSeek(desired);
     };
     if (immediate) send();
-    else this.scrubSendTimeout = setTimeout(send, 150);
+    else this.scrubSendTimeout = setTimeout(send, 250);
   }
   isGuildOwner(guildId) {
     // Bot owners/developers bypass all guild-level restrictions
@@ -2199,7 +2349,7 @@ class MusicDashboard {
       return;
     } else {
       // url = stations[station]; // Legacy URL approach
-      // Use new Radio API "mixed" which falls back to random if no seed, 
+      // Use new Radio API "mixed" which falls back to random if no seed,
       // OR we can implement specific genre radios in the backend later.
       // For now, let's map these simple stations to 'mixed' with a seed if possible
       // or just treat them as play queries if they are URLs.
@@ -3586,7 +3736,7 @@ class MusicDashboard {
       } else {
         const error = await response.json();
 
-        // If player not found (404), our backend now tries to auto-create it if possible, 
+        // If player not found (404), our backend now tries to auto-create it if possible,
         // but if that fails or it's a legacy version, we handle it here.
         if (response.status === 404 || error.error?.includes("No player found")) {
           console.log("No player found, attempting to start one...");
@@ -3905,7 +4055,7 @@ class MusicDashboard {
 
           card.innerHTML = `
             <div class="search-card-image-wrapper">
-              <img id="${imgId}" src="${artwork}" class="search-card-image" loading="lazy" 
+              <img id="${imgId}" src="${artwork}" class="search-card-image" loading="lazy"
                    onerror="this.src='https://placehold.co/200x200/2d2d2d/fff.png?text=♪'" alt="${this.escapeHtml(title)}">
               <div class="search-card-overlay">
                 <button class="search-card-action add-to-playlist-btn" title="Add to Playlist">+</button>
@@ -4100,7 +4250,7 @@ class MusicDashboard {
 
   switchPlaylistViewTab(tab) {
     this.playlistTab = tab;
-    // Update active tab UI 
+    // Update active tab UI
     document.querySelectorAll('.playlist-tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(`pl-tab-${tab}`)?.classList.add('active');
 
@@ -6322,7 +6472,7 @@ class MusicDashboard {
       }
     } catch (e) {
       if (e.name !== 'AbortError') {
-        // console.error('Suggestion error:', e); 
+        // console.error('Suggestion error:', e);
         container.classList.add('hidden');
       }
     }
@@ -7456,18 +7606,52 @@ class MusicDashboard {
 
   cycleVisualizerMode() {
     console.log("Cycling visualizer mode...");
+
+    // Check if visualizer exists
     if (!this.visualizer) {
-      console.warn("Visualizer instance not found in cycleVisualizerMode");
+      console.warn("Visualizer instance not found, attempting to reinitialize...");
+      // Try to reinitialize if canvas exists
+      const canvas = document.getElementById("visualizerCanvas");
+      if (canvas) {
+        this.visualizer = new AudioVisualizer(canvas);
+        this.visualizer.updateColor(this.theme);
+        console.log("Visualizer reinitialized successfully");
+      } else {
+        console.error("Visualizer canvas element not found");
+        this.showToast("Visualizer not available", "error");
+        return;
+      }
+    }
+
+    // Check if cycleMode method exists
+    if (typeof this.visualizer.cycleMode !== 'function') {
+      console.error("Visualizer cycleMode method not found");
+      this.showToast("Visualizer not properly initialized", "error");
       return;
     }
 
     const newMode = this.visualizer.cycleMode();
     console.log("New visualizer mode:", newMode);
+
+    // Update canvas class for sharp/blur modes
+    const canvas = this.visualizerCanvas || document.getElementById("visualizerCanvas");
+    if (canvas) {
+      // Sharp modes: bars, wave, particles, spectrum - show clearer visuals
+      const sharpModes = ['bars', 'wave', 'particles', 'spectrum'];
+      if (sharpModes.includes(newMode)) {
+        canvas.classList.add('visualizer-sharp');
+      } else {
+        canvas.classList.remove('visualizer-sharp');
+      }
+    }
+
     const modeNames = {
       aura: '🌟 Aura',
       bars: '📊 Bars',
       wave: '🌊 Wave',
-      particles: '✨ Particles'
+      particles: '✨ Particles',
+      spectrum: '🔊 Spectrum',
+      orbit: '🪐 Orbit'
     };
 
     this.showToast(`Visualizer: ${modeNames[newMode] || newMode}`, 'info');
@@ -7504,6 +7688,354 @@ class MusicDashboard {
     } catch (e) {
       this.showToast('Failed to reset player', 'error');
     }
+  }
+
+  // ============ EMBED EDITOR ============
+  async loadEmbedSettings() {
+    if (!this.guildId) return;
+    try {
+      const textarea = document.getElementById("embedTemplateInput");
+      if (!textarea) return;
+      textarea.value = "Loading...";
+      textarea.disabled = true;
+
+      const res = await fetch(`/api/settings/${this.guildId}/embed`, {
+        headers: { "X-API-Key": this.apiKey }
+      });
+      if (!res.ok) throw new Error("API Error");
+      const data = await res.json();
+
+      if (data.settings && data.settings.descriptionTemplate) {
+        textarea.value = data.settings.descriptionTemplate;
+      } else {
+        textarea.value = "";
+      }
+
+      this.updateEmbedCharCount(textarea.value.length);
+      this.updateEmbedPreview(textarea.value);
+      this.initVisualBuilder(); // Auto-start visual mode logic
+
+      // Remove existing listener to avoid duplicates if any
+      const newTextarea = textarea.cloneNode(true);
+      if (textarea.parentNode) {
+        textarea.parentNode.replaceChild(newTextarea, textarea);
+      }
+      newTextarea.disabled = false;
+
+      newTextarea.addEventListener('input', (e) => {
+        this.updateEmbedCharCount(e.target.value.length);
+        this.updateEmbedPreview(e.target.value);
+      });
+
+    } catch (e) {
+      console.error("Failed to load embed settings", e);
+      this.showToast("Failed to load embed settings", "error");
+      const textarea = document.getElementById("embedTemplateInput");
+      if (textarea) textarea.disabled = false;
+    }
+  }
+
+  // === VISUAL BUILDER LOGIC ===
+
+  switchEmbedMode(mode) {
+    const visualContainer = document.getElementById('visualEditorContainer');
+    const codeContainer = document.getElementById('codeEditorContainer');
+    const visualBtn = document.getElementById('modeVisualBtn');
+    const codeBtn = document.getElementById('modeCodeBtn');
+
+    if (mode === 'visual') {
+      visualContainer.classList.remove('hidden');
+      codeContainer.classList.add('hidden');
+      visualBtn.classList.add('active');
+      codeBtn.classList.remove('active');
+      this.initVisualBuilder();
+    } else {
+      visualContainer.classList.add('hidden');
+      codeContainer.classList.remove('hidden');
+      visualBtn.classList.remove('active');
+      codeBtn.classList.add('active');
+    }
+  }
+
+  initVisualBuilder() {
+    const textarea = document.getElementById("embedTemplateInput");
+    let currentTemplate = textarea.value.trim();
+    const defaultLayout = `{{borderTop}}\n              ɴᴏᴡ ᴘʟᴀʏɪɴɢ\n        {{fancyTitle}}\n  {{visualizer}}\n\n   {{currentTime}}   {{progressBar}}   {{duration}}\n{{controls}}\n\nᴠᴏʟᴜᴍᴇ:\n{{volumeBox}}\n{{borderBottom}}\n\n{{jukebox}}`;
+
+    if (!currentTemplate) currentTemplate = defaultLayout;
+
+    const availableBlocks = [
+      { code: '{{borderTop}}', name: 'Top Border (Heart)' },
+      { code: '{{fancyTitle}}', name: 'Song Title (Fancy)' },
+      { code: '{{visualizer}}', name: 'Visualizer ASCII' },
+      { code: '{{progressBar}}', name: 'Progress Bar + Times' }, // Grouped for simplicity in visual mode? Or keeping separate
+      { code: '{{controls}}', name: 'Playback Controls' },
+      { code: '{{volumeBox}}', name: 'Volume Box' },
+      { code: '{{borderBottom}}', name: 'Bottom Border (Heart)' },
+      { code: '{{jukebox}}', name: 'Dual Jukebox Animation' },
+      // Basic Variants
+      { code: '{{title}}', name: 'Song Title (Simple)' },
+      { code: '{{volumeBar}}', name: 'Volume Bar (Simple)' },
+      { code: '{{statusIcon}}', name: 'Status Icon' }
+    ];
+
+    // Simple parser: Split by newlines or finding codes
+    // For now, we just check which known blocks are present and in what roughly order
+    // This is a naive implementation that assumes blocks are on their own lines or distinct
+
+    const activeList = document.getElementById('activeBlocksList');
+    const availList = document.getElementById('availableBlocksList');
+    activeList.innerHTML = '';
+    availList.innerHTML = '';
+
+    // Heuristic: Check existence
+    const presentBlocks = [];
+    availableBlocks.forEach(block => {
+      if (currentTemplate.includes(block.code)) {
+        presentBlocks.push(block);
+      } else {
+        // Render as available
+        const div = document.createElement('div');
+        div.className = 'visual-block available';
+        div.innerHTML = `<span><i class="ph ph-plus"></i> ${block.name}</span>`;
+        div.onclick = () => this.addVisualBlock(block.code);
+        availList.appendChild(div);
+      }
+    });
+
+    // Sort present blocks by their position in text to maintain order!
+    presentBlocks.sort((a, b) => currentTemplate.indexOf(a.code) - currentTemplate.indexOf(b.code));
+
+    presentBlocks.forEach((block, index) => {
+      const div = document.createElement('div');
+      div.className = 'visual-block active';
+      div.innerHTML = `
+            <div class="block-grip"><i class="ph ph-dots-six-vertical"></i></div>
+            <div class="block-name">${block.name}</div>
+            <div class="block-actions">
+                <button class="icon-btn tiny" onclick="dashboard.moveBlock('${block.code}', -1)"><i class="ph ph-caret-up"></i></button>
+                <button class="icon-btn tiny" onclick="dashboard.moveBlock('${block.code}', 1)"><i class="ph ph-caret-down"></i></button>
+                <button class="icon-btn tiny danger" onclick="dashboard.removeVisualBlock('${block.code}')"><i class="ph ph-x"></i></button>
+            </div>
+          `;
+      activeList.appendChild(div);
+    });
+  }
+
+  refreshVisualTemplate() {
+    // Rebuild the text template based on the Visual List order
+    const activeList = document.getElementById('activeBlocksList');
+    let newTemplate = "";
+
+    const blocks = activeList.querySelectorAll('.visual-block');
+    blocks.forEach(el => {
+      // Find the code based on the Name (reverse lookup, hacky but works for this turn)
+      const name = el.querySelector('.block-name').innerText;
+      const availableBlocks = [
+        { code: '{{borderTop}}', name: 'Top Border (Heart)' },
+        { code: '{{fancyTitle}}', name: 'Song Title (Fancy)' },
+        { code: '{{visualizer}}', name: 'Visualizer ASCII' },
+        { code: '{{progressBar}}', name: 'Progress Bar + Times' },
+        { code: '{{controls}}', name: 'Playback Controls' },
+        { code: '{{volumeBox}}', name: 'Volume Box' },
+        { code: '{{borderBottom}}', name: 'Bottom Border (Heart)' },
+        { code: '{{jukebox}}', name: 'Dual Jukebox Animation' },
+        { code: '{{title}}', name: 'Song Title (Simple)' },
+        { code: '{{volumeBar}}', name: 'Volume Bar (Simple)' },
+        { code: '{{statusIcon}}', name: 'Status Icon' }
+      ];
+      const block = availableBlocks.find(b => b.name === name);
+      if (block) {
+        // Add some default spacing/text logic
+        if (block.code === '{{progressBar}}') {
+          newTemplate += `   {{currentTime}}   {{progressBar}}   {{duration}}\n`;
+        } else if (block.code === '{{fancyTitle}}') {
+          newTemplate += `              ɴᴏᴡ ᴘʟᴀʏɪɴɢ\n        {{fancyTitle}}\n`;
+        } else if (block.code === '{{volumeBox}}') {
+          newTemplate += `\nᴠᴏʟᴜᴍᴇ:\n{{volumeBox}}\n`;
+        } else {
+          newTemplate += `${block.code}\n`;
+        }
+      }
+    });
+
+    const textarea = document.getElementById("embedTemplateInput");
+    textarea.value = newTemplate;
+    this.updateEmbedPreview(newTemplate);
+  }
+
+  addVisualBlock(code) {
+    const textarea = document.getElementById("embedTemplateInput");
+    // Naive append
+    textarea.value += `\n${code}`;
+    this.initVisualBuilder(); // Re-render
+    this.updateEmbedPreview(textarea.value);
+  }
+
+  removeVisualBlock(code) {
+    const textarea = document.getElementById("embedTemplateInput");
+    // Remove the code occurrence
+    // Use regex to remove lines containing this code if possible, or just the code
+    textarea.value = textarea.value.replace(code, '').trim();
+    // Also cleanup empty lines left behind?
+    this.initVisualBuilder();
+    this.updateEmbedPreview(textarea.value);
+  }
+
+  moveBlock(code, direction) {
+    // This is tricky with raw text. 
+    // For this implementation, we will rely on the "Active List" DOM order logic
+    // We will perform the swap in the DOM, then call refreshVisualTemplate()
+
+    const activeList = document.getElementById('activeBlocksList');
+    const blocks = Array.from(activeList.querySelectorAll('.visual-block'));
+    const index = blocks.findIndex(el => {
+      // lookup by name again (inefficient but safe for this context)
+      const availableBlocks = [
+        { code: '{{borderTop}}', name: 'Top Border (Heart)' },
+        { code: '{{fancyTitle}}', name: 'Song Title (Fancy)' },
+        { code: '{{visualizer}}', name: 'Visualizer ASCII' },
+        { code: '{{progressBar}}', name: 'Progress Bar + Times' },
+        { code: '{{controls}}', name: 'Playback Controls' },
+        { code: '{{volumeBox}}', name: 'Volume Box' },
+        { code: '{{borderBottom}}', name: 'Bottom Border (Heart)' },
+        { code: '{{jukebox}}', name: 'Dual Jukebox Animation' },
+        { code: '{{title}}', name: 'Song Title (Simple)' },
+        { code: '{{volumeBar}}', name: 'Volume Bar (Simple)' },
+        { code: '{{statusIcon}}', name: 'Status Icon' }
+      ];
+      const found = availableBlocks.find(b => b.name === el.querySelector('.block-name').innerText);
+      return found && found.code === code;
+    });
+
+    if (index === -1) return;
+    if (direction === -1 && index > 0) {
+      activeList.insertBefore(blocks[index], blocks[index - 1]);
+    } else if (direction === 1 && index < blocks.length - 1) {
+      activeList.insertBefore(blocks[index + 1], blocks[index]);
+    }
+
+    this.refreshVisualTemplate();
+  }
+
+  updateEmbedCharCount(count) {
+    const el = document.getElementById("embedCharCount");
+    if (!el) return;
+    el.textContent = `${count} / 4096`;
+    if (count > 4096) {
+      el.style.color = "#ef4444"; // Red
+    } else {
+      el.style.color = "#888"; // Gray
+    }
+  }
+
+  updateEmbedPreview(template) {
+    const previewEl = document.getElementById("embedPreviewContent");
+    if (!previewEl) return;
+
+    // Default "Actual" Bot Layout (Reconstructed)
+    const defaultLayout = `{{borderTop}}\n              ɴᴏᴡ ᴘʟᴀʏɪɴɢ\n        {{fancyTitle}}\n  {{visualizer}}\n\n   {{currentTime}}   {{progressBar}}   {{duration}}\n{{controls}}\n\nᴠᴏʟᴜᴍᴇ:\n{{volumeBox}}\n{{borderBottom}}\n\n{{jukebox}}`;
+
+    if (!template || template.trim() === "") {
+      template = defaultLayout;
+    }
+
+    // Dummy Data for Preview
+    const dummyData = {
+      title: "Adele - Hello",
+      fancyTitle: "𝔸𝕕𝕖𝕝𝕖 - ℍ𝕖𝕝𝕝𝕠",
+      url: "https://youtube.com/watch?v=YQHsXMglC9A",
+      author: "Adele",
+      duration: "𝟞:𝟘𝟟",
+      currentTime: "𝟘:𝟙𝟘",
+      progressBar: "━━━❍──────", // Adjusted to match 10 char length
+      volume: "100",
+      volumeBar: "▬▬▬▬▬▬▬▬▬▬",
+      volumeBox: "   ╔══════════════════════╗\n   ║      ▬▬▬▬▬▬▬▬▬▬ 100%   |\n   ╚══════════════════════╝",
+      requester: "@ZenIX",
+      statusIcon: "▶️",
+      visualizer: "ılılı.ıllı.ılı.ıllı.ılılı.ıllı..ılılı.ıllı.",
+      jukebox: "      ╔═══╗ ♪ ╔═══╗ ♪\n      ║███║ ♫║███║♫\n      ║  (●) ║♫ ║  (O) ║ ♫\n      ╚═══╝ ♪ ╚═══╝      ♪",
+      controls: "\u2002\u2002\u2002\u2002↻ ◁◁  ▐  ▌  ▷▷ ↺",
+      borderTop: "╭────────༺♡༻─────────╮",
+      borderBottom: "╰───༺♡༻──────────────╯"
+    };
+
+    let rendered = template
+      .replace(/{{title}}/g, dummyData.title)
+      .replace(/{{fancyTitle}}/g, dummyData.fancyTitle)
+      .replace(/{{url}}/g, dummyData.url)
+      .replace(/{{author}}/g, dummyData.author)
+      .replace(/{{duration}}/g, dummyData.duration)
+      .replace(/{{currentTime}}/g, dummyData.currentTime)
+      .replace(/{{progressBar}}/g, dummyData.progressBar)
+      .replace(/{{volume}}/g, dummyData.volume)
+      .replace(/{{volumeBar}}/g, dummyData.volumeBar)
+      .replace(/{{volumeBox}}/g, dummyData.volumeBox)
+      .replace(/{{requester}}/g, dummyData.requester)
+      .replace(/{{statusIcon}}/g, dummyData.statusIcon)
+      .replace(/{{visualizer}}/g, dummyData.visualizer)
+      .replace(/{{jukebox}}/g, dummyData.jukebox)
+      .replace(/{{controls}}/g, dummyData.controls)
+      .replace(/{{borderTop}}/g, dummyData.borderTop)
+      .replace(/{{borderBottom}}/g, dummyData.borderBottom);
+
+    previewEl.textContent = rendered;
+  }
+
+  async saveEmbedSettings() {
+    if (!this.guildId) return;
+    const textarea = document.getElementById("embedTemplateInput");
+    const template = textarea.value;
+
+    if (template.length > 4096) {
+      this.showToast("Description is too long (max 4096 characters)", "error");
+      return;
+    }
+
+    try {
+      const btn = document.getElementById("saveEmbedBtn");
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<i class="ph ph-spinner ph-spin"></i> Saving...`;
+      btn.disabled = true;
+
+      const res = await fetch(`/api/settings/${this.guildId}/embed`, {
+        method: 'POST',
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": this.apiKey
+        },
+        body: JSON.stringify({
+          settings: {
+            descriptionTemplate: template
+          }
+        })
+      });
+
+      if (res.ok) {
+        this.showToast("Embed layout saved!", "success");
+      } else {
+        throw new Error("Failed to save");
+      }
+
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    } catch (e) {
+      console.error("Save failed", e);
+      this.showToast("Failed to save settings", "error");
+      const btn = document.getElementById("saveEmbedBtn");
+      if (btn) {
+        btn.innerHTML = `<i class="ph ph-floppy-disk"></i> Save Layout`;
+        btn.disabled = false;
+      }
+    }
+  }
+
+  resetEmbedSettings() {
+    if (!confirm("Are you sure you want to reset to the default layout?")) return;
+    const textarea = document.getElementById("embedTemplateInput");
+    textarea.value = "";
+    this.saveEmbedSettings();
   }
 }
 
@@ -7547,6 +8079,11 @@ class AudioVisualizer {
     // Ensure canvas is visible immediately
     this.canvas.classList.remove('hidden');
 
+    // DEBUG: Add a bright background to verify canvas is visible
+    this.canvas.style.backgroundColor = 'rgba(255, 0, 255, 0.5)'; // Bright pink
+    this.canvas.style.border = '3px solid red';
+    console.log("[Visualizer] Canvas initialized with pink background for debugging");
+
     this.animate();
   }
 
@@ -7554,13 +8091,37 @@ class AudioVisualizer {
     const rect = this.canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
 
-    this.canvas.width = rect.width * window.devicePixelRatio;
-    this.canvas.height = rect.height * window.devicePixelRatio;
+    // Only resize if dimensions actually changed
+    const newWidth = Math.floor(rect.width * window.devicePixelRatio);
+    const newHeight = Math.floor(rect.height * window.devicePixelRatio);
+
+    if (this.canvas.width === newWidth && this.canvas.height === newHeight) {
+      return; // No change needed
+    }
+
+    this.canvas.width = newWidth;
+    this.canvas.height = newHeight;
+
+    // IMPORTANT: Reset transform before applying new scale
+    // ctx.scale() accumulates, so we must reset first
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    console.log("[Visualizer] Resized canvas to:", newWidth, "x", newHeight);
   }
 
   setState(isPlaying) {
+    console.log("[Visualizer] setState called:", isPlaying, "Previous:", this.isPlaying);
     this.isPlaying = isPlaying;
+
+    // Manage idle class and visibility
+    if (isPlaying) {
+      this.canvas.classList.remove('visualizer-idle');
+      this.canvas.style.opacity = '0.8';
+    } else {
+      this.canvas.classList.add('visualizer-idle');
+    }
+
     // Force resize check when state allows playing, just in case
     if (isPlaying) this.resize();
   }
@@ -7626,6 +8187,11 @@ class AudioVisualizer {
       this.energy = this.simulateEnergy();
       this.pulse += 0.05;
 
+      // Debug: Log every 60 frames (about once per second)
+      if (Math.floor(this.pulse * 20) % 60 === 0) {
+        console.log("[Visualizer] Animating:", this.mode, "w:", w, "h:", h, "energy:", this.energy.toFixed(2));
+      }
+
       switch (this.mode) {
         case 'particles':
           this.drawParticles(w, h, centerX, centerY);
@@ -7646,6 +8212,12 @@ class AudioVisualizer {
         default:
           this.drawAura(w, h, centerX, centerY);
       }
+
+      // TEST: Draw a very visible red circle to confirm canvas is working
+      this.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, 50, 0, Math.PI * 2);
+      this.ctx.fill();
     } else {
       // Idle state: no visualization, just clear canvas
       // (The white breathing pulse was distracting)

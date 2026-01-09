@@ -80,7 +80,7 @@ class NoPrefixToggleCommand extends Command {
       content += `└─ This is your personal setting\n\n`;
     } else {
       content += `├─ You need to use a server's prefix or mention me\n`;
-      content += `├─ Example: Use \`!ping\` or \`@Yukihana ping\`\n`;
+      content += `├─ Example: Use \`!ping\` or \`@TymeeMusic ping\`\n`;
       content += `├─ Enable this to use commands without prefixes\n`;
       content += `└─ Premium feature for enhanced convenience\n\n`;
     }

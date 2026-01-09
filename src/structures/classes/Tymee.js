@@ -42,21 +42,20 @@ export class Tymee extends Client {
 				Partials.Message,
 				Partials.User,
 			],
-			// Aggressive cache limits for reduced memory
 			makeCache: Options.cacheWithLimits({
-				MessageManager: 50, // Reduced from 100
-				PresenceManager: 0, // Disable presence caching
-				UserManager: 50, // Reduced from 100
-				GuildMemberManager: 50, // Limit guild member cache
-				ReactionManager: 0, // Disable reaction caching
-				ReactionUserManager: 0, // Disable reaction user caching
-				ThreadManager: 0, // Disable thread caching
-				ThreadMemberManager: 0, // Disable thread member caching
-				StageInstanceManager: 0, // Disable stage caching
-				VoiceStateManager: Infinity, // Keep voice states (needed for music)
-				GuildBanManager: 0, // Disable ban caching
-				GuildInviteManager: 0, // Disable invite caching
-				GuildScheduledEventManager: 0, // Disable event caching
+				MessageManager: 100,
+				PresenceManager: 0,
+				UserManager: Infinity, // Restored to Infinity for reliability
+				GuildMemberManager: Infinity, // Restored to Infinity for reliability
+				ReactionManager: 0,
+				ReactionUserManager: 0,
+				ThreadManager: 0,
+				ThreadMemberManager: 0,
+				StageInstanceManager: 0,
+				VoiceStateManager: Infinity,
+				GuildBanManager: 0,
+				GuildInviteManager: 0,
+				GuildScheduledEventManager: 0,
 			}),
 			// Auto-sweep old cached data
 			sweepers: {
@@ -117,7 +116,7 @@ export class Tymee extends Client {
 				'Tymee',
 				`❄️ Bot has successfully initialized. 🌸`,
 			);
-			this.logger.info('Tymee', '❄️ Coded by Bre4d777');
+			this.logger.info('Tymee', '❄️ Coded by ZenIX');
 		} catch (error) {
 			this.logger.error(
 				'Tymee',

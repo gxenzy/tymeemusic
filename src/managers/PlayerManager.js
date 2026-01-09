@@ -1,6 +1,7 @@
 import { config } from "#config/config";
 import { db } from "#database/DatabaseManager";
 import { logger } from "#utils/logger";
+import { getPremiumStatus } from "#utils/permissionUtil";
 
 import { QueueManager } from "./QueueManager.js";
 
@@ -21,17 +22,23 @@ export class PlayerManager {
   }
 
   async connect() {
-    await this.player.connect();
+    await this.player.connect().catch(err => {
+      logger?.error(`[PlayerManager] connect() failed for guild ${this.guildId}: ${err.message}`);
+    });
     return this;
   }
 
   async disconnect(force = false) {
-    await this.player.disconnect(force);
+    await this.player.disconnect(force).catch(err => {
+      logger?.warn(`[PlayerManager] disconnect() failed for guild ${this.guildId}: ${err.message}`);
+    });
     return this;
   }
 
   async destroy(reason, disconnect = true) {
-    await this.player.destroy(reason, disconnect);
+    await this.player.destroy(reason, disconnect).catch(err => {
+      logger?.error(`[PlayerManager] destroy() failed for guild ${this.guildId}: ${err.message}`);
+    });
     return this;
   }
 
@@ -40,88 +47,131 @@ export class PlayerManager {
   }
 
   async changeVoiceState(data) {
-    await this.player.changeVoiceState(data);
+    await this.player.changeVoiceState(data).catch(err => {
+      logger?.warn(`[PlayerManager] changeVoiceState() failed for guild ${this.guildId}: ${err.message}`);
+    });
     return this;
   }
 
   async play(options = {}) {
-    await this.player.play(options);
+    try {
+      await this.player.play(options);
+    } catch (err) {
+      logger?.error(`[PlayerManager] play() failed for guild ${this.guildId}: ${err.message}`);
+      throw err; // Re-throw to allow command to handle failure if needed, but we wanted to stop crash
+    }
     return this;
   }
 
   async playPrevious() {
     const { player } = this;
 
-    const previousTrack = await player.queue.shiftPrevious();
-    if (!previousTrack) {
-      logger?.warn(
-        `[PlayerManager] No previous track to play for guild ${this.guildId}.`,
-      );
+    try {
+      const previousTrack = await player.queue.shiftPrevious();
+      if (!previousTrack) {
+        logger?.warn(
+          `[PlayerManager] No previous track to play for guild ${this.guildId}.`,
+        );
+        return false;
+      }
+
+      // If we have a current track, prepend it back to the queue before going back
+      // This allows "Next" to return to it naturally.
+      if (player.queue.current) {
+        // Use unshift to put it at the very top of the queue
+        player.queue.tracks.unshift(player.queue.current);
+      }
+
+      await player.play({ clientTrack: previousTrack }).catch(err => {
+        logger?.error(`[PlayerManager] playPrevious() -> play() failed for guild ${this.guildId}: ${err.message}`);
+      });
+      await player.queue.utils.save();
+      return true;
+    } catch (error) {
+      logger?.error(`[PlayerManager] Error in playPrevious() for guild ${this.guildId}: ${error.message}`);
       return false;
     }
-
-    // If we have a current track, prepend it back to the queue before going back
-    // This allows "Next" to return to it naturally.
-    if (player.queue.current) {
-      // Use unshift to put it at the very top of the queue
-      player.queue.tracks.unshift(player.queue.current);
-    }
-
-    await player.play({ clientTrack: previousTrack });
-    await player.queue.utils.save();
-    return true;
   }
 
   async pause() {
-    await this.player.pause();
+    await this.player.pause().catch(err => {
+      logger?.warn(`[PlayerManager] pause() failed for guild ${this.guildId}: ${err.message}`);
+    });
     return this;
   }
 
   async resume() {
     if (this.player.paused) {
-      await this.player.resume();
+      await this.player.resume().catch(err => {
+        logger?.warn(`[PlayerManager] resume() failed for guild ${this.guildId}: ${err.message}`);
+      });
     }
     return this;
   }
 
   async stop() {
-    // DEBUG: Trace who is calling stop() causing player destruction
-    console.trace(`[PlayerManager] stop() called for guild ${this.player.guildId}`);
-
     const { guildId } = this.player;
-    const is247ModeEnabled = await this.is247ModeEnabled(guildId);
+    logger?.debug(`[PlayerManager] stop() called for guild ${guildId}`);
 
-    if (!is247ModeEnabled) {
-      await this.player.destroy("Stop command", true);
-      return this;
+    try {
+      const is247ModeEnabled = await this.is247ModeEnabled(guildId);
+
+      // If 24/7 mode is NOT enabled, we destroy the player and disconnect
+      if (!is247ModeEnabled) {
+        await this.player.destroy("Stop command", true).catch(err => {
+          logger?.error(`[PlayerManager] Error destroying player in stop() for guild ${guildId}: ${err.message}`);
+        });
+        return this;
+      }
+
+      // If 24/7 mode IS enabled, we just stop playback and clear the queue
+      const autoplayEnabled = this.player.get("autoplayEnabled") || false;
+      if (autoplayEnabled) {
+        this.player.set("autoplayEnabled", false);
+      }
+
+      // Clear the queue - Stop command should clear remaining tracks
+      if (this.queue && typeof this.queue.clear === "function") {
+        await this.queue.clear();
+      }
+
+      // Stop current playback - wrap in try-catch to prevent death if Lavalink is grumpy
+      await this.player.stopPlaying().catch(err => {
+        logger?.warn(`[PlayerManager] stopPlaying() failed for guild ${guildId}: ${err.message}`);
+        // If stopPlaying fails, the track might already be stopped or session dead
+      });
+
+    } catch (error) {
+      logger?.error(`[PlayerManager] Major error in stop() for guild ${guildId}: ${error.message}`);
     }
-    const autoplayEnabled = this.player.get("autoplayEnabled") || false;
 
-    if (autoplayEnabled) {
-      this.player.set("autoplayEnabled", false);
-    }
-
-    await this.player.stopPlaying();
     return this;
   }
 
   async skip(amount = 1) {
     const { player } = this;
 
-    // Disable track repeat so we actually skip instead of replaying
-    if (player.repeatMode === 'track') {
-      await player.setRepeatMode('off');
-    }
+    try {
+      // Disable track repeat so we actually skip instead of replaying
+      if (player.repeatMode === 'track') {
+        await player.setRepeatMode('off').catch(() => { });
+      }
 
-    // Use lavalink-client's built-in skip method which properly advances the queue
-    // This method handles: stopping current track, shifting queue, and playing next
-    await player.skip(amount);
+      // Use lavalink-client's built-in skip method which properly advances the queue
+      await player.skip(amount).catch(err => {
+        logger?.warn(`[PlayerManager] skip() failed for guild ${this.guildId}: ${err.message}`);
+      });
+    } catch (error) {
+      logger?.error(`[PlayerManager] Error in skip() for guild ${this.guildId}: ${error.message}`);
+    }
 
     return this;
   }
 
   async seek(position) {
-    await this.player.seek(position);
+    await this.player.seek(position).catch(err => {
+      logger?.warn(`[PlayerManager] seek() failed for guild ${this.guildId}: ${err.message}`);
+    });
     return this;
   }
 
@@ -149,12 +199,16 @@ export class PlayerManager {
   }
 
   async setVolume(volume) {
-    await this.player.setVolume(volume);
+    await this.player.setVolume(volume).catch(err => {
+      logger?.warn(`[PlayerManager] setVolume() failed for guild ${this.guildId}: ${err.message}`);
+    });
     return this;
   }
 
   async setRepeatMode(mode) {
-    await this.player.setRepeatMode(mode);
+    await this.player.setRepeatMode(mode).catch(err => {
+      logger?.warn(`[PlayerManager] setRepeatMode() failed for guild ${this.guildId}: ${err.message}`);
+    });
     return this;
   }
 
@@ -352,23 +406,19 @@ export class PlayerManager {
 
   getPremiumStatus(guildId, userId) {
     try {
-      const premiumStatus = db.hasAnyPremium(userId, guildId);
-
-      return {
-        hasPremium: Boolean(premiumStatus),
-        type: premiumStatus ? premiumStatus.type : "free",
-        maxSongs: premiumStatus
-          ? config.queue?.maxSongs?.premium || 100
-          : config.queue?.maxSongs?.free || 25,
-      };
+      // Use the centralized helper for consistent results
+      return getPremiumStatus(userId, guildId);
     } catch (error) {
       logger?.warn(
-        `[PlayerManager] Failed to get premium status: ${error.message}`,
+        `[PlayerManager] Failed to get premium status from helper: ${error.message}`,
       );
+
+      // Minimal fallback if helper fails
+      const hasPremium = !!db.hasAnyPremium(userId, guildId);
       return {
-        hasPremium: false,
-        type: "free",
-        maxSongs: 25,
+        hasPremium,
+        type: hasPremium ? "premium" : "free",
+        maxSongs: hasPremium ? config.queue.maxSongs.premium : config.queue.maxSongs.free,
       };
     }
   }

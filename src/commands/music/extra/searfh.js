@@ -4,6 +4,7 @@ import { PlayerManager } from "#managers/PlayerManager";
 import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import { logger } from "#utils/logger";
+import { getPremiumStatus } from "#utils/permissionUtil";
 
 const MAX_RESULTS = 6;
 
@@ -637,12 +638,7 @@ class SearchCommand extends Command {
   }
 
   _getPremiumStatus(guildId, userId) {
-    const premiumStatus = db.hasAnyPremium(userId, guildId);
-    return {
-      hasPremium: !!premiumStatus,
-      type: premiumStatus ? premiumStatus.type : 'free',
-      maxSongs: premiumStatus ? config.queue.maxSongs.premium : config.queue.maxSongs.free
-    };
+    return getPremiumStatus(userId, guildId);
   }
 
   _removeDuplicateTracks(tracks) {

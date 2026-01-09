@@ -13,6 +13,7 @@ import { db } from "#database/DatabaseManager";
 import { Command } from "#structures/classes/Command";
 import { logger } from "#utils/logger";
 import emoji from "#config/emoji";
+import { getPremiumStatus } from "#utils/permissionUtil";
 
 class AutoplayCommand extends Command {
   constructor() {
@@ -203,14 +204,7 @@ class AutoplayCommand extends Command {
   }
 
   _getPremiumStatus(guildId, userId) {
-    const premiumStatus = db.hasAnyPremium(userId, guildId);
-    return {
-      hasPremium: Boolean(premiumStatus),
-      type: premiumStatus ? premiumStatus.type : "free",
-      maxSongs: premiumStatus
-        ? config.queue.maxSongs.premium
-        : config.queue.maxSongs.free,
-    };
+    return getPremiumStatus(userId, guildId);
   }
 
   async _reply(context, container) {

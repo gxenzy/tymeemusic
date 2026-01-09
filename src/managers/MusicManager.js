@@ -254,6 +254,7 @@ export class MusicManager {
     this.client = client;
     this.initialized = false;
     this.eventsManager = null;
+    this.restoring = false;
     this.init();
   }
 
@@ -302,6 +303,10 @@ export class MusicManager {
         },
         queueOptions: {
           maxPreviousTracks: 10,
+        },
+        autoChecks: {
+          sourcesValidations: false,
+          pluginValidations: false,
         },
         linksAllowed: true,
         linksBlacklist: [],
@@ -601,6 +606,39 @@ export class MusicManager {
       return false;
     }
   }
+
+  async getSpotifyToken() {
+    try {
+      if (!config.spotify?.clientId || !config.spotify?.clientSecret) return null;
+
+      const auth = Buffer.from(`${config.spotify.clientId}:${config.spotify.clientSecret}`).toString('base64');
+      const response = await axios.post('https://accounts.spotify.com/api/token', 'grant_type=client_credentials', {
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 5000
+      }).catch(() => null);
+
+      return response?.data?.access_token || null;
+    } catch (error) {
+      logger.debug(`[MusicManager] Failed to get Spotify token: ${error.message}`);
+      return null;
+    }
+  }
+
+  async getSpotifyArtwork(uri) {
+    try {
+      if (!uri) return null;
+      const url = `https://open.spotify.com/oembed?url=${encodeURIComponent(uri)}`;
+      const response = await axios.get(url, { timeout: 3000 }).catch(() => null);
+      return response?.data?.thumbnail_url || null;
+    } catch (error) {
+      logger.debug(`[MusicManager] Failed to fetch Spotify artwork: ${error.message}`);
+      return null;
+    }
+  }
+
   parsePlayerOptions(options) {
     const guildId = options.guildId;
     const voiceId = options.voiceChannelId || options.voiceChannel?.id;
@@ -632,14 +670,28 @@ export class MusicManager {
     let savedCount = 0;
 
     // Check if lavalink is ready
-    if (!this.lavalink || !this.lavalink.players) return 0;
+    if (!this.lavalink) {
+      logger.warn("MusicManager", "Cannot save sessions: Lavalink not initialized");
+      return 0;
+    }
+
+    if (!this.lavalink.players || this.lavalink.players.size === 0) {
+      logger.info("MusicManager", "No active players to save.");
+      return 0;
+    }
+
+    logger.info("MusicManager", `Found ${this.lavalink.players.size} players in manager.`);
 
     for (const [guildId, player] of this.lavalink.players) {
       // Only save if playing something or has queue
-      if (!player.queue.current && player.queue.tracks.length === 0) continue;
+      if (!player.queue.current && player.queue.tracks.length === 0) {
+        logger.debug("MusicManager", `Skipping guild ${guildId}: No current track or queue.`);
+        continue;
+      }
 
       try {
-        // Build current track data with both encoded and info
+        logger.info("MusicManager", `Preparing session for guild ${guildId} (${player.queue.tracks.length} tracks in queue)`);
+
         let currentTrackData = null;
         if (player.queue.current) {
           const c = player.queue.current;
@@ -656,7 +708,8 @@ export class MusicManager {
           volume: player.volume,
           loop: player.repeatMode,
           paused: player.paused,
-          position: player.position,
+          // Capture the current position so we can resume accurately
+          position: player.position || 0,
           current: currentTrackData,
           // Save both encoded and info for queue tracks
           queue: player.queue.tracks.map(t => {
@@ -676,210 +729,226 @@ export class MusicManager {
       }
     }
 
-    logger.success("MusicManager", `Saved ${savedCount} player sessions`);
+    logger.success("MusicManager", `Saved ${savedCount} player sessions to database.`);
     return savedCount;
   }
 
   async restorePlayerSessions() {
-    logger.info("MusicManager", "Restoring player sessions...");
-    const sessions = db.playerSession.getAllSessions();
-    let restoredCount = 0;
-
-    if (!sessions || sessions.length === 0) {
-      logger.info("MusicManager", "No player sessions found to restore");
+    if (this.restoring) {
+      logger.debug("MusicManager", "Session restoration already in progress, skipping duplicate call.");
       return 0;
     }
 
-    for (const session of sessions) {
-      const { guildId, data } = session;
+    this.restoring = true;
+    let restoredCount = 0;
+    try {
+      logger.info("MusicManager", "Starting player session restoration process...");
+      const sessions = db.playerSession.getAllSessions();
 
-      // Check if guild exists in this client/shard
-      const guild = this.client.guilds.cache.get(guildId);
-      if (!guild) continue; // Not managed by this shard
+      if (!sessions || sessions.length === 0) {
+        logger.info("MusicManager", "No player sessions found in database to restore.");
+        return 0;
+      }
 
-      try {
-        const voiceChannel = guild.channels.cache.get(data.voiceChannelId);
-        if (!voiceChannel) {
-          logger.warn("MusicManager", `Voice channel not found for restoring session in ${guild.name}`);
-          db.playerSession.deleteSession(guildId);
-          continue;
-        }
+      logger.info("MusicManager", `Found ${sessions.length} sessions in database. Attempting to restore...`);
 
-        // Create player
-        const player = await this.createPlayer({
-          guildId,
-          voiceChannelId: data.voiceChannelId,
-          textChannelId: data.textChannelId,
-          volume: data.volume || 100,
-          selfDeaf: true,
-          selfMute: false
-        });
+      for (const session of sessions) {
+        const { guildId, data } = session;
 
-        if (!player) continue;
+        // Check if guild exists in this client/shard
+        const guild = this.client.guilds.cache.get(guildId);
+        if (!guild) continue; // Not managed by this shard
 
-        // Restore connected state
-        await player.connect();
-
-        // Add current track first, then queue, then start playback
-        if (data.current) {
-          try {
-            // Check if we have both encoded and info (new save format)
-            if (data.current.encoded && data.current.info) {
-              const track = {
-                encoded: data.current.encoded,
-                info: data.current.info,
-                requester: { id: 'restored' }
-              };
-              await player.queue.add(track);
-              logger.info('MusicManager', `[SessionRestore] Added current track to queue: ${data.current.info.title || 'unknown'}`);
-            }
-            // Handle old save format (just encoded string)
-            else if (typeof data.current === 'string' || data.current.encoded) {
-              const encodedString = (typeof data.current === 'string') ? data.current : data.current.encoded;
-              // Can't restore without info - add as placeholder that will need to be resolved
-              logger.warn('MusicManager', `[SessionRestore] Current track has no info, skipping`);
-            } else if (data.current.info && (data.current.info.title || data.current.info.uri)) {
-              // Current track doesn't have encoded string but has metadata - create UnresolvedTrack
-              const unresolvedData = {
-                title: data.current.info.title || 'Unknown',
-                author: data.current.info.author || 'Unknown',
-                duration: data.current.info.duration || data.current.info.length || 0,
-                uri: data.current.info.uri || `ytsearch:${data.current.info.title} ${data.current.info.author}`,
-                identifier: data.current.info.identifier || data.current.info.uri,
-                sourceName: data.current.info.sourceName || 'youtube',
-                artworkUrl: data.current.info.artworkUrl || '',
-                isSeekable: true,
-                isStream: false
-              };
-
-              const builder = this.lavalink.utils.buildUnresolvedTrack || this.lavalink.utils.buildUnresolved;
-              if (typeof builder === 'function') {
-                const unresolvedTrack = builder.call(this.lavalink.utils, unresolvedData, { id: 'restored' });
-                if (unresolvedTrack) {
-                  await player.queue.add(unresolvedTrack);
-                  logger.info('MusicManager', `[SessionRestore] Added current track (unresolved) to queue: ${unresolvedData.title}`);
-                }
-              } else {
-                // Fallback
-                await player.queue.add({
-                  info: unresolvedData,
-                  requester: { id: 'restored' }
-                });
-                logger.info('MusicManager', `[SessionRestore] Added current track (fallback) to queue: ${unresolvedData.title}`);
-              }
-            } else {
-              logger.warn('MusicManager', `[SessionRestore] No encoded string or metadata for current track`);
-            }
-          } catch (addError) {
-            logger.warn('MusicManager', `[SessionRestore] Failed to add current track: ${addError.message}`);
+        try {
+          const voiceChannel = guild.channels.cache.get(data.voiceChannelId);
+          if (!voiceChannel) {
+            logger.warn("MusicManager", `Voice channel not found for restoring session in ${guild.name}`);
+            db.playerSession.deleteSession(guildId);
+            continue;
           }
-        }
 
-        // Add rest of queue
-        if (data.queue && Array.isArray(data.queue) && data.queue.length > 0) {
-          let restoredQueueCount = 0;
-          logger.info('MusicManager', `[SessionRestore] Attempting to restore ${data.queue.length} tracks...`);
+          // Create player
+          const player = await this.createPlayer({
+            guildId,
+            voiceChannelId: data.voiceChannelId,
+            textChannelId: data.textChannelId,
+            volume: data.volume || 100,
+            selfDeaf: true,
+            selfMute: false
+          });
 
-          for (const t of data.queue) {
+          if (!player) continue;
+
+          // Restore connected state
+          if (!player.connected) {
+            await player.connect();
+            logger.info('MusicManager', `[SessionRestore] Connected player for guild ${guild.name}`);
+          }
+
+          // Wait for voice state to stabilize
+          await new Promise(r => setTimeout(r, 2000));
+
+          // Add current track first, then queue, then start playback
+          if (data.current) {
             try {
-              // Check if we have both encoded and info (new save format)
-              if (t.encoded && t.info) {
-                const track = {
-                  encoded: t.encoded,
-                  info: t.info,
-                  requester: { id: 'restored' }
-                };
-                await player.queue.add(track);
-                restoredQueueCount++;
-              } else if (t.info && (t.info.title || t.info.uri)) {
-                // Track doesn't have encoded string but has metadata - create UnresolvedTrack
+              // Check if we have track info (required for restoration)
+              // NOTE: We intentionally do NOT use encoded tracks for restoration
+              // because encoded tracks are backend-specific (NodeLink vs Lavalink)
+              // and cannot be decoded across different backends.
+              if (data.current.info && (data.current.info.title || data.current.info.uri)) {
+                // Create an unresolved track that will be searched and resolved by the current backend
                 const unresolvedData = {
-                  title: t.info.title || 'Unknown',
-                  author: t.info.author || 'Unknown',
-                  duration: t.info.duration || t.info.length || 0,
-                  uri: t.info.uri || `ytsearch:${t.info.title} ${t.info.author}`,
-                  identifier: t.info.identifier || t.info.uri,
-                  sourceName: t.info.sourceName || 'youtube',
-                  artworkUrl: t.info.artworkUrl || '',
+                  title: data.current.info.title || 'Unknown',
+                  author: data.current.info.author || 'Unknown',
+                  duration: data.current.info.duration || data.current.info.length || 0,
+                  uri: data.current.info.uri,
+                  identifier: data.current.info.identifier,
+                  sourceName: data.current.info.sourceName || 'youtube',
+                  artworkUrl: data.current.info.artworkUrl || '',
                   isSeekable: true,
                   isStream: false
                 };
 
-                // Try to build an unresolved track
                 const builder = this.lavalink.utils.buildUnresolvedTrack || this.lavalink.utils.buildUnresolved;
                 if (typeof builder === 'function') {
                   const unresolvedTrack = builder.call(this.lavalink.utils, unresolvedData, { id: 'restored' });
                   if (unresolvedTrack) {
                     await player.queue.add(unresolvedTrack);
-                    restoredQueueCount++;
+                    logger.info('MusicManager', `[SessionRestore] Added current track (unresolved) to queue: ${unresolvedData.title}`);
                   }
                 } else {
-                  // Fallback: Add raw track object with proper structure
-                  await player.queue.add({
-                    info: unresolvedData,
-                    requester: { id: 'restored' }
-                  });
-                  restoredQueueCount++;
+                  logger.warn('MusicManager', `[SessionRestore] No buildUnresolvedTrack function available, skipping current track`);
+                }
+              } else {
+                logger.warn('MusicManager', `[SessionRestore] Current track has no usable info, skipping`);
+              }
+            } catch (addError) {
+              logger.warn('MusicManager', `[SessionRestore] Failed to add current track: ${addError.message}`);
+            }
+          }
+
+          // Add rest of queue
+          if (data.queue && Array.isArray(data.queue) && data.queue.length > 0) {
+            let restoredQueueCount = 0;
+            logger.info('MusicManager', `[SessionRestore] Attempting to restore ${data.queue.length} tracks...`);
+
+            for (const t of data.queue) {
+              try {
+                // Always use unresolved tracks for restoration (encoded tracks are backend-specific)
+                if (t.info && (t.info.title || t.info.uri)) {
+                  const unresolvedData = {
+                    title: t.info.title || 'Unknown',
+                    author: t.info.author || 'Unknown',
+                    duration: t.info.duration || t.info.length || 0,
+                    uri: t.info.uri || `ytsearch:${t.info.title} ${t.info.author}`,
+                    identifier: t.info.identifier || t.info.uri,
+                    sourceName: t.info.sourceName || 'youtube',
+                    artworkUrl: t.info.artworkUrl || '',
+                    isSeekable: true,
+                    isStream: false
+                  };
+
+                  // Try to build an unresolved track
+                  const builder = this.lavalink.utils.buildUnresolvedTrack || this.lavalink.utils.buildUnresolved;
+                  if (typeof builder === 'function') {
+                    const unresolvedTrack = builder.call(this.lavalink.utils, unresolvedData, { id: 'restored' });
+                    if (unresolvedTrack) {
+                      await player.queue.add(unresolvedTrack);
+                      restoredQueueCount++;
+                    }
+                  } else {
+                    // Fallback: Add raw track object with proper structure
+                    await player.queue.add({
+                      info: unresolvedData,
+                      requester: { id: 'restored' }
+                    });
+                    restoredQueueCount++;
+                  }
+                }
+              } catch (err) {
+                logger.warn('MusicManager', `[SessionRestore] Failed to restore a track: ${err.message}`);
+              }
+            }
+
+            logger.info('MusicManager', `[SessionRestore] Successfully restored ${restoredQueueCount}/${data.queue.length} tracks.`);
+            logger.info('MusicManager', `[SessionRestore] Final player.queue.tracks.length = ${player.queue.tracks.length}`);
+
+            if (player.queue.tracks.length > 0) {
+              logger.info('MusicManager', `[SessionRestore] First track in queue: ${player.queue.tracks[0]?.info?.title || 'unknown'}`);
+            }
+          }
+
+          // Restore loop mode
+          if (data.loop) {
+            player.setRepeatMode(data.loop);
+          }
+
+          // Start playback if we have tracks
+          if (player.queue.tracks.length > 0) {
+            try {
+              logger.info('MusicManager', `[SessionRestore] Starting playback with ${player.queue.tracks.length} tracks in queue...`);
+
+              // If we have a stored position, pass it directly to play()
+              const playOptions = {};
+              if (data.position && data.position > 0) {
+                playOptions.position = data.position;
+                logger.info('MusicManager', `[SessionRestore] Resuming at position: ${data.position}ms`);
+              }
+
+              // Manually resolve the first track if it's unresolved to ensure position works correctly
+              const firstTrack = player.queue.tracks[0];
+              if (firstTrack && !firstTrack.encoded) {
+                logger.info('MusicManager', `[SessionRestore] Resolving first track before playback to ensure stability...`);
+                try {
+                  // If it's an unresolved track from lavalink-client, it should have a resolve method
+                  if (typeof firstTrack.resolve === 'function') {
+                    const resolved = await firstTrack.resolve(player).catch(() => null);
+                    if (resolved) {
+                      player.queue.tracks[0] = resolved;
+                      logger.success('MusicManager', `[SessionRestore] First track resolved: ${resolved.info.title}`);
+                    }
+                  }
+                } catch (resolveErr) {
+                  logger.warn('MusicManager', `[SessionRestore] Failed to manually resolve first track: ${resolveErr.message}`);
                 }
               }
-            } catch (err) {
-              logger.warn('MusicManager', `[SessionRestore] Failed to restore a track: ${err.message}`);
+
+              // Small extra delay before playing after potential resolution
+              await new Promise(r => setTimeout(r, 500));
+
+              await player.play(playOptions);
+
+              // Restore paused state if needed
+              if (data.paused) {
+                await player.pause();
+                logger.info('MusicManager', `[SessionRestore] Restored paused state`);
+              }
+            } catch (playError) {
+              logger.error('MusicManager', `[SessionRestore] Failed to start playback: ${playError.message}`);
             }
           }
 
-          logger.info('MusicManager', `[SessionRestore] Successfully restored ${restoredQueueCount}/${data.queue.length} tracks.`);
-          logger.info('MusicManager', `[SessionRestore] Final player.queue.tracks.length = ${player.queue.tracks.length}`);
+          // Delete session data so we don't restore it again on next crash/restart loop
+          db.playerSession.deleteSession(guildId);
 
-          if (player.queue.tracks.length > 0) {
-            logger.info('MusicManager', `[SessionRestore] First track in queue: ${player.queue.tracks[0]?.info?.title || 'unknown'}`);
+          // Force dashboard update immediately
+          if (this.client.webServer) {
+            this.client.webServer.updatePlayerState(guildId);
           }
+
+          restoredCount++;
+          logger.success("MusicManager", `Restored session for guild ${guild.name}`);
+
+          // Tiny delay to prevent rate limits if many guilds
+          await new Promise(r => setTimeout(r, 1000));
+
+        } catch (error) {
+          logger.error("MusicManager", `Failed to restore session for guild ${guildId}`, error);
         }
-
-        // Restore loop mode
-        if (data.loop) {
-          player.setRepeatMode(data.loop);
-        }
-
-        // Start playback if we have tracks
-        if (player.queue.tracks.length > 0) {
-          try {
-            logger.info('MusicManager', `[SessionRestore] Starting playback with ${player.queue.tracks.length} tracks in queue...`);
-            await player.play();
-
-            // Seek to position if provided
-            if (data.position && data.position > 0) {
-              await player.seek(data.position);
-            }
-
-            // Restore paused state if needed
-            if (data.paused) {
-              await player.pause();
-              logger.info('MusicManager', `[SessionRestore] Restored paused state`);
-            }
-          } catch (playError) {
-            logger.error('MusicManager', `[SessionRestore] Failed to start playback: ${playError.message}`);
-          }
-        }
-
-        // Delete session data so we don't restore it again on next crash/restart loop
-        db.playerSession.deleteSession(guildId);
-
-        // Force dashboard update immediately
-        if (this.client.webServer) {
-          this.client.webServer.updatePlayerState(guildId);
-        }
-
-        restoredCount++;
-        logger.success("MusicManager", `Restored session for guild ${guild.name}`);
-
-        // Tiny delay to prevent rate limits if many guilds
-        await new Promise(r => setTimeout(r, 1000));
-
-      } catch (error) {
-        logger.error("MusicManager", `Failed to restore session for guild ${guildId}`, error);
       }
+    } finally {
+      this.restoring = false;
     }
-
     return restoredCount;
   }
 }

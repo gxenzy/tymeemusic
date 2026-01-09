@@ -295,7 +295,8 @@ export class WebServer {
   setupPassport() {
     const clientID = process.env.DISCORD_CLIENT_ID;
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-    const callbackURL = `${process.env.DASHBOARD_URL || `http://localhost:${this.port}`}/auth/discord/callback`;
+    const baseUrl = (process.env.DASHBOARD_URL || `http://localhost:${this.port}`).replace(/\/$/, "");
+    const callbackURL = `${baseUrl}/auth/discord/callback`;
     if (!clientID || !clientSecret) {
       logger.warn(
         "WebServer",
@@ -370,9 +371,27 @@ export class WebServer {
         }
         next();
       },
-      passport.authenticate("discord", {
-        failureRedirect: "/?error=auth_failed",
-      }),
+      (req, res, next) => {
+        passport.authenticate("discord", (err, user, info) => {
+          if (err) {
+            logger.error("WebServer", "OAuth2 Provider Callback Error:", err);
+            if (err.oauthError) {
+              logger.error("WebServer", "OAuth2 Raw Error Data:", err.oauthError.data);
+            }
+            return res.redirect(`/?error=oauth_callback_error&details=${encodeURIComponent(err.message)}`);
+          }
+          if (!user) {
+            return res.redirect("/?error=auth_failed");
+          }
+          req.logIn(user, (err) => {
+            if (err) {
+              logger.error("WebServer", "Session Login Error:", err);
+              return next(err);
+            }
+            next();
+          });
+        })(req, res, next);
+      },
       (req, res) => {
         console.log("OAuth callback - User:", req.user?.id);
         // Generate auth token
@@ -453,7 +472,7 @@ export class WebServer {
       if (!user) {
         return res.json({ authenticated: false });
       }
-      res.json({ authenticated: true, user });
+      res.json({ authenticated: true, user, apiKey: this.apiKey });
     });
     // Mint a short-lived JWT for Socket.IO authentication.
     // The Socket.IO server verifies this using JWT_SECRET (see src/web/socket/WebSocketManager.js).
@@ -832,7 +851,6 @@ export class WebServer {
     // Control endpoints
     this.app.post(
       "/api/player/:guildId/play",
-      express.json(), // Force JSON parsing
       this.authenticate.bind(this),
       async (req, res) => {
         try {
@@ -1142,21 +1160,71 @@ export class WebServer {
           const { guildId } = req.params;
           if (!await this.checkControlPermission(req, res, guildId)) return;
           const { position } = req.body;
+
+          // SERVER-SIDE LOCK: Prevent NodeLink from choking on rapid seek requests
+          if (!this._seekLocks) this._seekLocks = new Map();
+          const now = Date.now();
+          const lastSeek = this._seekLocks.get(guildId) || 0;
+          if (now - lastSeek < 1000) {
+            return res.status(429).json({ error: "Seeking too fast, please wait." });
+          }
+          this._seekLocks.set(guildId, now);
+
+          const { logger } = await import("#utils/logger");
+          logger.info("WebServer", `[SeekAPI] Request for ${guildId}: position=${position} (type: ${typeof position})`);
+
+          if (position === undefined || position === null || isNaN(position)) {
+            logger.warn("WebServer", `[SeekAPI] Invalid position received: ${position}`);
+            return res.status(400).json({ error: "Invalid position" });
+          }
+
           const player = this.client.music?.getPlayer(guildId);
           if (!player) return res.status(404).json({ error: "No player found" });
-          await player.seek(position);
+
           const { PlayerManager } = await import("#managers/PlayerManager");
           const pm = new PlayerManager(player);
+
+          // Update DB session immediately so if we crash during seek, we restore to the new position
+          try {
+            const { db } = await import("#database/DatabaseManager");
+            const sessionData = db.playerSession.getSession(guildId);
+            if (sessionData) {
+              sessionData.position = position;
+              db.playerSession.saveSession(guildId, sessionData);
+              logger.info("WebServer", `[SeekAPI] Updated DB session position to ${position} for ${guildId}`);
+            }
+          } catch (dbError) {
+            logger.warn("WebServer", `[SeekAPI] Failed to update DB session: ${dbError.message}`);
+          }
+
+          // Standard seek for all tracks
+          // Note: YouTube seeks may not work due to 403 errors from YouTube's servers
+          // blocking byte-range requests. Consider using Deezer or a proxy for reliable seeking.
+          try {
+            await player.seek(position);
+            logger.info("WebServer", `[SeekAPI] Seek command sent for ${guildId} to position ${position}`);
+          } catch (seekError) {
+            logger.warn("WebServer", `[SeekAPI] Seek failed for ${guildId}: ${seekError.message}`);
+          }
+
           sendFeedback(this.client, player, `⏩ **Seeked playback** to ${pm.formatDuration(position)} via dashboard.`);
+
+          // Broadcast the state update using the TARGET position to prevent UI jump-back
+          const state = this.getPlayerState(pm, guildId);
+          state.position = position;
+
           this.broadcastToGuild(guildId, {
             type: "state_update",
-            data: this.getPlayerState(pm, guildId),
+            data: state,
           });
-          res.json({ success: true, message: "Seeked to position" });
+
+          res.json({ success: true, message: "Seeked to position", position });
         } catch (error) {
+          const { logger } = await import("#utils/logger");
+          logger.error("WebServer", `[SeekAPI] Error: ${error.message}`);
           res.status(500).json({ error: error.message });
         }
-      },
+      }
     );
 
     this.app.post(
@@ -1193,6 +1261,27 @@ export class WebServer {
       }
     );
 
+    // Get player state (Polling fallback)
+    this.app.get(
+      "/api/player/:guildId",
+      this.authenticate.bind(this),
+      async (req, res) => {
+        try {
+          const { guildId } = req.params;
+          const player = this.client.music?.getPlayer(guildId);
+          if (!player) return res.json({ active: false });
+
+          const { PlayerManager } = await import("#managers/PlayerManager");
+          res.json({
+            active: true,
+            data: this.getPlayerState(new PlayerManager(player), guildId)
+          });
+        } catch (error) {
+          res.status(500).json({ error: error.message });
+        }
+      }
+    );
+
     this.app.get(
       "/api/player/:guildId/filters",
       this.authenticate.bind(this),
@@ -1200,7 +1289,14 @@ export class WebServer {
         try {
           const { guildId } = req.params;
           const player = this.client.music?.getPlayer(guildId);
-          if (!player) return res.status(404).json({ error: "No player found" });
+          // Return default/empty filters if no player, to avoid 404 noise
+          if (!player) {
+            return res.json({
+              available: filters,
+              active: {},
+              activeFilterName: null
+            });
+          }
 
           res.json({
             available: filters,
@@ -1399,7 +1495,7 @@ export class WebServer {
         try {
           const { guildId } = req.params;
           const player = this.client.music?.getPlayer(guildId);
-          if (!player) return res.status(404).json({ error: "No player found" });
+          if (!player) return res.status(404).json({ error: "No lyrics found" });
           const lyrics = await player.getCurrentLyrics();
           res.json(lyrics || { error: "No lyrics found" });
         } catch (error) {
@@ -2844,7 +2940,7 @@ export class WebServer {
                         headers: { 'Authorization': `Bearer ${token}` }
                       });
                       const spData = await spRes.json();
-                      artwork = spData.images?.[0]?.url || artwork;
+                      artwork = spData.images?.[0].url || artwork;
                     } catch (e) { }
                   }
                 }
@@ -3216,7 +3312,7 @@ export class WebServer {
       this.authenticate.bind(this),
       async (req, res) => {
         try {
-          const { guildId, playlistId } = req.params;
+          const { guildId } = req.params;
           const { track, position } = req.body;
           const userId = req.session.userId || req.user?.id;
           const { db } = await import("#database/DatabaseManager");
@@ -3255,7 +3351,7 @@ export class WebServer {
       this.authenticate.bind(this),
       async (req, res) => {
         try {
-          const { guildId, playlistId } = req.params;
+          const { guildId } = req.params;
           const { fromIndex, toIndex } = req.body;
           const userId = req.session.userId || req.user?.id;
           const { db } = await import("#database/DatabaseManager");
@@ -3894,6 +3990,34 @@ export class WebServer {
       },
     );
 
+    // ============ EMBED EDITOR ENDPOINTS ============
+    this.app.get('/api/settings/:guildId/embed', this.authenticate.bind(this), async (req, res) => {
+      const { guildId } = req.params;
+      try {
+        const settings = await this.client.db.guild.getMusicCardSettings(guildId);
+        res.json({ settings: settings || {} });
+      } catch (error) {
+        logger.error('WebServer', 'Error fetching embed settings:', error);
+        res.status(500).json({ error: 'Failed to fetch settings' });
+      }
+    });
+
+    this.app.post('/api/settings/:guildId/embed', this.authenticate.bind(this), async (req, res) => {
+      const { guildId } = req.params;
+      const { settings } = req.body;
+
+      if (!await this.checkControlPermission(req, res, guildId)) return;
+      if (!settings) return res.status(400).json({ error: 'Settings required' });
+
+      try {
+        await this.client.db.guild.setMusicCardSettings(guildId, settings);
+        res.json({ success: true });
+      } catch (error) {
+        logger.error('WebServer', 'Error saving embed settings:', error);
+        res.status(500).json({ error: 'Failed to save settings' });
+      }
+    });
+
     // ============ END STATS ENDPOINTS ============
     // Serve dashboard with auto-connect support
     this.app.get("/", (req, res) => {
@@ -3979,8 +4103,14 @@ export class WebServer {
           id: pm.voiceChannelId,
           name:
             guild?.channels.cache.get(pm.voiceChannelId)?.name || "Unknown",
+          region: guild?.channels.cache.get(pm.voiceChannelId)?.rtcRegion || "Auto",
         }
         : null,
+      ping: {
+        bot: this.client.ws.ping,
+        lavalink: pm.player?.node?.ping || 0,
+        voice: pm.player?.ping || 0
+      },
     };
   }
   setupWebSocket() {
@@ -4077,7 +4207,6 @@ export class WebServer {
               this.client.guilds.cache.get(guildId)?.name || "Unknown Guild",
             isPlaying: false,
             isPaused: false,
-            isConnected: false,
             volume: 100,
             repeatMode: "off",
             position: 0,

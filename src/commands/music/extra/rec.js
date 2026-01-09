@@ -16,9 +16,10 @@ import { PlayerManager } from "#managers/PlayerManager";
 import { db } from "#database/DatabaseManager";
 import { config } from "#config/config";
 import { logger } from "#utils/logger";
+import { getPremiumStatus } from "#utils/permissionUtil";
 
-const LASTFM_API_KEY   ="91a37ab5999def738d2af6ef813bf1eb";
-const LASTFM_BASE_URL   ="http://ws.audioscrobbler.com/2.0/";
+const LASTFM_API_KEY = "91a37ab5999def738d2af6ef813bf1eb";
+const LASTFM_BASE_URL = "http://ws.audioscrobbler.com/2.0/";
 
 class RecommendationsCommand extends Command {
   constructor() {
@@ -53,61 +54,61 @@ class RecommendationsCommand extends Command {
   }
 
   async _handleRecommendations(client, guildId, context) {
-    const player   =client.music?.getPlayer(guildId);
+    const player = client.music?.getPlayer(guildId);
 
     if (!player || !player.queue.current) {
       return this._reply(context, this._createErrorContainer("No song is currently playing."));
     }
 
-    const currentTrack   =player.queue.current;
+    const currentTrack = player.queue.current;
 
     if (this._isYouTubeSource(currentTrack)) {
       return this._reply(context, this._createErrorContainer("Recommendations are not available for YouTube tracks. Try playing from Spotify, Apple Music, or other sources."));
     }
 
-    const loadingMessage   =await this._reply(context, this._createLoadingContainer(currentTrack));
+    const loadingMessage = await this._reply(context, this._createLoadingContainer(currentTrack));
 
     try {
-      const recommendations   =await this._fetchRecommendations(currentTrack, client);
+      const recommendations = await this._fetchRecommendations(currentTrack, client);
 
-      if (!recommendations || recommendations.length   ===0) {
-        const noResultsContainer   =this._createErrorContainer(`No recommendations found for "${currentTrack.info.title}" by ${currentTrack.info.author}.`);
+      if (!recommendations || recommendations.length === 0) {
+        const noResultsContainer = this._createErrorContainer(`No recommendations found for "${currentTrack.info.title}" by ${currentTrack.info.author}.`);
         return this._updateMessage(loadingMessage, noResultsContainer, context);
       }
 
-      const userId   =context.user?.id || context.author?.id;
-      const container   =this._buildRecommendationsContainer(currentTrack, recommendations, guildId, userId);
-      const message   =await this._updateMessage(loadingMessage, container, context);
+      const userId = context.user?.id || context.author?.id;
+      const container = this._buildRecommendationsContainer(currentTrack, recommendations, guildId, userId);
+      const message = await this._updateMessage(loadingMessage, container, context);
 
       if (message) {
         this._setupCollector(message, client, context, recommendations);
       }
     } catch (error) {
       client.logger?.error("RecommendationsCommand", `Error fetching recommendations: ${error.message}`, error);
-      const errorContainer   =this._createErrorContainer("Failed to fetch recommendations. Please try again later.");
+      const errorContainer = this._createErrorContainer("Failed to fetch recommendations. Please try again later.");
       await this._updateMessage(loadingMessage, errorContainer, context);
     }
   }
 
   _isYouTubeSource(track) {
-    const uri   =track.info.uri?.toLowerCase() || '';
-    const sourceName   =track.info.sourceName?.toLowerCase() || '';
+    const uri = track.info.uri?.toLowerCase() || '';
+    const sourceName = track.info.sourceName?.toLowerCase() || '';
 
     return uri.includes('youtube.com') ||
-           uri.includes('youtu.be') ||
-           sourceName.includes('youtube') ||
-           sourceName.includes('yt');
+      uri.includes('youtu.be') ||
+      sourceName.includes('youtube') ||
+      sourceName.includes('yt');
   }
 
   async _fetchRecommendations(track, client) {
-    const artist   =track.info.author || '';
-    const title   =track.info.title || '';
+    const artist = track.info.author || '';
+    const title = track.info.title || '';
 
     if (!artist || !title) {
       throw new Error('Missing artist or track information');
     }
 
-    const params   =new URLSearchParams({
+    const params = new URLSearchParams({
       method: 'track.getsimilar',
       artist: artist,
       track: title,
@@ -117,42 +118,42 @@ class RecommendationsCommand extends Command {
       limit: '6'
     });
 
-    const url   =`${LASTFM_BASE_URL}?${params.toString()}`;
+    const url = `${LASTFM_BASE_URL}?${params.toString()}`;
 
-    const response   =await fetch(url);
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Last.fm API request failed: ${response.status}`);
     }
 
-    const data   =await response.json();
+    const data = await response.json();
 
     if (data.error) {
       throw new Error(`Last.fm API error: ${data.message}`);
     }
 
-    const similarTracks   =data.similartracks?.track;
+    const similarTracks = data.similartracks?.track;
     if (!similarTracks) {
       return [];
     }
 
-    const tracks   =Array.isArray(similarTracks) ? similarTracks : [similarTracks];
+    const tracks = Array.isArray(similarTracks) ? similarTracks : [similarTracks];
 
-    const processedTracks   =[];
-    for (let i   =0; i < Math.min(tracks.length, 6); i++) {
-      const track   =tracks[i];
-      const searchQuery   =`${track.artist?.name || track.artist} ${track.name}`;
+    const processedTracks = [];
+    for (let i = 0; i < Math.min(tracks.length, 6); i++) {
+      const track = tracks[i];
+      const searchQuery = `${track.artist?.name || track.artist} ${track.name}`;
 
-      let thumbnail   =config.assets.defaultTrackArtwork;
-      let trackInfo   =null;
+      let thumbnail = config.assets.defaultTrackArtwork;
+      let trackInfo = null;
 
       try {
-        const searchResult   =await client.music.search(searchQuery, {
+        const searchResult = await client.music.search(searchQuery, {
           source: "spsearch"
         });
 
         if (searchResult?.tracks?.length > 0) {
-          trackInfo   =searchResult.tracks[0];
-          thumbnail   =trackInfo.info.artworkUrl || config.assets.defaultTrackArtwork;
+          trackInfo = searchResult.tracks[0];
+          thumbnail = trackInfo.info.artworkUrl || config.assets.defaultTrackArtwork;
         }
       } catch (searchError) {
         logger.warn("RecommendationsCommand", `Failed to search for thumbnail: ${searchQuery}`, searchError);
@@ -174,7 +175,7 @@ class RecommendationsCommand extends Command {
   }
 
   _buildRecommendationsContainer(currentTrack, recommendations, guildId, userId) {
-    const container   =new ContainerBuilder();
+    const container = new ContainerBuilder();
 
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(`Music Recommendations`)
@@ -193,16 +194,16 @@ class RecommendationsCommand extends Command {
 
     container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large));
 
-    const premiumStatus   =this._getPremiumStatus(guildId, userId);
-    const headerText   =`**Similar Tracks** (${recommendations.length} found)`;
+    const premiumStatus = this._getPremiumStatus(guildId, userId);
+    const headerText = `**Similar Tracks** (${recommendations.length} found)`;
 
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(headerText)
     );
 
-    recommendations.forEach((rec, index)   => {
-      const matchPercentage   =Math.round(rec.match * 100);
-      const metaInfo   =[rec.duration, `${matchPercentage}% match`].filter(Boolean).join(' | ');
+    recommendations.forEach((rec, index) => {
+      const matchPercentage = Math.round(rec.match * 100);
+      const metaInfo = [rec.duration, `${matchPercentage}% match`].filter(Boolean).join(' | ');
 
       container.addSectionComponents(
         new SectionBuilder()
@@ -232,20 +233,15 @@ class RecommendationsCommand extends Command {
   }
 
   _getPremiumStatus(guildId, userId) {
-    const premiumStatus   =db.hasAnyPremium(userId, guildId);
-    return {
-      hasPremium: !!premiumStatus,
-      type: premiumStatus ? premiumStatus.type : 'free',
-      maxSongs: premiumStatus ? config.queue.maxSongs.premium : config.queue.maxSongs.free
-    };
+    return getPremiumStatus(userId, guildId);
   }
 
   _checkQueueLimit(currentQueueSize, tracksToAdd, guildId, userId) {
-    const premiumStatus   =this._getPremiumStatus(guildId, userId);
-    const availableSlots   =premiumStatus.maxSongs - currentQueueSize;
+    const premiumStatus = this._getPremiumStatus(guildId, userId);
+    const availableSlots = premiumStatus.maxSongs - currentQueueSize;
 
     if (availableSlots <= 0) {
-      const limitMessage   =premiumStatus.hasPremium
+      const limitMessage = premiumStatus.hasPremium
         ? `Premium queue is full! You can have up to **${premiumStatus.maxSongs}** songs in queue.`
         : `Free tier queue is full! You can have up to **${premiumStatus.maxSongs}** songs in queue.\n*Upgrade to premium for up to **${config.queue.maxSongs.premium}** songs!*`;
 
@@ -258,8 +254,8 @@ class RecommendationsCommand extends Command {
       };
     }
 
-    const canAddAll   =tracksToAdd <= availableSlots;
-    const tracksToAddActual   =canAddAll ? tracksToAdd : availableSlots;
+    const canAddAll = tracksToAdd <= availableSlots;
+    const tracksToAddActual = canAddAll ? tracksToAdd : availableSlots;
 
     return {
       allowed: true,
@@ -271,10 +267,10 @@ class RecommendationsCommand extends Command {
   }
 
   _createSelectMenu(recommendations, guildId, userId) {
-    if (recommendations.length   ===0) return new ActionRowBuilder();
+    if (recommendations.length === 0) return new ActionRowBuilder();
 
-    const maxSelections   =Math.min(recommendations.length, 6);
-    const options   =recommendations.map((rec)   => ({
+    const maxSelections = Math.min(recommendations.length, 6);
+    const options = recommendations.map((rec) => ({
       label: rec.name.substring(0, 100),
       value: `${rec.index}`,
       description: `by ${rec.artist}`.substring(0, 100),
@@ -291,35 +287,35 @@ class RecommendationsCommand extends Command {
   }
 
   async _setupCollector(message, guildId, client, context, recommendations) {
-    const userId   =context.user?.id || context.author?.id;
+    const userId = context.user?.id || context.author?.id;
 
-    const filter   =(i)   => i.user.id   ===userId && i.customId.includes(userId);
-    const collector   =message.createMessageComponentCollector({ filter, time: 300_000 });
+    const filter = (i) => i.user.id === userId && i.customId.includes(userId);
+    const collector = message.createMessageComponentCollector({ filter, time: 300_000 });
 
-    collector.on("collect", async (interaction)   => {
+    collector.on("collect", async (interaction) => {
       if (!interaction.customId.includes('rec_play')) return;
 
       await interaction.deferUpdate();
 
-      const voiceChannel   =interaction.member?.voice?.channel;
+      const voiceChannel = interaction.member?.voice?.channel;
       if (!voiceChannel) {
         await interaction.followUp({ content: "You must be in a voice channel to play music.", ephemeral: true });
         return;
       }
 
-      const player   =client.music.getPlayer(guildId) || (await client.music.createPlayer({
+      const player = client.music.getPlayer(guildId) || (await client.music.createPlayer({
         guildId: guildId,
         textChannelId: interaction.channel.id,
         voiceChannelId: voiceChannel.id
       }));
 
-      const pm   =new PlayerManager(player);
+      const pm = new PlayerManager(player);
       if (!pm.isConnected) await pm.connect();
 
-      const currentQueueSize   =pm.queue.tracks.length;
-      const selectedCount   =interaction.values.length;
+      const currentQueueSize = pm.queue.tracks.length;
+      const selectedCount = interaction.values.length;
 
-      const queueLimitCheck   =this._checkQueueLimit(currentQueueSize, selectedCount, guildId, userId);
+      const queueLimitCheck = this._checkQueueLimit(currentQueueSize, selectedCount, guildId, userId);
 
       if (!queueLimitCheck.allowed) {
         await interaction.followUp({
@@ -329,12 +325,12 @@ class RecommendationsCommand extends Command {
         return;
       }
 
-      const indices   =interaction.values.map(v   => parseInt(v, 10));
-      const tracksToPlay   =indices.map(i   => recommendations[i]).filter(Boolean);
-      const actualTracksToAdd   =queueLimitCheck.canAddAll ? tracksToPlay : tracksToPlay.slice(0, queueLimitCheck.tracksToAdd);
+      const indices = interaction.values.map(v => parseInt(v, 10));
+      const tracksToPlay = indices.map(i => recommendations[i]).filter(Boolean);
+      const actualTracksToAdd = queueLimitCheck.canAddAll ? tracksToPlay : tracksToPlay.slice(0, queueLimitCheck.tracksToAdd);
 
-      let addedCount   =0;
-      const wasEmpty   =!pm.isPlaying && pm.queue.tracks.length   ===0;
+      let addedCount = 0;
+      const wasEmpty = !pm.isPlaying && pm.queue.tracks.length === 0;
 
       for (const rec of actualTracksToAdd) {
         let searchResult;
@@ -375,28 +371,28 @@ class RecommendationsCommand extends Command {
       });
     });
 
-    collector.on("end", async ()   => {
+    collector.on("end", async () => {
       try {
-        const currentMessage   =await message.fetch().catch(()   => null);
-        if (!currentMessage || currentMessage.components.length   ===0) return;
+        const currentMessage = await message.fetch().catch(() => null);
+        if (!currentMessage || currentMessage.components.length === 0) return;
 
-        const originalContainer   =currentMessage.components[0];
-        const newContainer   =new ContainerBuilder();
+        const originalContainer = currentMessage.components[0];
+        const newContainer = new ContainerBuilder();
 
         if (originalContainer.components) {
           for (const component of originalContainer.components) {
-            if (component.type   ===1) {
-              const disabledRow   =new ActionRowBuilder();
+            if (component.type === 1) {
+              const disabledRow = new ActionRowBuilder();
               for (const button of component.components) {
-                if (button.type   ===2) {
-                  const disabledButton   =new ButtonBuilder()
+                if (button.type === 2) {
+                  const disabledButton = new ButtonBuilder()
                     .setCustomId(button.custom_id || 'disabled')
                     .setLabel(button.label || 'Button')
                     .setStyle(button.style || ButtonStyle.Secondary)
                     .setDisabled(true);
                   disabledRow.addComponents(disabledButton);
-                } else if (button.type   ===3) {
-                  const disabledSelect   =SelectMenuBuilder.from(button).setDisabled(true);
+                } else if (button.type === 3) {
+                  const disabledSelect = SelectMenuBuilder.from(button).setDisabled(true);
                   disabledRow.addComponents(disabledSelect);
                 }
               }
@@ -409,7 +405,7 @@ class RecommendationsCommand extends Command {
 
         await currentMessage.edit({ components: [newContainer] });
       } catch (error) {
-        if (error.code   !==10008) {
+        if (error.code !== 10008) {
           client.logger?.error("RecommendationsCommand", `Error disabling components: ${error.message}`, error);
         }
       }
@@ -417,7 +413,7 @@ class RecommendationsCommand extends Command {
   }
 
   _createLoadingContainer(currentTrack) {
-    const container   =new ContainerBuilder();
+    const container = new ContainerBuilder();
 
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(`Finding Recommendations`)
@@ -439,7 +435,7 @@ class RecommendationsCommand extends Command {
   }
 
   _createErrorContainer(message) {
-    const container   =new ContainerBuilder();
+    const container = new ContainerBuilder();
 
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`Error`));
 
@@ -459,15 +455,15 @@ class RecommendationsCommand extends Command {
 
   _formatDuration(ms) {
     if (!ms || ms < 0) return "Unknown";
-    const seconds   =Math.floor((ms / 1000) % 60).toString().padStart(2, '0');
-    const minutes   =Math.floor((ms / (1000 * 60)) % 60).toString();
-    const hours   =Math.floor(ms / (1000 * 60 * 60));
+    const seconds = Math.floor((ms / 1000) % 60).toString().padStart(2, '0');
+    const minutes = Math.floor((ms / (1000 * 60)) % 60).toString();
+    const hours = Math.floor(ms / (1000 * 60 * 60));
     if (hours > 0) return `${hours}:${minutes.padStart(2, '0')}:${seconds}`;
     return `${minutes}:${seconds}`;
   }
 
   async _reply(context, container) {
-    const payload   ={
+    const payload = {
       components: [container],
       flags: MessageFlags.IsComponentsV2,
       fetchReply: true,

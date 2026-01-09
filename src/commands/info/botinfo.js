@@ -46,7 +46,7 @@ class BotInfoCommand extends Command {
 			await message.reply({
 				components: [this._createErrorContainer("An error occurred while loading bot information.")],
 				flags: MessageFlags.IsComponentsV2,
-			}).catch(() => {});
+			}).catch(() => { });
 		}
 	}
 
@@ -66,9 +66,9 @@ class BotInfoCommand extends Command {
 				ephemeral: true,
 			};
 			if (interaction.replied || interaction.deferred) {
-				await interaction.editReply(errorPayload).catch(() => {});
+				await interaction.editReply(errorPayload).catch(() => { });
 			} else {
-				await interaction.reply(errorPayload).catch(() => {});
+				await interaction.reply(errorPayload).catch(() => { });
 			}
 		}
 	}
@@ -88,7 +88,7 @@ class BotInfoCommand extends Command {
 		const memoryUsage = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
 
 		const content = `**General Information**\n\n` +
-			`**${emoji.get('check')} Bot Name:** Yukihana\n` +
+			`**${emoji.get('check')} Bot Name:** TymeeMusic\n` +
 			`**${emoji.get('folder')} Version:** 2.0.0\n` +
 			`**${emoji.get('add')} Type:** Music & Utility Bot\n` +
 			`**${emoji.get('reset')} Library:** Discord.js\n\n` +
@@ -120,7 +120,7 @@ class BotInfoCommand extends Command {
 			new ButtonBuilder()
 				.setLabel('GitHub')
 				.setStyle(ButtonStyle.Link)
-				.setURL('https://github.com/bre4d777/yukihana')
+				.setURL('https://github.com/ZenIX/tymeemusic')
 		);
 
 		container.addActionRowComponents(buttonRow);
@@ -140,8 +140,8 @@ class BotInfoCommand extends Command {
 		);
 
 		const content = `**Meet our development team!**\n\n` +
-			`**${emoji.get('check')} Lead Developer:** Bre4d777\n` +
-			`**${emoji.get('folder')} Bot Name:** Yukihana\n` +
+			`**${emoji.get('check')} Lead Developer:** ZenIX\n` +
+			`**${emoji.get('folder')} Bot Name:** TymeeMusic\n` +
 			`**${emoji.get('add')} Specialization:** Music & Utility Bot\n` +
 			`**${emoji.get('reset')} Status:** Active Development\n\n` +
 			`*We're constantly working to improve your experience!*`;
@@ -165,7 +165,7 @@ class BotInfoCommand extends Command {
 			new ButtonBuilder()
 				.setLabel('GitHub')
 				.setStyle(ButtonStyle.Link)
-				.setURL('https://github.com/bre4d777/yukihana')
+				.setURL('https://github.com/ZenIX/tymeemusic')
 		);
 
 		container.addActionRowComponents(buttonRow);

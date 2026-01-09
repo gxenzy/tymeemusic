@@ -134,12 +134,25 @@ export default {
 
       let messageOptions = {};
 
+
+
       if (useEmbedPlayer) {
         try {
-          // FIX: Pass the fresh 'track' from the event directly to avoid metadata mismatch
+          // 🔥 DEV: Smart Hot-Reload
+          if (!global.cachedDiscordPlayerEmbed || Date.now() - (global.lastEmbedReload || 0) > 10000) {
+            const { DiscordPlayerEmbed: FreshClass } = await import(`../../utils/DiscordPlayerEmbed.js?v=${Date.now()}`);
+            global.cachedDiscordPlayerEmbed = FreshClass;
+            global.lastEmbedReload = Date.now();
+          }
+
+          const DiscordPlayerEmbed = global.cachedDiscordPlayerEmbed;
           const embed = await DiscordPlayerEmbed.createPlayerEmbedAsync(pm, currentGuild, null, client, track);
+          
+          // EXTRACT GENERATED IMAGE
+          const files = embed.file ? [embed.file] : [];
+
           const components = await createControlComponents(player.guildId, client);
-          messageOptions = { embeds: [embed], components, files: [], content: null };
+          messageOptions = { embeds: [embed], components, files: files, content: null };
         } catch (embedError) {
           logger.error('TrackStart', 'Error creating embed player:', embedError);
           const musicCard = new MusicCard();
@@ -170,6 +183,11 @@ export default {
 
       if (!existingMessage) {
         message = await EventUtils.sendPlayerMessage(client, player, messageOptions);
+        
+        // 🖼️ CACHE PERMANENT URL (To stop flickering in edits)
+        if (message && message.embeds[0]?.image?.url && player.cachedCard) {
+            player.cachedCard.url = message.embeds[0].image.url;
+        }
 
         if (message?.id) {
           // IMMEDIATELY SAVE to prevent race condition
@@ -240,9 +258,9 @@ export async function createControlComponents(guildId, client) {
 
   const protocol = client.webServer?.secure ? 'https' : 'http';
   const webPort = client.webServer?.port || 3000;
-  const apiKey = client.webServer?.apiKey || 'MTQ1Mzk3NDM1MjY5NjQ0Mjk1MQ';
+  const apiKey = client.webServer?.apiKey;
   const webHost = client.webServer?.host || 'localhost';
-  const dashboardUrl = `${protocol}://${webHost}:${webPort}?apiKey=${apiKey}&guildId=${guildId}`;
+  const dashboardUrl = `${protocol}://${webHost}:${webPort}?g=${guildId}`;
 
   const infoBtnLabel = pm ? `Queue: ${pm.queueSize} tracks` : 'Queue is empty';
   const infoButton = new ButtonBuilder()
